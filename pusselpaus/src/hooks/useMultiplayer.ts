@@ -36,11 +36,18 @@ export function useMultiplayer() {
 
     setLoading(true);
 
-    const { data: myPlayers } = await supabase
+    const { data: myPlayers, error: myPlayersError } = await supabase
       .from('multiplayer_match_players')
       .select('*')
       .eq('user_id', user.id)
       .returns<MultiplayerMatchPlayer[]>();
+
+    if (myPlayersError) {
+      console.error('[Multiplayer] failed to load player rows:', myPlayersError);
+      setMatches([]);
+      setLoading(false);
+      return;
+    }
 
     const matchIds = Array.from(new Set((myPlayers ?? []).map((p) => p.match_id)));
     if (matchIds.length === 0) {
@@ -49,7 +56,7 @@ export function useMultiplayer() {
       return;
     }
 
-    const [{ data: matchRows }, { data: allPlayers }] = await Promise.all([
+    const [{ data: matchRows, error: matchRowsError }, { data: allPlayers, error: allPlayersError }] = await Promise.all([
       supabase
         .from('multiplayer_matches')
         .select('*')
@@ -62,11 +69,24 @@ export function useMultiplayer() {
         .returns<MultiplayerMatchPlayer[]>(),
     ]);
 
+    if (matchRowsError || allPlayersError) {
+      console.error('[Multiplayer] failed to load matches:', matchRowsError ?? allPlayersError);
+      setMatches([]);
+      setLoading(false);
+      return;
+    }
+
     const userIds = Array.from(new Set((allPlayers ?? []).map((p) => p.user_id)));
-    const { data: profiles } = await supabase
+    const { data: profiles, error: profilesError } = await supabase
       .from('profiles')
       .select('id, username, tag, skin, is_online')
       .in('id', userIds);
+
+    if (profilesError) {
+      console.error('[Multiplayer] failed to load profiles:', profilesError);
+      setLoading(false);
+      return;
+    }
 
     const profileMap = new Map((profiles ?? []).map((p) => [p.id, p]));
     const playersByMatch = new Map<string, MultiplayerMatchPlayer[]>();
