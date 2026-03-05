@@ -47,7 +47,6 @@ export default function SudokuBoard({
           !isSelected && selectedValue !== 0 && cell.value === selectedValue;
         const isConflict = conflicts.has(i);
 
-        // Thicker borders for 3×3 boxes
         const borderR = c === 2 || c === 5 ? 'border-r-2 border-r-brand/40' : 'border-r border-r-white/10';
         const borderB = r === 2 || r === 5 ? 'border-b-2 border-b-brand/40' : 'border-b border-b-white/10';
 

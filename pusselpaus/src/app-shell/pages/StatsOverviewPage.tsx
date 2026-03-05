@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { loadStats } from '../core/storage';
+import { loadStats } from '../../games/sudoku/core/storage';
 
 function fmt(seconds: number | null): string {
   if (seconds === null) return '–';
@@ -8,7 +8,7 @@ function fmt(seconds: number | null): string {
   return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
 }
 
-export default function StatsPage() {
+export default function StatsOverviewPage() {
   const sudokuStats = loadStats();
   const sudokuPlayed = Object.values(sudokuStats).reduce((a, s) => a + s.played, 0);
   const sudokuWon = Object.values(sudokuStats).reduce((a, s) => a + s.won, 0);
@@ -17,7 +17,6 @@ export default function StatsPage() {
     .filter((t): t is number => t !== null)
     .sort((a, b) => a - b)[0] ?? null;
 
-  // Future: add stats from other games here
   const totalPlayed = sudokuPlayed;
   const totalWon = sudokuWon;
 
@@ -33,7 +32,6 @@ export default function StatsPage() {
       <h2 className="text-3xl font-bold">📊 Översikt</h2>
       <p className="text-sm text-text-muted">Sammanställd statistik från alla spel</p>
 
-      {/* Global summary */}
       <div className="flex gap-6 text-center">
         <div>
           <p className="text-2xl font-bold text-brand-light">{totalPlayed}</p>
@@ -51,7 +49,6 @@ export default function StatsPage() {
         </div>
       </div>
 
-      {/* Per-game cards */}
       <div className="w-full max-w-sm space-y-3">
         <Link
           to="/sudoku/stats"
@@ -72,7 +69,6 @@ export default function StatsPage() {
           </div>
         </Link>
 
-        {/* Placeholder for future games */}
         <div className="flex items-center gap-3 rounded-xl border-2 border-dashed border-white/10 px-5 py-4 opacity-40">
           <span className="text-2xl">🧠</span>
           <p className="text-sm text-text-muted">Fler spel kommer…</p>

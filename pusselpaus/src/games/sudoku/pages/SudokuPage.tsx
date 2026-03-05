@@ -21,13 +21,11 @@ export default function SudokuPage() {
 
   const [difficulty, setDifficulty] = useState<Difficulty>('easy');
 
-  // Try to resume a saved game on mount
   useEffect(() => {
     resumeGame();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ── No active game → show start screen ────────────────────
   if (!state) {
     return (
       <div className="flex min-h-full flex-col items-center justify-center gap-6 px-4">
@@ -62,10 +60,8 @@ export default function SudokuPage() {
     );
   }
 
-  // ── Active game ────────────────────────────────────────────
   return (
     <div className="flex min-h-full flex-col items-center gap-4 px-4 py-4">
-      {/* Top bar */}
       <div className="flex w-full max-w-[min(90vw,400px)] items-center justify-between">
         <Link
           to="/"
@@ -80,7 +76,6 @@ export default function SudokuPage() {
         />
       </div>
 
-      {/* Difficulty badge */}
       <span className="rounded-full bg-surface-card px-3 py-1 text-xs font-semibold text-text-muted capitalize">
         {state.difficulty === 'easy' && 'Lätt'}
         {state.difficulty === 'medium' && 'Medel'}
@@ -88,7 +83,6 @@ export default function SudokuPage() {
         {state.difficulty === 'expert' && 'Expert'}
       </span>
 
-      {/* Board */}
       <SudokuBoard
         board={state.board}
         selectedIndex={state.selectedIndex}
@@ -97,7 +91,6 @@ export default function SudokuPage() {
         onSelect={selectCell}
       />
 
-      {/* Win banner */}
       {state.solved && (
         <div className="flex flex-col items-center gap-2 rounded-xl bg-success/20 px-6 py-4 text-center">
           <span className="text-2xl">🎉</span>
@@ -116,7 +109,6 @@ export default function SudokuPage() {
         </div>
       )}
 
-      {/* Numpad */}
       <Numpad
         onNumber={inputNumber}
         onErase={erase}
@@ -125,7 +117,6 @@ export default function SudokuPage() {
         disabled={state.paused || state.solved}
       />
 
-      {/* Bottom actions */}
       <div className="flex items-center gap-4">
         {!state.solved && (
           <button

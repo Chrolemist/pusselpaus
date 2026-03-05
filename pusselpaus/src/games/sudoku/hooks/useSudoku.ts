@@ -31,8 +31,6 @@ export function useSudoku() {
   const [state, setState] = useState<SudokuState | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // ── Timer ──────────────────────────────────────────────────
-
   const stopTimer = useCallback(() => {
     if (timerRef.current) {
       clearInterval(timerRef.current);
@@ -50,10 +48,7 @@ export function useSudoku() {
     }, 1000);
   }, [stopTimer]);
 
-  // Clean up on unmount
   useEffect(() => () => stopTimer(), [stopTimer]);
-
-  // ── New game ───────────────────────────────────────────────
 
   const newGame = useCallback(
     (difficulty: Difficulty) => {
@@ -74,8 +69,6 @@ export function useSudoku() {
     [startTimer],
   );
 
-  // ── Resume saved game ──────────────────────────────────────
-
   const resumeGame = useCallback(() => {
     const saved = loadGame();
     if (!saved) return false;
@@ -94,13 +87,9 @@ export function useSudoku() {
     return true;
   }, [startTimer]);
 
-  // ── Select cell ────────────────────────────────────────────
-
   const selectCell = useCallback((index: number | null) => {
     setState((prev) => (prev ? { ...prev, selectedIndex: index } : prev));
   }, []);
-
-  // ── Input number ───────────────────────────────────────────
 
   const inputNumber = useCallback(
     (num: number) => {
@@ -129,8 +118,6 @@ export function useSudoku() {
     [stopTimer],
   );
 
-  // ── Erase ──────────────────────────────────────────────────
-
   const erase = useCallback(() => {
     setState((prev) => {
       if (!prev || prev.selectedIndex === null || prev.solved) return prev;
@@ -139,19 +126,13 @@ export function useSudoku() {
     });
   }, []);
 
-  // ── Toggle note mode ──────────────────────────────────────
-
   const toggleNoteMode = useCallback(() => {
     setState((prev) => (prev ? { ...prev, noteMode: !prev.noteMode } : prev));
   }, []);
 
-  // ── Pause / unpause ────────────────────────────────────────
-
   const togglePause = useCallback(() => {
     setState((prev) => (prev ? { ...prev, paused: !prev.paused } : prev));
   }, []);
-
-  // ── Auto-save on every board change ────────────────────────
 
   useEffect(() => {
     if (state && !state.solved) {

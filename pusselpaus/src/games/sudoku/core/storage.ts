@@ -1,15 +1,10 @@
-// ─── localStorage helpers ────────────────────────────────────
-// Pure TypeScript – no React.
-
-import type { Board, SavedGame, Stats, Difficulty } from '../core/types';
-import { emptyStats } from '../core/types';
+import type { Board, SavedGame, Stats, Difficulty } from './types';
+import { emptyStats } from './types';
 
 const KEYS = {
   GAME: 'pusselpaus:sudoku:game',
   STATS: 'pusselpaus:sudoku:stats',
 } as const;
-
-// ── Saved game ──────────────────────────────────────────────
 
 export function saveGame(board: Board, difficulty: Difficulty, elapsed: number): void {
   const data: SavedGame = {
@@ -38,7 +33,6 @@ export function clearGame(): void {
   localStorage.removeItem(KEYS.GAME);
 }
 
-/** Rehydrate a SavedGame back into a Board */
 export function rehydrateBoard(saved: SavedGame): Board {
   return saved.solution.map((sol, i) => ({
     solution: sol,
@@ -47,8 +41,6 @@ export function rehydrateBoard(saved: SavedGame): Board {
     notes: new Set(saved.notes[i]),
   }));
 }
-
-// ── Statistics ──────────────────────────────────────────────
 
 export function loadStats(): Stats {
   try {

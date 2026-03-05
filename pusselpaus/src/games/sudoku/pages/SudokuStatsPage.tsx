@@ -40,7 +40,6 @@ export default function SudokuStatsPage() {
 
       <h2 className="text-3xl font-bold">🔢 Sudoku-statistik</h2>
 
-      {/* Summary */}
       <div className="flex gap-6 text-center">
         <div>
           <p className="text-2xl font-bold text-brand-light">{totalPlayed}</p>
@@ -58,7 +57,6 @@ export default function SudokuStatsPage() {
         </div>
       </div>
 
-      {/* Per difficulty */}
       <div className="w-full max-w-sm space-y-3">
         {(Object.keys(LABELS) as Difficulty[]).map((d) => {
           const s = stats[d];

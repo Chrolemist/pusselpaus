@@ -15,7 +15,6 @@ export default function Numpad({
 }: Props) {
   return (
     <div className="flex w-full max-w-[min(90vw,400px)] flex-col gap-2">
-      {/* Number buttons */}
       <div className="grid grid-cols-9 gap-1.5">
         {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => (
           <button
@@ -29,7 +28,6 @@ export default function Numpad({
         ))}
       </div>
 
-      {/* Action buttons */}
       <div className="grid grid-cols-2 gap-2">
         <button
           disabled={disabled}
