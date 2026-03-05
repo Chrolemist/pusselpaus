@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { driver, type Driver } from 'driver.js';
 import 'driver.js/dist/driver.css';
+import confetti from 'canvas-confetti';
 import type { Board, Difficulty } from '../core/types';
 import { row, col, box } from '../core/types';
 import { useSudoku } from '../hooks/useSudoku';
@@ -96,6 +97,17 @@ export default function SudokuPage() {
   const [tutorialPhase, setTutorialPhase] = useState<'idle' | 'select-cell' | 'input-number' | 'done'>('idle');
   const [tutorialFeedback, setTutorialFeedback] = useState<string | null>(null);
   const tutorialDriverRef = useRef<Driver | null>(null);
+  const confettiFired = useRef(false);
+
+  /* fire confetti on win */
+  useEffect(() => {
+    if (state?.solved && !confettiFired.current) {
+      confettiFired.current = true;
+      confetti({ particleCount: 120, spread: 70, origin: { y: 0.6 } });
+      setTimeout(() => confetti({ particleCount: 60, spread: 100, origin: { y: 0.5 } }), 250);
+    }
+    if (state && !state.solved) confettiFired.current = false;
+  }, [state?.solved]);
 
   useEffect(() => {
     resumeGame();
