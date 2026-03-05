@@ -18,6 +18,8 @@ import {
   disposeAudio,
 } from '../audio/marimba';
 import { useCoinRewards } from '../../../hooks/useCoinRewards';
+import { useServerGameStats } from '../../../hooks/useServerGameStats';
+import { useMultiplayer } from '../../../hooks/useMultiplayer';
 
 export type Phase = 'idle' | 'picking' | 'playing' | 'won';
 
@@ -32,6 +34,8 @@ export function useNumberPath() {
   const [hintsUsed, setHintsUsed] = useState(0);
   const timerRef = useRef<ReturnType<typeof setInterval>>(undefined);
   const { rewardWin } = useCoinRewards();
+  const { syncGameResult } = useServerGameStats();
+  const { submitResultForGame } = useMultiplayer();
 
   /* ── timer ── */
   useEffect(() => {
@@ -157,6 +161,15 @@ export function useNumberPath() {
         setPhase('won');
         recordWin(puzzle.difficulty, elapsed);
         void rewardWin('numberpath', puzzle.difficulty);
+        void submitResultForGame('numberpath', {
+          elapsedSeconds: elapsed,
+        });
+        void syncGameResult({
+          gameId: 'numberpath',
+          playedDelta: 1,
+          wonDelta: 1,
+          bestTime: elapsed,
+        });
         clearGame();
         // Short delay then play win melody (after the last step note fades)
         setTimeout(() => playWinMelody(), 300);
@@ -164,7 +177,7 @@ export function useNumberPath() {
 
       return true;
     },
-    [puzzle, phase, pathCells, pathIndexMap, elapsed],
+    [puzzle, phase, pathCells, pathIndexMap, elapsed, rewardWin, submitResultForGame, syncGameResult],
   );
 
   const undoTo = useCallback(

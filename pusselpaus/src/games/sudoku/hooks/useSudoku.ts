@@ -16,6 +16,8 @@ import {
   recordWin,
 } from '../core/storage';
 import { useCoinRewards } from '../../../hooks/useCoinRewards';
+import { useServerGameStats } from '../../../hooks/useServerGameStats';
+import { useMultiplayer } from '../../../hooks/useMultiplayer';
 
 export interface SudokuState {
   board: Board;
@@ -32,6 +34,8 @@ export function useSudoku() {
   const [state, setState] = useState<SudokuState | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const { rewardWin } = useCoinRewards();
+  const { syncGameResult } = useServerGameStats();
+  const { submitResultForGame } = useMultiplayer();
 
   const stopTimer = useCallback(() => {
     if (timerRef.current) {
@@ -67,8 +71,9 @@ export function useSudoku() {
         paused: false,
       });
       startTimer();
+      void syncGameResult({ gameId: 'sudoku', playedDelta: 1 });
     },
-    [startTimer],
+    [startTimer, syncGameResult],
   );
 
   const resumeGame = useCallback(() => {
@@ -113,12 +118,20 @@ export function useSudoku() {
           clearGame();
           recordWin(prev.difficulty, prev.elapsed);
           void rewardWin('sudoku', prev.difficulty);
+          void submitResultForGame('sudoku', {
+            elapsedSeconds: prev.elapsed,
+          });
+          void syncGameResult({
+            gameId: 'sudoku',
+            wonDelta: 1,
+            bestTime: prev.elapsed,
+          });
         }
 
         return { ...prev, board, conflicts, solved };
       });
     },
-    [stopTimer],
+    [stopTimer, rewardWin, submitResultForGame, syncGameResult],
   );
 
   const erase = useCallback(() => {

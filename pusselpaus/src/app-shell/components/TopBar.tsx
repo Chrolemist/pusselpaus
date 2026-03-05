@@ -121,6 +121,22 @@ export default function TopBar() {
             🛍️
           </Link>
 
+          <Link
+            to="/friends-leaderboard"
+            className="text-sm text-text-muted hover:text-brand-light transition"
+            title="Vänligan"
+          >
+            🏆
+          </Link>
+
+          <Link
+            to="/multiplayer"
+            className="text-sm text-text-muted hover:text-brand-light transition"
+            title="Multiplayer"
+          >
+            ⚔️
+          </Link>
+
           <button
             onClick={() => setShowFriends((v) => !v)}
             className="text-lg hover:scale-110 transition"

@@ -16,6 +16,8 @@ import {
 import type { Difficulty, Song } from '../core';
 import { playWinJingle } from '../audio/rhythmAudio';
 import { useCoinRewards } from '../../../hooks/useCoinRewards';
+import { useServerGameStats } from '../../../hooks/useServerGameStats';
+import { useMultiplayer } from '../../../hooks/useMultiplayer';
 
 /* ── Page component ── */
 
@@ -24,7 +26,11 @@ export default function RytmRushPage() {
   const containerRef = useRef<HTMLDivElement>(null);
   const confettiFired = useRef(false);
   const rewardedRef = useRef(false);
+  const syncedStatsRef = useRef(false);
+  const submittedMatchRef = useRef(false);
   const { rewardRytmRushPerformance } = useCoinRewards();
+  const { syncGameResult } = useServerGameStats();
+  const { submitResultForGame } = useMultiplayer();
 
   /* ── Keyboard handling ── */
   const onKeyDown = useCallback(
@@ -89,12 +95,33 @@ export default function RytmRushPage() {
           confetti({ particleCount: 60, spread: 100, origin: { y: 0.5 } });
         }, 300);
       }
+
+      if (!syncedStatsRef.current) {
+        syncedStatsRef.current = true;
+        void syncGameResult({
+          gameId: 'rytmrush',
+          playedDelta: 1,
+          wonDelta: engine.cleared ? 1 : 0,
+          bestTime: Math.round(engine.survivedSeconds),
+          bestScore: Math.round(engine.score),
+        });
+      }
+
+      if (!submittedMatchRef.current) {
+        submittedMatchRef.current = true;
+        void submitResultForGame('rytmrush', {
+          score: Math.round(engine.score),
+          survivedSeconds: Math.round(engine.survivedSeconds),
+        });
+      }
     }
     if (engine.phase !== 'results') {
       confettiFired.current = false;
       rewardedRef.current = false;
+      syncedStatsRef.current = false;
+      submittedMatchRef.current = false;
     }
-  }, [engine.phase, engine.perfects, engine.greats, engine.goods, engine.misses, engine.cleared, engine.score, engine.survivedSeconds, rewardRytmRushPerformance]);
+  }, [engine.phase, engine.perfects, engine.greats, engine.goods, engine.misses, engine.cleared, engine.score, engine.survivedSeconds, rewardRytmRushPerformance, syncGameResult, submitResultForGame]);
 
   /* ── Cleanup ── */
   useEffect(() => {

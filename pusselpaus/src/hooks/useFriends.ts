@@ -104,25 +104,51 @@ export function useFriends() {
   }, [user]);
 
   /** Send a friend request by username */
-  const sendRequest = useCallback(async (username: string): Promise<string | null> => {
+  const sendRequest = useCallback(async (usernameOrTag: string): Promise<string | null> => {
     if (!user) return 'Ej inloggad';
 
-    // Find the target user
-    const { data: target } = await supabase
-      .from('profiles')
-      .select('id')
-      .eq('username', username)
-      .single();
+    const input = usernameOrTag.trim();
+    if (!input) return 'Ange användarnamn';
 
-    if (!target) return 'Användaren hittades inte';
-    if (target.id === user.id) return 'Du kan inte adda dig själv';
+    const hashIndex = input.lastIndexOf('#');
+    const hasTag = hashIndex > 0 && hashIndex < input.length - 1;
+
+    const parsedUsername = hasTag ? input.slice(0, hashIndex).trim() : input;
+    const parsedTag = hasTag ? input.slice(hashIndex + 1).trim() : null;
+
+    // Find the target user
+    let targetId: string | null = null;
+    if (parsedTag) {
+      const { data: target } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('username', parsedUsername)
+        .eq('tag', parsedTag)
+        .maybeSingle();
+      targetId = target?.id ?? null;
+    } else {
+      const { data: candidates } = await supabase
+        .from('profiles')
+        .select('id, username, tag')
+        .eq('username', parsedUsername)
+        .limit(3);
+
+      if ((candidates?.length ?? 0) > 1) {
+        return 'Flera användare har det namnet. Använd formatet namn#tag.';
+      }
+
+      targetId = candidates?.[0]?.id ?? null;
+    }
+
+    if (!targetId) return 'Användaren hittades inte';
+    if (targetId === user.id) return 'Du kan inte adda dig själv';
 
     // Check for existing friendship
     const { data: existing } = await supabase
       .from('friendships')
       .select('id')
       .or(
-        `and(requester_id.eq.${user.id},addressee_id.eq.${target.id}),and(requester_id.eq.${target.id},addressee_id.eq.${user.id})`,
+        `and(requester_id.eq.${user.id},addressee_id.eq.${targetId}),and(requester_id.eq.${targetId},addressee_id.eq.${user.id})`,
       )
       .limit(1);
 
@@ -130,7 +156,7 @@ export function useFriends() {
 
     const { error } = await supabase
       .from('friendships')
-      .insert({ requester_id: user.id, addressee_id: target.id });
+      .insert({ requester_id: user.id, addressee_id: targetId });
 
     if (error) return 'Något gick fel';
     await fetchFriends();

@@ -147,9 +147,191 @@ export interface Database {
           },
         ];
       };
+      user_game_stats: {
+        Row: {
+          id: string;
+          user_id: string;
+          game_id: string;
+          played: number;
+          won: number;
+          best_time: number | null;
+          best_score: number | null;
+          updated_at: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          game_id: string;
+          played?: number;
+          won?: number;
+          best_time?: number | null;
+          best_score?: number | null;
+          updated_at?: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          game_id?: string;
+          played?: number;
+          won?: number;
+          best_time?: number | null;
+          best_score?: number | null;
+          updated_at?: string;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "user_game_stats_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      multiplayer_matches: {
+        Row: {
+          id: string;
+          host_id: string;
+          game_id: string;
+          stake: number;
+          status: string;
+          winner_id: string | null;
+          created_at: string;
+          started_at: string | null;
+          completed_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          host_id: string;
+          game_id: string;
+          stake: number;
+          status?: string;
+          winner_id?: string | null;
+          created_at?: string;
+          started_at?: string | null;
+          completed_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          host_id?: string;
+          game_id?: string;
+          stake?: number;
+          status?: string;
+          winner_id?: string | null;
+          created_at?: string;
+          started_at?: string | null;
+          completed_at?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "multiplayer_matches_host_id_fkey";
+            columns: ["host_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "multiplayer_matches_winner_id_fkey";
+            columns: ["winner_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      multiplayer_match_players: {
+        Row: {
+          id: string;
+          match_id: string;
+          user_id: string;
+          status: string;
+          stake_locked: number;
+          submitted: boolean;
+          elapsed_seconds: number | null;
+          score: number | null;
+          survived_seconds: number | null;
+          submitted_at: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          match_id: string;
+          user_id: string;
+          status?: string;
+          stake_locked?: number;
+          submitted?: boolean;
+          elapsed_seconds?: number | null;
+          score?: number | null;
+          survived_seconds?: number | null;
+          submitted_at?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          match_id?: string;
+          user_id?: string;
+          status?: string;
+          stake_locked?: number;
+          submitted?: boolean;
+          elapsed_seconds?: number | null;
+          score?: number | null;
+          survived_seconds?: number | null;
+          submitted_at?: string | null;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "multiplayer_match_players_match_id_fkey";
+            columns: ["match_id"];
+            isOneToOne: false;
+            referencedRelation: "multiplayer_matches";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "multiplayer_match_players_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
     };
     Views: Record<string, never>;
-    Functions: Record<string, never>;
+    Functions: {
+      mp_create_match: {
+        Args: {
+          p_game_id: string;
+          p_stake: number;
+          p_invited_ids: string[];
+        };
+        Returns: void;
+      };
+      mp_accept_invite: {
+        Args: {
+          p_match_id: string;
+        };
+        Returns: void;
+      };
+      mp_decline_invite: {
+        Args: {
+          p_match_id: string;
+        };
+        Returns: void;
+      };
+      mp_submit_result: {
+        Args: {
+          p_match_id: string;
+          p_elapsed_seconds: number | null;
+          p_score: number | null;
+          p_survived_seconds: number | null;
+        };
+        Returns: void;
+      };
+    };
     Enums: Record<string, never>;
     CompositeTypes: Record<string, never>;
   };
@@ -160,3 +342,6 @@ export type Profile = Database['public']['Tables']['profiles']['Row'];
 export type Friendship = Database['public']['Tables']['friendships']['Row'];
 export type Skin = Database['public']['Tables']['skins']['Row'];
 export type UserSkin = Database['public']['Tables']['user_skins']['Row'];
+export type UserGameStat = Database['public']['Tables']['user_game_stats']['Row'];
+export type MultiplayerMatch = Database['public']['Tables']['multiplayer_matches']['Row'];
+export type MultiplayerMatchPlayer = Database['public']['Tables']['multiplayer_match_players']['Row'];

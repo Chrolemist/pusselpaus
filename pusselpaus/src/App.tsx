@@ -1,7 +1,7 @@
 import { Suspense } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { AuthProvider, useAuth } from './auth';
-import { LobbyPage, StatsOverviewPage, LoginPage, SkinShopPage, TopBar } from './app-shell';
+import { LobbyPage, StatsOverviewPage, LoginPage, SkinShopPage, FriendsLeaderboardPage, MultiplayerPage, TopBar } from './app-shell';
 import { games } from './game-registry';
 
 function AppRoutes() {
@@ -22,6 +22,8 @@ function AppRoutes() {
         <Route path="/" element={<LobbyPage />} />
         <Route path="/stats" element={<StatsOverviewPage />} />
         <Route path="/shop" element={<SkinShopPage />} />
+        <Route path="/friends-leaderboard" element={<FriendsLeaderboardPage />} />
+        <Route path="/multiplayer" element={<MultiplayerPage />} />
         {games.map((game) => (
           <Route key={game.id} path={game.path} element={<game.PlayPage />} />
         ))}
