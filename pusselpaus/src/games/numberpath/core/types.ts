@@ -10,9 +10,9 @@ export interface GridConfig {
 }
 
 export const GRID_CONFIGS: Record<Difficulty, GridConfig> = {
-  easy:   { rows: 5, cols: 5, revealRatio: 0.48 },
-  medium: { rows: 6, cols: 6, revealRatio: 0.33 },
-  hard:   { rows: 7, cols: 7, revealRatio: 0.22 },
+  easy:   { rows: 5, cols: 5, revealRatio: 0.40 },
+  medium: { rows: 6, cols: 6, revealRatio: 0.19 },
+  hard:   { rows: 7, cols: 7, revealRatio: 0.10 },
 };
 
 export const DIFFICULTY_LABELS: Record<Difficulty, string> = {

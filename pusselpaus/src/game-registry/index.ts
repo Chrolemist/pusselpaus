@@ -1,6 +1,12 @@
 import { lazy, type ComponentType, type LazyExoticComponent } from 'react';
-import { loadGame as loadSudokuGame } from '../games/sudoku/core/storage';
-import { loadGame as loadNumberPathGame } from '../games/numberpath/core/storage';
+import { loadGame as loadSudokuGame, loadStats as loadSudokuStats } from '../games/sudoku/core/storage';
+import { loadGame as loadNumberPathGame, loadStats as loadNumberPathStats } from '../games/numberpath/core/storage';
+
+export interface GameStatsSummary {
+  played: number;
+  won: number;
+  bestTime: number | null;
+}
 
 export interface GameDefinition {
   id: string;
@@ -12,6 +18,16 @@ export interface GameDefinition {
   PlayPage: LazyExoticComponent<ComponentType>;
   StatsPage?: LazyExoticComponent<ComponentType>;
   hasSavedGame?: () => boolean;
+  getStats?: () => GameStatsSummary;
+}
+
+function summarizeStats(statsObj: Record<string, { played: number; won: number; bestTime: number | null }>): GameStatsSummary {
+  const entries = Object.values(statsObj);
+  const played = entries.reduce((a, s) => a + s.played, 0);
+  const won = entries.reduce((a, s) => a + s.won, 0);
+  const times = entries.map((s) => s.bestTime).filter((t): t is number => t !== null);
+  const bestTime = times.length > 0 ? Math.min(...times) : null;
+  return { played, won, bestTime };
 }
 
 export const games: GameDefinition[] = [
@@ -25,6 +41,7 @@ export const games: GameDefinition[] = [
     PlayPage: lazy(() => import('../games/sudoku/pages/SudokuPage')),
     StatsPage: lazy(() => import('../games/sudoku/pages/SudokuStatsPage')),
     hasSavedGame: () => !!loadSudokuGame(),
+    getStats: () => summarizeStats(loadSudokuStats()),
   },
   {
     id: 'numberpath',
@@ -36,5 +53,6 @@ export const games: GameDefinition[] = [
     PlayPage: lazy(() => import('../games/numberpath/pages/NumberPathPage')),
     StatsPage: lazy(() => import('../games/numberpath/pages/NumberPathStatsPage')),
     hasSavedGame: () => !!loadNumberPathGame(),
+    getStats: () => summarizeStats(loadNumberPathStats()),
   },
 ];

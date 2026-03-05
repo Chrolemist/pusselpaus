@@ -10,16 +10,25 @@ import {
   rehydratePuzzle,
   recordWin,
 } from '../core/storage';
+import {
+  ensureAudio,
+  playStepNote,
+  playUndoNote,
+  playWinMelody,
+  disposeAudio,
+} from '../audio/marimba';
 
 export type Phase = 'idle' | 'picking' | 'playing' | 'won';
 
-export type CellState = 'empty' | 'given' | 'path' | 'head';
+export type CellState = 'empty' | 'given' | 'path' | 'head' | 'hint';
 
 export function useNumberPath() {
   const [puzzle, setPuzzle] = useState<Puzzle | null>(null);
   const [pathCells, setPathCells] = useState<number[]>([]);
   const [phase, setPhase] = useState<Phase>('idle');
   const [elapsed, setElapsed] = useState(0);
+  const [hintCell, setHintCell] = useState<number | null>(null);
+  const [hintsUsed, setHintsUsed] = useState(0);
   const timerRef = useRef<ReturnType<typeof setInterval>>(undefined);
 
   /* ── timer ── */
@@ -29,6 +38,11 @@ export function useNumberPath() {
     }
     return () => clearInterval(timerRef.current);
   }, [phase]);
+
+  /* ── dispose audio on unmount ── */
+  useEffect(() => {
+    return () => disposeAudio();
+  }, []);
 
   /* ── auto-save on path change ── */
   useEffect(() => {
@@ -64,6 +78,7 @@ export function useNumberPath() {
     ? puzzle.cells.map((cell, i) => {
         if (i === headCell) return 'head';
         if (pathIndexMap.has(i)) return 'path';
+        if (i === hintCell) return 'hint';
         if (cell.given) return 'given';
         return 'empty';
       })
@@ -86,17 +101,22 @@ export function useNumberPath() {
 
   /* ── actions ── */
 
-  const newGame = useCallback((difficulty: Difficulty) => {
+  const newGame = useCallback(async (difficulty: Difficulty) => {
+    await ensureAudio();
     const p = generatePuzzle(difficulty);
     setPuzzle(p);
     const startCell = p.cells.findIndex((c) => c.solution === 1);
     setPathCells([startCell]);
     setElapsed(0);
+    setHintCell(null);
+    setHintsUsed(0);
     setPhase('playing');
     clearGame();
+    playStepNote(0); // first note for step 1
   }, []);
 
-  const resumeGame = useCallback(() => {
+  const resumeGame = useCallback(async () => {
+    await ensureAudio();
     const saved = loadGame();
     if (!saved) return;
     const p = rehydratePuzzle(saved);
@@ -121,9 +141,13 @@ export function useNumberPath() {
 
       const newPath = [...pathCells, cellIndex];
       setPathCells(newPath);
+      setHintCell(null); // clear hint on move
 
       // Haptic feedback on mobile
       navigator.vibrate?.(8);
+
+      // Audio: ascending C-major note for the new step
+      playStepNote(newPath.length - 1);
 
       // Win check
       if (newPath.length === puzzle.rows * puzzle.cols) {
@@ -131,6 +155,8 @@ export function useNumberPath() {
         setPhase('won');
         recordWin(puzzle.difficulty, elapsed);
         clearGame();
+        // Short delay then play win melody (after the last step note fades)
+        setTimeout(() => playWinMelody(), 300);
       }
 
       return true;
@@ -153,13 +179,26 @@ export function useNumberPath() {
     if (!puzzle || phase !== 'playing') return;
     if (pathCells.length <= 1) return;
     setPathCells((prev) => prev.slice(0, -1));
+    playUndoNote(pathCells.length - 2);
     navigator.vibrate?.(5);
   }, [puzzle, phase, pathCells.length]);
 
   const clearPath = useCallback(() => {
     if (!puzzle || phase !== 'playing') return;
     setPathCells((prev) => prev.slice(0, 1));
+    setHintCell(null);
   }, [puzzle, phase]);
+
+  const showHint = useCallback(() => {
+    if (!puzzle || phase !== 'playing') return;
+    // The next step in the solution: find the cell whose solution == currentStep + 1
+    const nextStep = pathCells.length + 1;
+    const idx = puzzle.cells.findIndex((c) => c.solution === nextStep);
+    if (idx === -1) return;
+    setHintCell(idx);
+    setHintsUsed((h) => h + 1);
+    navigator.vibrate?.(12);
+  }, [puzzle, phase, pathCells.length]);
 
   const handleCellClick = useCallback(
     (cellIndex: number): boolean => {
@@ -209,5 +248,8 @@ export function useNumberPath() {
     clearPath,
     handleCellClick,
     setPhase,
+    showHint,
+    hintCell,
+    hintsUsed,
   } as const;
 }

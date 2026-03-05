@@ -14,7 +14,8 @@
     "driver.js": "^1.4.0",
     "motion": "^12.35.0",
     "react": "^19.2.0",
-    "react-dom": "^19.2.0"
+    "react-dom": "^19.2.0",
+    "tone": "^15.1.22"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.1",

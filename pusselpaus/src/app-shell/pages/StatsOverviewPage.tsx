@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
-import { loadStats } from '../../games/sudoku/core/storage';
+import { games } from '../../game-registry';
+import type { GameStatsSummary } from '../../game-registry';
 
 function fmt(seconds: number | null): string {
   if (seconds === null) return '–';
@@ -9,16 +10,23 @@ function fmt(seconds: number | null): string {
 }
 
 export default function StatsOverviewPage() {
-  const sudokuStats = loadStats();
-  const sudokuPlayed = Object.values(sudokuStats).reduce((a, s) => a + s.played, 0);
-  const sudokuWon = Object.values(sudokuStats).reduce((a, s) => a + s.won, 0);
-  const sudokuBest = Object.values(sudokuStats)
-    .map((s) => s.bestTime)
-    .filter((t): t is number => t !== null)
-    .sort((a, b) => a - b)[0] ?? null;
+  const gameStats: { id: string; name: string; emoji: string; statsPath?: string; stats: GameStatsSummary }[] =
+    games
+      .filter((g) => g.getStats)
+      .map((g) => ({
+        id: g.id,
+        name: g.name,
+        emoji: g.emoji,
+        statsPath: g.statsPath,
+        stats: g.getStats!(),
+      }));
 
-  const totalPlayed = sudokuPlayed;
-  const totalWon = sudokuWon;
+  const totalPlayed = gameStats.reduce((a, g) => a + g.stats.played, 0);
+  const totalWon = gameStats.reduce((a, g) => a + g.stats.won, 0);
+  const allBestTimes = gameStats
+    .map((g) => g.stats.bestTime)
+    .filter((t): t is number => t !== null);
+  const overallBest = allBestTimes.length > 0 ? Math.min(...allBestTimes) : null;
 
   return (
     <div className="flex min-h-full flex-col items-center gap-6 px-4 py-10">
@@ -47,32 +55,42 @@ export default function StatsOverviewPage() {
           </p>
           <p className="text-xs text-text-muted">Vinst</p>
         </div>
+        {overallBest !== null && (
+          <div>
+            <p className="font-mono text-2xl font-bold text-accent">{fmt(overallBest)}</p>
+            <p className="text-xs text-text-muted">Snabbast</p>
+          </div>
+        )}
       </div>
 
       <div className="w-full max-w-sm space-y-3">
-        <Link
-          to="/sudoku/stats"
-          className="flex items-center justify-between rounded-xl bg-surface-card px-5 py-4 shadow ring-1 ring-white/10 transition hover:ring-brand/60 active:scale-[0.98]"
-        >
-          <div className="flex items-center gap-3">
-            <span className="text-2xl">🔢</span>
-            <div>
-              <p className="font-semibold">Sudoku</p>
-              <p className="text-xs text-text-muted">
-                {sudokuWon} / {sudokuPlayed} lösta
-              </p>
+        {gameStats.map((g) => (
+          <Link
+            key={g.id}
+            to={g.statsPath ?? '#'}
+            className="flex items-center justify-between rounded-xl bg-surface-card px-5 py-4 shadow ring-1 ring-white/10 transition hover:ring-brand/60 active:scale-[0.98]"
+          >
+            <div className="flex items-center gap-3">
+              <span className="text-2xl">{g.emoji}</span>
+              <div>
+                <p className="font-semibold">{g.name}</p>
+                <p className="text-xs text-text-muted">
+                  {g.stats.won} / {g.stats.played} lösta
+                </p>
+              </div>
             </div>
-          </div>
-          <div className="text-right">
-            <p className="font-mono text-sm text-accent">{fmt(sudokuBest)}</p>
-            <p className="text-xs text-text-muted">bästa tid</p>
-          </div>
-        </Link>
+            <div className="text-right">
+              <p className="font-mono text-sm text-accent">{fmt(g.stats.bestTime)}</p>
+              <p className="text-xs text-text-muted">bästa tid</p>
+            </div>
+          </Link>
+        ))}
 
-        <div className="flex items-center gap-3 rounded-xl border-2 border-dashed border-white/10 px-5 py-4 opacity-40">
-          <span className="text-2xl">🧠</span>
-          <p className="text-sm text-text-muted">Fler spel kommer…</p>
-        </div>
+        {gameStats.length === 0 && (
+          <p className="text-center text-sm text-text-muted py-4">
+            Ingen statistik ännu — spela ett spel först!
+          </p>
+        )}
       </div>
     </div>
   );

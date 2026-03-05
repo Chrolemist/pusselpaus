@@ -133,6 +133,8 @@ export default function PathGrid({
         return `${base} text-white ring-2 ring-accent shadow-lg shadow-brand/40`;
       case 'path':
         return `${base} text-white/90`;
+      case 'hint':
+        return `${base} bg-success/25 text-success ring-2 ring-success/60 cursor-pointer animate-pulse`;
       case 'given':
         return `${base} bg-surface-card text-accent border border-accent/20`;
       case 'empty':

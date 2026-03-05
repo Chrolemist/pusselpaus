@@ -141,13 +141,19 @@ export default function NumberPathPage() {
 
       {/* Controls */}
       {game.phase === 'playing' && (
-        <div className="flex gap-3">
+        <div className="flex flex-wrap justify-center gap-3">
           <button
             onClick={game.undoLast}
             disabled={game.pathCells.length <= 1}
             className="rounded-xl bg-surface-card px-4 py-2.5 text-sm font-medium shadow ring-1 ring-white/10 transition hover:ring-brand/60 active:scale-95 disabled:opacity-40"
           >
             ↩ Ångra
+          </button>
+          <button
+            onClick={game.showHint}
+            className="rounded-xl bg-surface-card px-4 py-2.5 text-sm font-medium shadow ring-1 ring-white/10 transition hover:ring-success/60 active:scale-95"
+          >
+            💡 Ledtråd{game.hintsUsed > 0 && ` (${game.hintsUsed})`}
           </button>
           <button
             onClick={game.clearPath}
