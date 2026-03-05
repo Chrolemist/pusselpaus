@@ -50,6 +50,13 @@ export default function LobbyPage() {
       >
         📊 Statistik
       </Link>
+
+      <Link
+        to="/shop"
+        className="mt-2 text-sm text-text-muted underline underline-offset-4 hover:text-brand-light"
+      >
+        🛍️ Skinshop
+      </Link>
     </div>
   );
 }

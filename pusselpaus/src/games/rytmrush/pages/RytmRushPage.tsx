@@ -12,10 +12,10 @@ import {
   LANE_KEYS,
   LANE_LABELS,
   LANE_COLORS,
-  DIFFICULTY_LABELS,
 } from '../core';
 import type { Difficulty, Song } from '../core';
 import { playWinJingle } from '../audio/rhythmAudio';
+import { useCoinRewards } from '../../../hooks/useCoinRewards';
 
 /* ── Page component ── */
 
@@ -23,6 +23,8 @@ export default function RytmRushPage() {
   const engine = useRhythmEngine();
   const containerRef = useRef<HTMLDivElement>(null);
   const confettiFired = useRef(false);
+  const rewardedRef = useRef(false);
+  const { rewardRytmRushPerformance } = useCoinRewards();
 
   /* ── Keyboard handling ── */
   const onKeyDown = useCallback(
@@ -71,7 +73,16 @@ export default function RytmRushPage() {
         total > 0
           ? (engine.perfects + engine.greats + engine.goods) / total
           : 0;
-      if (hitRate >= 0.7) {
+      if (engine.cleared || hitRate >= 0.65) {
+        if (!rewardedRef.current) {
+          rewardedRef.current = true;
+          void rewardRytmRushPerformance({
+            score: engine.score,
+            hitRate,
+            survivedSeconds: engine.survivedSeconds,
+            cleared: engine.cleared,
+          });
+        }
         playWinJingle();
         confetti({ particleCount: 120, spread: 70, origin: { y: 0.6 } });
         setTimeout(() => {
@@ -79,8 +90,11 @@ export default function RytmRushPage() {
         }, 300);
       }
     }
-    if (engine.phase !== 'results') confettiFired.current = false;
-  }, [engine.phase, engine.perfects, engine.greats, engine.goods, engine.misses]);
+    if (engine.phase !== 'results') {
+      confettiFired.current = false;
+      rewardedRef.current = false;
+    }
+  }, [engine.phase, engine.perfects, engine.greats, engine.goods, engine.misses, engine.cleared, engine.score, engine.survivedSeconds, rewardRytmRushPerformance]);
 
   /* ── Cleanup ── */
   useEffect(() => {
@@ -108,9 +122,7 @@ export default function RytmRushPage() {
           {engine.countdownValue}
         </motion.p>
         {engine.song && (
-          <p className="mt-4 text-text-muted">
-            {engine.song.title} – {DIFFICULTY_LABELS[engine.difficulty]}
-          </p>
+          <p className="mt-4 text-text-muted">{engine.song.title}</p>
         )}
       </div>
     );
@@ -152,6 +164,19 @@ export default function RytmRushPage() {
 
       {/* Game area */}
       <div className="relative flex flex-1">
+        <div className="pointer-events-none absolute left-3 right-3 top-3 z-20">
+          <div className="mb-1 flex items-center justify-between text-[11px] text-text-muted">
+            <span>Stabilitet</span>
+            <span>{Math.round(engine.health)}%</span>
+          </div>
+          <div className="h-2 rounded-full bg-white/10">
+            <div
+              className="h-2 rounded-full bg-gradient-to-r from-red-500 via-yellow-400 to-green-400 transition-all"
+              style={{ width: `${Math.max(0, Math.min(100, engine.health))}%` }}
+            />
+          </div>
+        </div>
+
         {Array.from({ length: engine.song?.lanes ?? 4 }, (_, i) => {
           const laneBlocks = engine.blocks.filter(
             (b) => b.chartNote.lane === i,
@@ -207,6 +232,8 @@ interface MenuViewProps {
 }
 
 function MenuView({ onStart }: MenuViewProps) {
+  const song = SONGS[0];
+
   return (
     <div className="flex min-h-dvh flex-col items-center justify-center gap-6 px-4 py-10">
       <Link to="/" className="text-sm text-text-muted hover:text-brand-light">
@@ -215,35 +242,23 @@ function MenuView({ onStart }: MenuViewProps) {
 
       <h2 className="text-3xl font-bold">🎵 RytmRush</h2>
       <p className="max-w-xs text-center text-sm text-text-muted">
-        Tryck i takt! Block rullar nedåt — träffa dem i rätt ögonblick.
-        Tangenter: D&nbsp;F&nbsp;J&nbsp;K eller tryck på mobilen.
+        En lång överlevnadsbana som blir svårare hela tiden.
+        Missa för mycket och rundan är över. Coins baseras på prestation.
       </p>
 
-      <div className="w-full max-w-sm space-y-4">
-        {SONGS.map((song) => (
-          <div
-            key={song.id}
-            className="rounded-xl bg-surface-card p-5 shadow ring-1 ring-white/10"
-          >
-            <div className="mb-3">
-              <p className="text-lg font-semibold">{song.title}</p>
-              <p className="text-xs text-text-muted">
-                {song.artist} · {song.bpm} BPM · {song.notes.length} noter
-              </p>
-            </div>
-            <div className="flex gap-2">
-              {(['easy', 'medium', 'hard'] as Difficulty[]).map((d) => (
-                <button
-                  key={d}
-                  onClick={() => onStart(song, d)}
-                  className="flex-1 rounded-lg bg-brand/20 px-3 py-2 text-sm font-semibold text-brand-light transition hover:bg-brand/40 active:scale-95"
-                >
-                  {DIFFICULTY_LABELS[d]}
-                </button>
-              ))}
-            </div>
-          </div>
-        ))}
+      <div className="w-full max-w-sm rounded-xl bg-surface-card p-5 shadow ring-1 ring-white/10">
+        <div className="mb-3">
+          <p className="text-lg font-semibold">{song.title}</p>
+          <p className="text-xs text-text-muted">
+            {song.artist} · {song.bpm} BPM · progressiv svårighet
+          </p>
+        </div>
+        <button
+          onClick={() => onStart(song, 'easy')}
+          className="w-full rounded-lg bg-brand/20 px-3 py-2 text-sm font-semibold text-brand-light transition hover:bg-brand/40 active:scale-95"
+        >
+          Starta bana
+        </button>
       </div>
 
       <Link
@@ -268,7 +283,11 @@ function ResultsView({ engine, onBack }: ResultsViewProps) {
     total > 0
       ? (engine.perfects + engine.greats + engine.goods) / total
       : 0;
-  const won = hitRate >= 0.7;
+  const won = engine.cleared;
+  const performanceCoins = Math.max(
+    5,
+    Math.floor(engine.score / 1200) + Math.floor(hitRate * 30) + Math.floor(engine.survivedSeconds / 12) + (won ? 40 : 0),
+  );
 
   return (
     <div className="flex min-h-dvh flex-col items-center justify-center gap-6 px-4 py-10">
@@ -281,17 +300,23 @@ function ResultsView({ engine, onBack }: ResultsViewProps) {
         >
           <p className="text-5xl">{won ? '🎉' : '😅'}</p>
           <h2 className="text-3xl font-bold">
-            {won ? 'Fantastiskt!' : 'Snyggt försök!'}
+            {won ? 'Du överlevde hela banan!' : 'Game over!'}
           </h2>
 
           {engine.song && (
             <p className="text-sm text-text-muted">
-              {engine.song.title} – {DIFFICULTY_LABELS[engine.difficulty]}
+              {engine.song.title}
             </p>
           )}
 
+          <p className="text-xs text-text-muted">Överlevde {Math.round(engine.survivedSeconds)}s</p>
+
           <p className="font-mono text-4xl font-bold text-brand-light">
             {Math.round(engine.score).toLocaleString('sv-SE')}
+          </p>
+
+          <p className="rounded-lg bg-yellow-500/20 px-3 py-1 text-sm font-semibold text-yellow-300">
+            +{performanceCoins} coins
           </p>
 
           <div className="flex gap-6 text-center">

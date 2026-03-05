@@ -15,6 +15,7 @@ import {
   recordPlay,
   recordWin,
 } from '../core/storage';
+import { useCoinRewards } from '../../../hooks/useCoinRewards';
 
 export interface SudokuState {
   board: Board;
@@ -30,6 +31,7 @@ export interface SudokuState {
 export function useSudoku() {
   const [state, setState] = useState<SudokuState | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const { rewardWin } = useCoinRewards();
 
   const stopTimer = useCallback(() => {
     if (timerRef.current) {
@@ -110,6 +112,7 @@ export function useSudoku() {
           stopTimer();
           clearGame();
           recordWin(prev.difficulty, prev.elapsed);
+          void rewardWin('sudoku', prev.difficulty);
         }
 
         return { ...prev, board, conflicts, solved };

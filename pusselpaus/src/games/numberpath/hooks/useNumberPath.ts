@@ -17,6 +17,7 @@ import {
   playWinMelody,
   disposeAudio,
 } from '../audio/marimba';
+import { useCoinRewards } from '../../../hooks/useCoinRewards';
 
 export type Phase = 'idle' | 'picking' | 'playing' | 'won';
 
@@ -30,6 +31,7 @@ export function useNumberPath() {
   const [hintCell, setHintCell] = useState<number | null>(null);
   const [hintsUsed, setHintsUsed] = useState(0);
   const timerRef = useRef<ReturnType<typeof setInterval>>(undefined);
+  const { rewardWin } = useCoinRewards();
 
   /* ── timer ── */
   useEffect(() => {
@@ -154,6 +156,7 @@ export function useNumberPath() {
         clearInterval(timerRef.current);
         setPhase('won');
         recordWin(puzzle.difficulty, elapsed);
+        void rewardWin('numberpath', puzzle.difficulty);
         clearGame();
         // Short delay then play win melody (after the last step note fades)
         setTimeout(() => playWinMelody(), 300);

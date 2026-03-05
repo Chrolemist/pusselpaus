@@ -1,32 +1,55 @@
 import { Suspense } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
-import { LobbyPage, StatsOverviewPage } from './app-shell';
+import { AuthProvider, useAuth } from './auth';
+import { LobbyPage, StatsOverviewPage, LoginPage, SkinShopPage, TopBar } from './app-shell';
 import { games } from './game-registry';
+
+function AppRoutes() {
+  const { user, loading } = useAuth();
+
+  if (loading) {
+    return <div className="p-6 text-center text-sm text-text-muted">Laddar…</div>;
+  }
+
+  if (!user) {
+    return <LoginPage />;
+  }
+
+  return (
+    <>
+      <TopBar />
+      <Routes>
+        <Route path="/" element={<LobbyPage />} />
+        <Route path="/stats" element={<StatsOverviewPage />} />
+        <Route path="/shop" element={<SkinShopPage />} />
+        {games.map((game) => (
+          <Route key={game.id} path={game.path} element={<game.PlayPage />} />
+        ))}
+        {games
+          .filter((game) => game.statsPath && game.StatsPage)
+          .map((game) => {
+            const StatsPageComponent = game.StatsPage!;
+            return (
+              <Route
+                key={`${game.id}-stats`}
+                path={game.statsPath}
+                element={<StatsPageComponent />}
+              />
+            );
+          })}
+      </Routes>
+    </>
+  );
+}
 
 function App() {
   return (
     <BrowserRouter>
-      <Suspense fallback={<div className="p-6 text-center text-sm text-text-muted">Laddar…</div>}>
-        <Routes>
-          <Route path="/" element={<LobbyPage />} />
-          <Route path="/stats" element={<StatsOverviewPage />} />
-          {games.map((game) => (
-            <Route key={game.id} path={game.path} element={<game.PlayPage />} />
-          ))}
-          {games
-            .filter((game) => game.statsPath && game.StatsPage)
-            .map((game) => {
-              const StatsPageComponent = game.StatsPage!;
-              return (
-                <Route
-                  key={`${game.id}-stats`}
-                  path={game.statsPath}
-                  element={<StatsPageComponent />}
-                />
-              );
-            })}
-        </Routes>
-      </Suspense>
+      <AuthProvider>
+        <Suspense fallback={<div className="p-6 text-center text-sm text-text-muted">Laddar…</div>}>
+          <AppRoutes />
+        </Suspense>
+      </AuthProvider>
     </BrowserRouter>
   );
 }
