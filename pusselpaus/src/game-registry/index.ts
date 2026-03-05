@@ -1,6 +1,7 @@
 import { lazy, type ComponentType, type LazyExoticComponent } from 'react';
 import { loadGame as loadSudokuGame, loadStats as loadSudokuStats } from '../games/sudoku/core/storage';
 import { loadGame as loadNumberPathGame, loadStats as loadNumberPathStats } from '../games/numberpath/core/storage';
+import { loadStats as loadRytmRushStats } from '../games/rytmrush/core/storage';
 
 export interface GameStatsSummary {
   played: number;
@@ -54,5 +55,25 @@ export const games: GameDefinition[] = [
     StatsPage: lazy(() => import('../games/numberpath/pages/NumberPathStatsPage')),
     hasSavedGame: () => !!loadNumberPathGame(),
     getStats: () => summarizeStats(loadNumberPathStats()),
+  },
+  {
+    id: 'rytmrush',
+    name: 'RytmRush',
+    emoji: '🎵',
+    description: 'Tryck i takt – Guitar Hero med marimba!',
+    path: '/rytmrush',
+    statsPath: '/rytmrush/stats',
+    PlayPage: lazy(() => import('../games/rytmrush/pages/RytmRushPage')),
+    StatsPage: lazy(() => import('../games/rytmrush/pages/RytmRushStatsPage')),
+    hasSavedGame: () => false,
+    getStats: () => {
+      const s = loadRytmRushStats();
+      const entries = Object.values(s);
+      return {
+        played: entries.reduce((a, e) => a + e.played, 0),
+        won: entries.reduce((a, e) => a + e.won, 0),
+        bestTime: null,
+      };
+    },
   },
 ];
