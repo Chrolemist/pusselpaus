@@ -1,29 +1,31 @@
 import { Suspense } from 'react';
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './auth';
 import { LobbyPage, StatsOverviewPage, LoginPage, SkinShopPage, FriendsLeaderboardPage, MultiplayerPage, TopBar } from './app-shell';
 import { games } from './game-registry';
 
 function AppRoutes() {
-  const { user, loading } = useAuth();
+  const { user, loading, isGuest } = useAuth();
 
   if (loading) {
     return <div className="p-6 text-center text-sm text-text-muted">Laddar…</div>;
   }
 
-  if (!user) {
+  if (!user && !isGuest) {
     return <LoginPage />;
   }
 
+  const isLoggedIn = !!user;
+
   return (
     <>
-      <TopBar />
+      {isLoggedIn && <TopBar />}
       <Routes>
         <Route path="/" element={<LobbyPage />} />
         <Route path="/stats" element={<StatsOverviewPage />} />
-        <Route path="/shop" element={<SkinShopPage />} />
-        <Route path="/friends-leaderboard" element={<FriendsLeaderboardPage />} />
-        <Route path="/multiplayer" element={<MultiplayerPage />} />
+        <Route path="/shop" element={isLoggedIn ? <SkinShopPage /> : <Navigate to="/" replace />} />
+        <Route path="/friends-leaderboard" element={isLoggedIn ? <FriendsLeaderboardPage /> : <Navigate to="/" replace />} />
+        <Route path="/multiplayer" element={isLoggedIn ? <MultiplayerPage /> : <Navigate to="/" replace />} />
         {games.map((game) => (
           <Route key={game.id} path={game.path} element={<game.PlayPage />} />
         ))}

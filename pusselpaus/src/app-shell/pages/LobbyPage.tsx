@@ -1,7 +1,9 @@
 import { Link } from 'react-router-dom';
 import { games } from '../../game-registry';
+import { useAuth } from '../../auth';
 
 export default function LobbyPage() {
+  const { isGuest, exitGuestMode } = useAuth();
   const availableGames = games;
 
   return (
@@ -12,6 +14,18 @@ export default function LobbyPage() {
       <p className="mb-10 text-text-muted text-center max-w-xs">
         Välkommen till din reklamfria hjärngympa. Välj ett spel nedan!
       </p>
+
+      {isGuest && (
+        <div className="mb-6 rounded-xl bg-surface-card px-4 py-3 text-center ring-1 ring-white/10">
+          <p className="text-sm text-text-muted">👤 Gästläge: allt sparas bara lokalt på denna enhet.</p>
+          <button
+            onClick={exitGuestMode}
+            className="mt-2 rounded-md bg-brand/30 px-3 py-1 text-xs font-semibold text-brand-light hover:bg-brand/50"
+          >
+            Logga in för online-funktioner
+          </button>
+        </div>
+      )}
 
       <div className="grid w-full max-w-sm gap-4">
         {availableGames.map((game) => {
@@ -51,12 +65,14 @@ export default function LobbyPage() {
         📊 Statistik
       </Link>
 
-      <Link
-        to="/shop"
-        className="mt-2 text-sm text-text-muted underline underline-offset-4 hover:text-brand-light"
-      >
-        🛍️ Skinshop
-      </Link>
+      {!isGuest && (
+        <Link
+          to="/shop"
+          className="mt-2 text-sm text-text-muted underline underline-offset-4 hover:text-brand-light"
+        >
+          🛍️ Skinshop
+        </Link>
+      )}
     </div>
   );
 }

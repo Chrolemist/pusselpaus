@@ -22,10 +22,16 @@ interface AuthState {
   profile: Profile | null;
   /** True while we check the initial session */
   loading: boolean;
+  /** True when user chose to play without account */
+  isGuest: boolean;
   /** Sign in with Google OAuth */
   signInWithGoogle: () => Promise<void>;
   /** Sign out */
   signOut: () => Promise<void>;
+  /** Enter guest mode (local only) */
+  enterGuestMode: () => void;
+  /** Exit guest mode and return to login */
+  exitGuestMode: () => void;
   /** Refresh profile from DB */
   refreshProfile: () => Promise<void>;
   /** Update profile fields (username etc.) */
@@ -33,6 +39,7 @@ interface AuthState {
 }
 
 const AuthContext = createContext<AuthState | null>(null);
+const GUEST_MODE_KEY = 'pusselpaus:guest-mode';
 
 /* ── Provider ── */
 
@@ -40,6 +47,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isGuest, setIsGuest] = useState<boolean>(() => localStorage.getItem(GUEST_MODE_KEY) === '1');
 
   const clearAuthTokens = useCallback(() => {
     const clearMatching = (storage: Storage) => {
@@ -140,6 +148,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setSession(s);
 
       if (s?.user) {
+        setIsGuest(false);
+        localStorage.removeItem(GUEST_MODE_KEY);
         try {
           const fallbackUsername = getDefaultUsername(s.user);
           await fetchProfile(s.user.id, fallbackUsername);
@@ -243,6 +253,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [session?.user?.id, setOnlineStatus, clearAuthTokens]);
 
+  const enterGuestMode = useCallback(() => {
+    setSession(null);
+    setProfile(null);
+    setIsGuest(true);
+    setLoading(false);
+    localStorage.setItem(GUEST_MODE_KEY, '1');
+  }, []);
+
+  const exitGuestMode = useCallback(() => {
+    setSession(null);
+    setProfile(null);
+    setIsGuest(false);
+    localStorage.removeItem(GUEST_MODE_KEY);
+  }, []);
+
   const refreshProfile = useCallback(async () => {
     if (session?.user) {
       const fallbackUsername = getDefaultUsername(session.user);
@@ -262,8 +287,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     user: session?.user ?? null,
     profile,
     loading,
+    isGuest,
     signInWithGoogle,
     signOut,
+    enterGuestMode,
+    exitGuestMode,
     refreshProfile,
     updateProfile,
   };

@@ -4,7 +4,7 @@ import { useAuth } from '../../auth';
 import { motion } from 'motion/react';
 
 export default function LoginPage() {
-  const { signInWithGoogle, loading } = useAuth();
+  const { signInWithGoogle, enterGuestMode, loading } = useAuth();
 
   return (
     <div className="flex min-h-dvh flex-col items-center justify-center gap-8 px-4">
@@ -52,6 +52,13 @@ export default function LoginPage() {
         </svg>
         Logga in med Google
       </motion.button>
+
+      <button
+        onClick={enterGuestMode}
+        className="rounded-xl bg-surface-card px-6 py-3 text-sm font-semibold text-text-muted ring-1 ring-white/10 transition hover:ring-brand/50"
+      >
+        Spela som gäst
+      </button>
 
       <p className="text-xs text-text-muted opacity-60">
         Ingen data delas med tredje part.
