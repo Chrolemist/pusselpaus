@@ -1,18 +1,44 @@
 /* ── TopBar – avatar, name + tag, coins, online count, logout ── */
 
 import { useState, useRef, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../auth';
 import { useOnlineCount } from '../../hooks/useOnlineCount';
+import { useFriends } from '../../hooks/useFriends';
+import { useMultiplayer } from '../../hooks/useMultiplayer';
 import FriendsPanel from './FriendsPanel.tsx';
 
+type NoticeItem = {
+  id: number;
+  kind: 'friend' | 'multiplayer';
+  message: string;
+};
+
 export default function TopBar() {
+  const navigate = useNavigate();
   const { profile, user, signOut, updateProfile } = useAuth();
   const onlineCount = useOnlineCount();
+  const { friends, loading: friendsLoading } = useFriends();
+  const mp = useMultiplayer();
   const [showFriends, setShowFriends] = useState(false);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState('');
+  const [notices, setNotices] = useState<NoticeItem[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
+  const seenInitialRef = useRef(false);
+  const prevFriendCountRef = useRef(0);
+  const prevInviteCountRef = useRef(0);
+
+  const incomingFriendCount = friends.filter((f) => f.status === 'pending' && !f.isSender).length;
+  const incomingInviteCount = mp.grouped.incoming.length;
+
+  const pushNotice = (kind: NoticeItem['kind'], message: string) => {
+    const id = Date.now() + Math.floor(Math.random() * 1000);
+    setNotices((prev) => [...prev, { id, kind, message }]);
+    window.setTimeout(() => {
+      setNotices((prev) => prev.filter((n) => n.id !== id));
+    }, 5500);
+  };
 
   useEffect(() => {
     if (editing && inputRef.current) {
@@ -20,6 +46,37 @@ export default function TopBar() {
       inputRef.current.select();
     }
   }, [editing]);
+
+  useEffect(() => {
+    if (friendsLoading || mp.loading) return;
+
+    if (!seenInitialRef.current) {
+      seenInitialRef.current = true;
+      prevFriendCountRef.current = incomingFriendCount;
+      prevInviteCountRef.current = incomingInviteCount;
+
+      if (incomingFriendCount > 0) {
+        pushNotice('friend', `${incomingFriendCount} ny vänförfrågan`);
+      }
+      if (incomingInviteCount > 0) {
+        pushNotice('multiplayer', `${incomingInviteCount} multiplayer-inbjudan väntar`);
+      }
+      return;
+    }
+
+    if (incomingFriendCount > prevFriendCountRef.current) {
+      const delta = incomingFriendCount - prevFriendCountRef.current;
+      pushNotice('friend', `${delta} ny vänförfrågan`);
+    }
+
+    if (incomingInviteCount > prevInviteCountRef.current) {
+      const delta = incomingInviteCount - prevInviteCountRef.current;
+      pushNotice('multiplayer', `${delta} ny multiplayer-inbjudan`);
+    }
+
+    prevFriendCountRef.current = incomingFriendCount;
+    prevInviteCountRef.current = incomingInviteCount;
+  }, [friendsLoading, mp.loading, incomingFriendCount, incomingInviteCount]);
 
   if (!user) return null;
 
@@ -131,18 +188,28 @@ export default function TopBar() {
 
           <Link
             to="/multiplayer"
-            className="text-sm text-text-muted hover:text-brand-light transition"
+            className="relative text-sm text-text-muted hover:text-brand-light transition"
             title="Multiplayer"
           >
             ⚔️
+            {incomingInviteCount > 0 && (
+              <span className="absolute -right-2 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">
+                {incomingInviteCount > 9 ? '9+' : incomingInviteCount}
+              </span>
+            )}
           </Link>
 
           <button
             onClick={() => setShowFriends((v) => !v)}
-            className="text-lg hover:scale-110 transition"
+            className="relative text-lg hover:scale-110 transition"
             title="Vänner"
           >
             👥
+            {incomingFriendCount > 0 && (
+              <span className="absolute -right-2 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">
+                {incomingFriendCount > 9 ? '9+' : incomingFriendCount}
+              </span>
+            )}
           </button>
 
           <button
@@ -155,6 +222,35 @@ export default function TopBar() {
       </header>
 
       {showFriends && <FriendsPanel onClose={() => setShowFriends(false)} />}
+
+      {notices.length > 0 && (
+        <div className="pointer-events-none fixed right-4 top-16 z-50 flex flex-col gap-2">
+          {notices.map((notice) => (
+            <div
+              key={notice.id}
+              className="pointer-events-auto flex items-center gap-2 rounded-xl border border-white/10 bg-surface-card/95 px-3 py-2 text-sm shadow-lg backdrop-blur"
+            >
+              <span>{notice.kind === 'friend' ? '👥' : '⚔️'}</span>
+              <span className="text-text-muted">{notice.message}</span>
+              {notice.kind === 'friend' ? (
+                <button
+                  onClick={() => setShowFriends(true)}
+                  className="rounded-md bg-brand/30 px-2 py-1 text-xs font-semibold text-brand-light hover:bg-brand/50"
+                >
+                  Öppna
+                </button>
+              ) : (
+                <button
+                  onClick={() => navigate('/multiplayer')}
+                  className="rounded-md bg-accent/20 px-2 py-1 text-xs font-semibold text-accent hover:bg-accent/40"
+                >
+                  Joina
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
     </>
   );
 }
