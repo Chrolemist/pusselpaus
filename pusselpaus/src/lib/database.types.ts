@@ -258,6 +258,7 @@ export interface Database {
           status: string;
           stake_locked: number;
           submitted: boolean;
+          forfeited: boolean;
           elapsed_seconds: number | null;
           score: number | null;
           survived_seconds: number | null;
@@ -271,6 +272,7 @@ export interface Database {
           status?: string;
           stake_locked?: number;
           submitted?: boolean;
+          forfeited?: boolean;
           elapsed_seconds?: number | null;
           score?: number | null;
           survived_seconds?: number | null;
@@ -284,6 +286,7 @@ export interface Database {
           status?: string;
           stake_locked?: number;
           submitted?: boolean;
+          forfeited?: boolean;
           elapsed_seconds?: number | null;
           score?: number | null;
           survived_seconds?: number | null;
@@ -360,6 +363,12 @@ export interface Database {
           p_match_id: string;
         };
         Returns: string;
+      };
+      mp_forfeit_match: {
+        Args: {
+          p_match_id: string;
+        };
+        Returns: void;
       };
     };
     Enums: Record<string, never>;

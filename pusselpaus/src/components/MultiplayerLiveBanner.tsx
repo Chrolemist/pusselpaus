@@ -95,12 +95,30 @@ export default function MultiplayerLiveBanner({ gameId }: Props) {
                 <span className="truncate text-text-muted">
                   {profile ? `${profile.skin ?? '🙂'} ${profile.username}#${profile.tag}` : 'Spelare'}
                 </span>
-                <span className={player.submitted ? 'text-green-300' : 'text-yellow-300'}>
-                  {player.submitted ? 'Klar' : 'Spelar…'}
+                <span className={player.forfeited ? 'text-red-300' : player.submitted ? 'text-green-300' : 'text-yellow-300'}>
+                  {player.forfeited ? 'Gav upp' : player.submitted ? 'Klar' : 'Spelar…'}
                 </span>
               </div>
             ))}
           </div>
+
+          {live.me && !live.me.submitted && (
+            <div className="mt-2">
+              <button
+                onClick={async () => {
+                  if (!live.match) return;
+                  if (!window.confirm('Vill du ge upp matchen?')) return;
+                  const err = await mp.forfeitMatch(live.match.id);
+                  if (err) {
+                    console.error('[Multiplayer Live] forfeit failed:', err);
+                  }
+                }}
+                className="rounded-md bg-red-500/20 px-2 py-1 text-[11px] font-semibold text-red-300 hover:bg-red-500/35"
+              >
+                Ge upp match
+              </button>
+            </div>
+          )}
         </>
       )}
 

@@ -27,6 +27,14 @@ export function useMultiplayer() {
   const [matches, setMatches] = useState<MultiplayerMatchView[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const hasBlockingAcceptedMatch = useCallback((exceptMatchId?: string) => {
+    return matches.some((entry) => {
+      if (entry.me?.status !== 'accepted') return false;
+      if (exceptMatchId && entry.match.id === exceptMatchId) return false;
+      return entry.match.status === 'waiting' || entry.match.status === 'starting' || entry.match.status === 'in_progress';
+    });
+  }, [matches]);
+
   const loadMatches = useCallback(async () => {
     if (!user) {
       setMatches([]);
@@ -159,6 +167,7 @@ export function useMultiplayer() {
     if (!user) return 'Ej inloggad';
     if (invitedIds.length === 0) return 'Välj minst en vän';
     if (stake < 0) return 'Stake kan inte vara negativ';
+    if (hasBlockingAcceptedMatch()) return 'Du har redan en aktiv multiplayer-match';
 
     const { error } = await supabase.rpc('mp_create_match', {
       p_game_id: gameId,
@@ -174,14 +183,15 @@ export function useMultiplayer() {
     }
     await loadMatches();
     return null;
-  }, [user, loadMatches]);
+  }, [user, loadMatches, hasBlockingAcceptedMatch]);
 
   const acceptInvite = useCallback(async (matchId: string): Promise<string | null> => {
+    if (hasBlockingAcceptedMatch(matchId)) return 'Du har redan en aktiv multiplayer-match';
     const { error } = await supabase.rpc('mp_accept_invite', { p_match_id: matchId });
     if (error) return error.message || 'Kunde inte acceptera';
     await loadMatches();
     return null;
-  }, [loadMatches]);
+  }, [loadMatches, hasBlockingAcceptedMatch]);
 
   const declineInvite = useCallback(async (matchId: string): Promise<string | null> => {
     const { error } = await supabase.rpc('mp_decline_invite', { p_match_id: matchId });
@@ -191,6 +201,7 @@ export function useMultiplayer() {
   }, [loadMatches]);
 
   const startMatch = useCallback(async (matchId: string, countdownSeconds = 5): Promise<string | null> => {
+    if (hasBlockingAcceptedMatch(matchId)) return 'Du har redan en annan aktiv multiplayer-match';
     const { error } = await supabase.rpc('mp_start_match', {
       p_match_id: matchId,
       p_countdown_seconds: countdownSeconds,
@@ -198,7 +209,7 @@ export function useMultiplayer() {
     if (error) return error.message || 'Kunde inte starta match';
     await loadMatches();
     return null;
-  }, [loadMatches]);
+  }, [loadMatches, hasBlockingAcceptedMatch]);
 
   const tickMatchStart = useCallback(async (matchId: string): Promise<string | null> => {
     const { data, error } = await supabase.rpc('mp_tick_match_start', {
@@ -207,6 +218,15 @@ export function useMultiplayer() {
     if (error) return error.message || 'Kunde inte synka matchstart';
     await loadMatches();
     return typeof data === 'string' ? data : null;
+  }, [loadMatches]);
+
+  const forfeitMatch = useCallback(async (matchId: string): Promise<string | null> => {
+    const { error } = await supabase.rpc('mp_forfeit_match', {
+      p_match_id: matchId,
+    });
+    if (error) return error.message || 'Kunde inte ge upp matchen';
+    await loadMatches();
+    return null;
   }, [loadMatches]);
 
   const setActiveMatch = useCallback((
@@ -277,6 +297,7 @@ export function useMultiplayer() {
     declineInvite,
     startMatch,
     tickMatchStart,
+    forfeitMatch,
     setActiveMatch,
     submitResultForGame,
     refresh: loadMatches,
