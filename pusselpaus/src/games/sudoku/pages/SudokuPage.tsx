@@ -11,6 +11,7 @@ import Numpad from '../components/Numpad';
 import Timer from '../components/Timer';
 import DifficultyPicker from '../components/DifficultyPicker';
 import MultiplayerLiveBanner from '../../../components/MultiplayerLiveBanner';
+import { getActiveMatchPayload } from '../../../hooks/multiplayerActive';
 
 interface TutorialTarget {
   index: number;
@@ -99,6 +100,7 @@ export default function SudokuPage() {
   const [tutorialFeedback, setTutorialFeedback] = useState<string | null>(null);
   const tutorialDriverRef = useRef<Driver | null>(null);
   const confettiFired = useRef(false);
+  const initializedRef = useRef(false);
 
   /* fire confetti on win */
   useEffect(() => {
@@ -111,7 +113,22 @@ export default function SudokuPage() {
   }, [state?.solved]);
 
   useEffect(() => {
-    resumeGame();
+    if (initializedRef.current) return;
+    initializedRef.current = true;
+
+    const active = getActiveMatchPayload('sudoku');
+    if (!active) {
+      resumeGame();
+      return;
+    }
+
+    const rawDifficulty = active.config?.difficulty;
+    const matchDifficulty: Difficulty =
+      rawDifficulty === 'easy' || rawDifficulty === 'medium' || rawDifficulty === 'hard' || rawDifficulty === 'expert'
+        ? rawDifficulty
+        : 'medium';
+
+    newGame(matchDifficulty, active.configSeed);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

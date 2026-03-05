@@ -107,9 +107,9 @@ export function useNumberPath() {
 
   /* ── actions ── */
 
-  const newGame = useCallback(async (difficulty: Difficulty) => {
+  const newGame = useCallback(async (difficulty: Difficulty, seed?: number) => {
     await ensureAudio();
-    const p = generatePuzzle(difficulty);
+    const p = generatePuzzle(difficulty, seed);
     setPuzzle(p);
     const startCell = p.cells.findIndex((c) => c.solution === 1);
     setPathCells([startCell]);

@@ -2,8 +2,10 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../auth';
 import { supabase } from '../lib/supabaseClient';
 import type { MultiplayerMatch, MultiplayerMatchPlayer, Profile } from '../lib/database.types';
+import { getActiveMatchKey } from './multiplayerActive';
 
 export type MultiplayerGameId = 'sudoku' | 'numberpath' | 'rytmrush';
+type MatchConfig = Record<string, string | number | boolean | null>;
 
 export interface MultiplayerMatchView {
   match: MultiplayerMatch;
@@ -13,8 +15,6 @@ export interface MultiplayerMatchView {
     profile: Pick<Profile, 'id' | 'username' | 'tag' | 'skin' | 'is_online'> | null;
   }>;
 }
-
-const ACTIVE_MATCH_KEY_PREFIX = 'pusselpaus:mp:active:';
 
 function gamePath(gameId: MultiplayerGameId): string {
   if (gameId === 'sudoku') return '/sudoku';
@@ -121,10 +121,40 @@ export function useMultiplayer() {
     return () => window.clearTimeout(timer);
   }, [loadMatches]);
 
+  useEffect(() => {
+    if (!user) return;
+
+    const channel = supabase
+      .channel(`mp-live-${user.id}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'multiplayer_matches' },
+        () => {
+          void loadMatches();
+        },
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'multiplayer_match_players' },
+        () => {
+          void loadMatches();
+        },
+      )
+      .subscribe();
+
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [user, loadMatches]);
+
   const createMatch = useCallback(async (
     gameId: MultiplayerGameId,
     stake: number,
     invitedIds: string[],
+    options?: {
+      config?: MatchConfig;
+      configSeed?: number;
+    },
   ): Promise<string | null> => {
     if (!user) return 'Ej inloggad';
     if (invitedIds.length === 0) return 'Välj minst en vän';
@@ -134,6 +164,8 @@ export function useMultiplayer() {
       p_game_id: gameId,
       p_stake: stake,
       p_invited_ids: invitedIds,
+      p_config: options?.config ?? {},
+      p_config_seed: options?.configSeed,
     });
 
     if (error) {
@@ -158,8 +190,39 @@ export function useMultiplayer() {
     return null;
   }, [loadMatches]);
 
-  const setActiveMatch = useCallback((gameId: MultiplayerGameId, matchId: string) => {
-    localStorage.setItem(`${ACTIVE_MATCH_KEY_PREFIX}${gameId}`, JSON.stringify({ matchId, setAt: new Date().toISOString() }));
+  const startMatch = useCallback(async (matchId: string, countdownSeconds = 5): Promise<string | null> => {
+    const { error } = await supabase.rpc('mp_start_match', {
+      p_match_id: matchId,
+      p_countdown_seconds: countdownSeconds,
+    });
+    if (error) return error.message || 'Kunde inte starta match';
+    await loadMatches();
+    return null;
+  }, [loadMatches]);
+
+  const tickMatchStart = useCallback(async (matchId: string): Promise<string | null> => {
+    const { data, error } = await supabase.rpc('mp_tick_match_start', {
+      p_match_id: matchId,
+    });
+    if (error) return error.message || 'Kunde inte synka matchstart';
+    await loadMatches();
+    return typeof data === 'string' ? data : null;
+  }, [loadMatches]);
+
+  const setActiveMatch = useCallback((
+    gameId: MultiplayerGameId,
+    matchId: string,
+    options?: {
+      config?: MatchConfig;
+      configSeed?: number;
+    },
+  ) => {
+    localStorage.setItem(getActiveMatchKey(gameId), JSON.stringify({
+      matchId,
+      setAt: new Date().toISOString(),
+      config: options?.config,
+      configSeed: options?.configSeed,
+    }));
   }, []);
 
   const submitResultForGame = useCallback(async (
@@ -168,7 +231,7 @@ export function useMultiplayer() {
   ) => {
     if (!user) return;
 
-    const raw = localStorage.getItem(`${ACTIVE_MATCH_KEY_PREFIX}${gameId}`);
+    const raw = localStorage.getItem(getActiveMatchKey(gameId));
     if (!raw) return;
 
     let matchId: string | null = null;
@@ -198,9 +261,10 @@ export function useMultiplayer() {
   const grouped = useMemo(() => {
     const incoming = matches.filter((m) => m.me?.status === 'invited' && m.match.status === 'waiting');
     const waiting = matches.filter((m) => m.me?.status === 'accepted' && m.match.status === 'waiting');
+    const starting = matches.filter((m) => m.me?.status === 'accepted' && m.match.status === 'starting');
     const active = matches.filter((m) => m.me?.status === 'accepted' && m.match.status === 'in_progress' && !m.me?.submitted);
     const completed = matches.filter((m) => m.match.status === 'completed').slice(0, 10);
-    return { incoming, waiting, active, completed };
+    return { incoming, waiting, starting, active, completed };
   }, [matches]);
 
   return {
@@ -211,6 +275,8 @@ export function useMultiplayer() {
     createMatch,
     acceptInvite,
     declineInvite,
+    startMatch,
+    tickMatchStart,
     setActiveMatch,
     submitResultForGame,
     refresh: loadMatches,

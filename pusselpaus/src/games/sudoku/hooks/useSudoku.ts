@@ -57,8 +57,8 @@ export function useSudoku() {
   useEffect(() => () => stopTimer(), [stopTimer]);
 
   const newGame = useCallback(
-    (difficulty: Difficulty) => {
-      const board = generateBoard(difficulty);
+    (difficulty: Difficulty, seed?: number) => {
+      const board = generateBoard(difficulty, seed);
       recordPlay(difficulty);
       setState({
         board,

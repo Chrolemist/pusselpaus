@@ -19,6 +19,7 @@ import { useCoinRewards } from '../../../hooks/useCoinRewards';
 import { useServerGameStats } from '../../../hooks/useServerGameStats';
 import { useMultiplayer } from '../../../hooks/useMultiplayer';
 import MultiplayerLiveBanner from '../../../components/MultiplayerLiveBanner';
+import { getActiveMatchPayload } from '../../../hooks/multiplayerActive';
 
 /* ── Page component ── */
 
@@ -32,6 +33,13 @@ export default function RytmRushPage() {
   const { rewardRytmRushPerformance } = useCoinRewards();
   const { syncGameResult } = useServerGameStats();
   const { submitResultForGame } = useMultiplayer();
+
+  useEffect(() => {
+    if (engine.phase !== 'menu') return;
+    const active = getActiveMatchPayload('rytmrush');
+    if (!active) return;
+    engine.startSong(SONGS[0], 'easy');
+  }, [engine]);
 
   /* ── Keyboard handling ── */
   const onKeyDown = useCallback(

@@ -6,6 +6,8 @@
  *  For now this is a hand-written subset covering the tables we use.
  */
 
+type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[];
+
 export interface Database {
   public: {
     Tables: {
@@ -197,6 +199,8 @@ export interface Database {
           host_id: string;
           game_id: string;
           stake: number;
+          config_seed: number | null;
+          config: Json | null;
           status: string;
           winner_id: string | null;
           created_at: string;
@@ -208,6 +212,8 @@ export interface Database {
           host_id: string;
           game_id: string;
           stake: number;
+          config_seed?: number | null;
+          config?: Json | null;
           status?: string;
           winner_id?: string | null;
           created_at?: string;
@@ -219,6 +225,8 @@ export interface Database {
           host_id?: string;
           game_id?: string;
           stake?: number;
+          config_seed?: number | null;
+          config?: Json | null;
           status?: string;
           winner_id?: string | null;
           created_at?: string;
@@ -307,6 +315,8 @@ export interface Database {
           p_game_id: string;
           p_stake: number;
           p_invited_ids: string[];
+          p_config?: Json;
+          p_config_seed?: number;
         };
         Returns: void;
       };
@@ -335,6 +345,19 @@ export interface Database {
         Args: {
           p_match_id: string;
           p_timeout_seconds?: number;
+        };
+        Returns: string;
+      };
+      mp_start_match: {
+        Args: {
+          p_match_id: string;
+          p_countdown_seconds?: number;
+        };
+        Returns: void;
+      };
+      mp_tick_match_start: {
+        Args: {
+          p_match_id: string;
         };
         Returns: string;
       };

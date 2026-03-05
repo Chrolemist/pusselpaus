@@ -9,10 +9,11 @@ import {
   box,
   peers,
 } from './types';
+import { createSeededRandom, normalizeSeed } from '../../../utils/seededRandom';
 
-function shuffle<T>(arr: T[]): T[] {
+function shuffle<T>(arr: T[], rng: () => number = Math.random): T[] {
   for (let i = arr.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
+    const j = Math.floor(rng() * (i + 1));
     [arr[i], arr[j]] = [arr[j], arr[i]];
   }
   return arr;
@@ -20,6 +21,7 @@ function shuffle<T>(arr: T[]): T[] {
 
 function solve(
   grid: number[],
+  rng: () => number,
   stopAtTwo = false,
   solutions: { count: number } = { count: 0 },
 ): boolean {
@@ -40,36 +42,37 @@ function solve(
     }
   }
 
-  const candidates = shuffle([1, 2, 3, 4, 5, 6, 7, 8, 9].filter((n) => !used.has(n)));
+  const candidates = shuffle([1, 2, 3, 4, 5, 6, 7, 8, 9].filter((n) => !used.has(n)), rng);
 
   for (const num of candidates) {
     grid[empty] = num;
-    if (solve(grid, stopAtTwo, solutions)) return true;
+    if (solve(grid, rng, stopAtTwo, solutions)) return true;
   }
 
   grid[empty] = 0;
   return false;
 }
 
-function generateSolvedGrid(): number[] {
+function generateSolvedGrid(rng: () => number): number[] {
   const grid = new Array(81).fill(0);
-  solve(grid);
+  solve(grid, rng);
   return grid;
 }
 
-function hasUniqueSolution(grid: number[]): boolean {
+function hasUniqueSolution(grid: number[], rng: () => number): boolean {
   const copy = [...grid];
   const solutions = { count: 0 };
-  solve(copy, true, solutions);
+  solve(copy, rng, true, solutions);
   return solutions.count === 1;
 }
 
-export function generateBoard(difficulty: Difficulty): Board {
-  const solution = generateSolvedGrid();
+export function generateBoard(difficulty: Difficulty, seed?: number): Board {
+  const rng = createSeededRandom(normalizeSeed(seed));
+  const solution = generateSolvedGrid(rng);
   const puzzle = [...solution];
 
   const toRemove = CLUES_REMOVED[difficulty];
-  const indices = shuffle([...ALL_INDICES]);
+  const indices = shuffle([...ALL_INDICES], rng);
 
   let removed = 0;
   for (const i of indices) {
@@ -78,7 +81,7 @@ export function generateBoard(difficulty: Difficulty): Board {
     const backup = puzzle[i];
     puzzle[i] = 0;
 
-    if (hasUniqueSolution(puzzle)) {
+    if (hasUniqueSolution(puzzle, rng)) {
       removed++;
     } else {
       puzzle[i] = backup;

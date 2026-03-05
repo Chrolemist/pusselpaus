@@ -1,7 +1,8 @@
-import { useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { useEffect, useMemo, useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { useFriends } from '../../hooks/useFriends';
 import { useMultiplayer, type MultiplayerGameId } from '../../hooks/useMultiplayer';
+import { useAuth } from '../../auth';
 
 const GAME_LABELS: Record<MultiplayerGameId, string> = {
   sudoku: 'Sudoku',
@@ -9,7 +10,13 @@ const GAME_LABELS: Record<MultiplayerGameId, string> = {
   rytmrush: 'RytmRush',
 };
 
+type SudokuDifficulty = 'easy' | 'medium' | 'hard' | 'expert';
+type NumberPathDifficulty = 'easy' | 'medium' | 'hard';
+type MatchConfig = Record<string, string | number | boolean | null>;
+
 export default function MultiplayerPage() {
+  const navigate = useNavigate();
+  const { user } = useAuth();
   const { friends } = useFriends();
   const mp = useMultiplayer();
 
@@ -19,11 +26,46 @@ export default function MultiplayerPage() {
   );
 
   const [gameId, setGameId] = useState<MultiplayerGameId>('sudoku');
+  const [sudokuDifficulty, setSudokuDifficulty] = useState<SudokuDifficulty>('medium');
+  const [numberPathDifficulty, setNumberPathDifficulty] = useState<NumberPathDifficulty>('medium');
   const [stake, setStake] = useState(25);
   const [useStake, setUseStake] = useState(true);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [message, setMessage] = useState<string | null>(null);
   const [isCreating, setIsCreating] = useState(false);
+  const [nowMs, setNowMs] = useState(() => Date.now());
+
+  useEffect(() => {
+    if (mp.grouped.starting.length === 0) return;
+
+    const timer = window.setInterval(() => {
+      const now = Date.now();
+      for (const entry of mp.grouped.starting) {
+        const startedAt = entry.match.started_at ? new Date(entry.match.started_at).getTime() : null;
+        if (!startedAt) continue;
+        if (now >= startedAt) {
+          void mp.tickMatchStart(entry.match.id);
+        }
+      }
+    }, 1000);
+
+    return () => window.clearInterval(timer);
+  }, [mp]);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      setNowMs(Date.now());
+    }, 1000);
+    return () => window.clearInterval(timer);
+  }, []);
+
+  const formatStartCountdown = (startedAt: string | null): string | null => {
+    if (!startedAt) return null;
+    const target = new Date(startedAt).getTime();
+    if (!Number.isFinite(target)) return null;
+    const remaining = Math.max(0, Math.ceil((target - nowMs) / 1000));
+    return `${remaining}s`;
+  };
 
   const toggleFriend = (id: string) => {
     setSelectedIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
@@ -33,7 +75,18 @@ export default function MultiplayerPage() {
     if (isCreating) return;
     setIsCreating(true);
     const effectiveStake = useStake ? Math.max(1, stake) : 0;
-    const err = await mp.createMatch(gameId, effectiveStake, selectedIds);
+    const config: MatchConfig =
+      gameId === 'sudoku'
+        ? { difficulty: sudokuDifficulty }
+        : gameId === 'numberpath'
+          ? { difficulty: numberPathDifficulty }
+          : { difficulty: 'easy' };
+    const configSeed = Math.floor(Math.random() * 2_000_000_000);
+
+    const err = await mp.createMatch(gameId, effectiveStake, selectedIds, {
+      config,
+      configSeed,
+    });
     setMessage(err ?? 'Match skapad ✅');
     if (!err) setSelectedIds([]);
     window.setTimeout(() => setMessage(null), 3000);
@@ -78,6 +131,37 @@ export default function MultiplayerPage() {
               <option value="rytmrush">RytmRush</option>
             </select>
           </label>
+
+          {gameId === 'sudoku' && (
+            <label className="text-sm">
+              <span className="mb-1 block text-text-muted">Sudoku-nivå (låst för alla)</span>
+              <select
+                value={sudokuDifficulty}
+                onChange={(e) => setSudokuDifficulty(e.target.value as SudokuDifficulty)}
+                className="w-full rounded-lg bg-black/30 px-3 py-2 ring-1 ring-white/10"
+              >
+                <option value="easy">Lätt</option>
+                <option value="medium">Medel</option>
+                <option value="hard">Svår</option>
+                <option value="expert">Expert</option>
+              </select>
+            </label>
+          )}
+
+          {gameId === 'numberpath' && (
+            <label className="text-sm">
+              <span className="mb-1 block text-text-muted">Sifferstigen-nivå (låst för alla)</span>
+              <select
+                value={numberPathDifficulty}
+                onChange={(e) => setNumberPathDifficulty(e.target.value as NumberPathDifficulty)}
+                className="w-full rounded-lg bg-black/30 px-3 py-2 ring-1 ring-white/10"
+              >
+                <option value="easy">Lätt</option>
+                <option value="medium">Medel</option>
+                <option value="hard">Svår</option>
+              </select>
+            </label>
+          )}
 
           <label className="text-sm">
             <span className="mb-1 block text-text-muted">Stake (coins / spelare)</span>
@@ -166,6 +250,85 @@ export default function MultiplayerPage() {
       </section>
 
       <section className="w-full max-w-2xl space-y-4">
+        <h3 className="font-semibold">Väntar på start</h3>
+        {mp.grouped.waiting.length === 0 ? (
+          <p className="text-sm text-text-muted">Inga väntande matcher.</p>
+        ) : (
+          mp.grouped.waiting.map((entry) => {
+            const game = entry.match.game_id as MultiplayerGameId;
+            const isHost = entry.match.host_id === user?.id;
+            const allAccepted = entry.players.every((p) => p.player.status === 'accepted');
+
+            return (
+              <div key={entry.match.id} className="rounded-xl bg-surface-card p-4 ring-1 ring-white/10">
+                <p className="text-sm font-semibold">{GAME_LABELS[game]} • {entry.match.stake > 0 ? `Stake ${entry.match.stake} 🪙` : 'Utan stake (bonus-läge)'}</p>
+                <p className="mt-1 text-xs text-text-muted">
+                  Accepterat: {entry.players.filter((p) => p.player.status === 'accepted').length}/{entry.players.length}
+                </p>
+                <div className="mt-2 flex gap-2">
+                  {isHost ? (
+                    <button
+                      onClick={async () => {
+                        const err = await mp.startMatch(entry.match.id, 5);
+                        setMessage(err ?? 'Matchstart synkad! Nedräkning igång ⏳');
+                        window.setTimeout(() => setMessage(null), 3000);
+                      }}
+                      disabled={!allAccepted}
+                      className="rounded-md bg-green-500/20 px-3 py-1 text-xs font-bold text-green-300 disabled:opacity-50"
+                    >
+                      Starta match
+                    </button>
+                  ) : (
+                    <span className="rounded-md bg-black/20 px-3 py-1 text-xs text-text-muted">
+                      Väntar på att hosten startar
+                    </span>
+                  )}
+                </div>
+              </div>
+            );
+          })
+        )}
+      </section>
+
+      <section className="w-full max-w-2xl space-y-4">
+        <h3 className="font-semibold">Startar nu</h3>
+        {mp.grouped.starting.length === 0 ? (
+          <p className="text-sm text-text-muted">Ingen match startar just nu.</p>
+        ) : (
+          mp.grouped.starting.map((entry) => {
+            const g = entry.match.game_id as MultiplayerGameId;
+            const countdown = formatStartCountdown(entry.match.started_at);
+            const canEnter = !countdown || countdown === '0s';
+
+            return (
+              <div key={entry.match.id} className="rounded-xl bg-surface-card p-4 ring-1 ring-white/10">
+                <p className="text-sm font-semibold">{GAME_LABELS[g]} • Gemensam start</p>
+                <p className="mt-1 text-xs text-text-muted">Start om: {countdown ?? 'snart'}</p>
+                <div className="mt-2 flex gap-2">
+                  <button
+                    onClick={() => {
+                      mp.setActiveMatch(g, entry.match.id, {
+                        config: (entry.match.config as MatchConfig | null) ?? undefined,
+                        configSeed: entry.match.config_seed ?? undefined,
+                      });
+                      if (canEnter) {
+                        navigate(mp.gamePath(g));
+                        return;
+                      }
+                      void mp.tickMatchStart(entry.match.id);
+                    }}
+                    className="rounded-md bg-brand/30 px-3 py-1 text-xs font-bold text-brand-light"
+                  >
+                    {canEnter ? 'Gå till spelet' : 'Redo i lobby'}
+                  </button>
+                </div>
+              </div>
+            );
+          })
+        )}
+      </section>
+
+      <section className="w-full max-w-2xl space-y-4">
         <h3 className="font-semibold">Aktiva matcher</h3>
         {mp.grouped.active.length === 0 ? (
           <p className="text-sm text-text-muted">Inga aktiva matcher.</p>
@@ -178,7 +341,10 @@ export default function MultiplayerPage() {
                 <div className="mt-2 flex gap-2">
                   <Link
                     to={mp.gamePath(g)}
-                    onClick={() => mp.setActiveMatch(g, entry.match.id)}
+                    onClick={() => mp.setActiveMatch(g, entry.match.id, {
+                      config: (entry.match.config as MatchConfig | null) ?? undefined,
+                      configSeed: entry.match.config_seed ?? undefined,
+                    })}
                     className="rounded-md bg-brand/30 px-3 py-1 text-xs font-bold text-brand-light"
                   >
                     Gå till spelet

@@ -9,6 +9,7 @@ import { useNumberPath } from '../hooks/useNumberPath';
 import type { Difficulty } from '../core/types';
 import { DIFFICULTY_LABELS, GRID_LABELS } from '../core/types';
 import MultiplayerLiveBanner from '../../../components/MultiplayerLiveBanner';
+import { getActiveMatchPayload } from '../../../hooks/multiplayerActive';
 
 /* ── helpers ── */
 
@@ -23,6 +24,23 @@ function fmt(seconds: number): string {
 export default function NumberPathPage() {
   const game = useNumberPath();
   const confettiFired = useRef(false);
+  const initializedRef = useRef(false);
+
+  useEffect(() => {
+    if (initializedRef.current) return;
+    initializedRef.current = true;
+
+    const active = getActiveMatchPayload('numberpath');
+    if (!active) return;
+
+    const rawDifficulty = active.config?.difficulty;
+    const matchDifficulty: Difficulty =
+      rawDifficulty === 'easy' || rawDifficulty === 'medium' || rawDifficulty === 'hard'
+        ? rawDifficulty
+        : 'medium';
+
+    void game.newGame(matchDifficulty, active.configSeed);
+  }, [game]);
 
   /* fire confetti on win */
   useEffect(() => {

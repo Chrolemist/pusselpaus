@@ -2,6 +2,7 @@
 
 import type { Difficulty, Puzzle, GridConfig, PuzzleCell } from './types';
 import { GRID_CONFIGS } from './types';
+import { createSeededRandom, normalizeSeed } from '../../../utils/seededRandom';
 
 /* ── helpers ── */
 
@@ -16,10 +17,10 @@ export function getNeighbors(pos: number, rows: number, cols: number): number[] 
   return out;
 }
 
-function shuffle<T>(arr: T[]): T[] {
+function shuffle<T>(arr: T[], rng: () => number = Math.random): T[] {
   const a = [...arr];
   for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
+    const j = Math.floor(rng() * (i + 1));
     [a[i], a[j]] = [a[j], a[i]];
   }
   return a;
@@ -27,14 +28,14 @@ function shuffle<T>(arr: T[]): T[] {
 
 /* ── Hamiltonian-path generator (Warnsdorff heuristic + backtracking) ── */
 
-function generateHamiltonianPath(rows: number, cols: number): number[] | null {
+function generateHamiltonianPath(rows: number, cols: number, rng: () => number): number[] | null {
   const total = rows * cols;
   const visited = new Uint8Array(total);
   const path: number[] = [];
   let backtracks = 0;
   const MAX_BACKTRACKS = 50_000;
 
-  const starts = shuffle(Array.from({ length: total }, (_, i) => i));
+  const starts = shuffle(Array.from({ length: total }, (_, i) => i), rng);
 
   for (const start of starts.slice(0, 8)) {
     path.length = 0;
@@ -63,7 +64,7 @@ function generateHamiltonianPath(rows: number, cols: number): number[] | null {
     while (i < scored.length) {
       let j = i;
       while (j < scored.length && scored[j].score === scored[i].score) j++;
-      ordered.push(...shuffle(scored.slice(i, j).map((s) => s.cell)));
+      ordered.push(...shuffle(scored.slice(i, j).map((s) => s.cell), rng));
       i = j;
     }
 
@@ -80,7 +81,7 @@ function generateHamiltonianPath(rows: number, cols: number): number[] | null {
 
 /* ── Clue selection ── */
 
-function selectClues(solution: number[], total: number, config: GridConfig): boolean[] {
+function selectClues(solution: number[], total: number, config: GridConfig, rng: () => number): boolean[] {
   const given = new Array<boolean>(total).fill(false);
 
   // Always reveal start (1) and end (N)
@@ -103,6 +104,7 @@ function selectClues(solution: number[], total: number, config: GridConfig): boo
   // Fill remaining randomly
   const pool = shuffle(
     Array.from({ length: total }, (_, i) => i).filter((i) => !given[i]),
+    rng,
   );
   for (const idx of pool) {
     if (revealed >= targetCount) break;
@@ -115,14 +117,15 @@ function selectClues(solution: number[], total: number, config: GridConfig): boo
 
 /* ── Public API ── */
 
-export function generatePuzzle(difficulty: Difficulty): Puzzle {
+export function generatePuzzle(difficulty: Difficulty, seed?: number): Puzzle {
+  const rng = createSeededRandom(normalizeSeed(seed));
   const config = GRID_CONFIGS[difficulty];
   const { rows, cols } = config;
   const total = rows * cols;
 
   let path: number[] | null = null;
   for (let attempt = 0; attempt < 20 && !path; attempt++) {
-    path = generateHamiltonianPath(rows, cols);
+    path = generateHamiltonianPath(rows, cols, rng);
   }
   if (!path) throw new Error('Kunde inte generera pussel');
 
@@ -132,7 +135,7 @@ export function generatePuzzle(difficulty: Difficulty): Puzzle {
     solution[cellIdx] = step + 1;
   });
 
-  const givens = selectClues(solution, total, config);
+  const givens = selectClues(solution, total, config, rng);
 
   const cells: PuzzleCell[] = solution.map((sol, i) => ({
     solution: sol,

@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { useLiveMultiplayerMatch } from '../hooks/useLiveMultiplayerMatch';
+import { useMultiplayer } from '../hooks/useMultiplayer';
 import type { MultiplayerGameId } from '../hooks/useMultiplayer';
 
 const GAME_LABELS: Record<MultiplayerGameId, string> = {
@@ -24,6 +25,7 @@ function formatRemaining(totalSeconds: number): string {
 
 export default function MultiplayerLiveBanner({ gameId }: Props) {
   const live = useLiveMultiplayerMatch(gameId);
+  const mp = useMultiplayer();
   const [nowMs, setNowMs] = useState(() => Date.now());
 
   useEffect(() => {
@@ -34,6 +36,12 @@ export default function MultiplayerLiveBanner({ gameId }: Props) {
   }, []);
 
   const hasPendingPlayers = live.acceptedPlayers.some((p) => !p.player.submitted);
+  const startCountdown = (() => {
+    if (!live.match?.started_at) return null;
+    const started = new Date(live.match.started_at).getTime();
+    if (!Number.isFinite(started)) return null;
+    return Math.max(0, Math.ceil((started - nowMs) / 1000));
+  })();
   const timeoutRemaining = (() => {
     if (!live.match?.started_at) return null;
     const started = new Date(live.match.started_at).getTime();
@@ -41,6 +49,14 @@ export default function MultiplayerLiveBanner({ gameId }: Props) {
     const deadline = started + AFK_TIMEOUT_SECONDS * 1000;
     return Math.ceil((deadline - nowMs) / 1000);
   })();
+
+  useEffect(() => {
+    if (!live.match) return;
+    if (live.match.status !== 'starting') return;
+    if (startCountdown === null) return;
+    if (startCountdown > 0) return;
+    void mp.tickMatchStart(live.match.id);
+  }, [live.match, startCountdown, mp]);
 
   if (!live.isActive || !live.match) return null;
 
@@ -86,6 +102,13 @@ export default function MultiplayerLiveBanner({ gameId }: Props) {
             ))}
           </div>
         </>
+      )}
+
+      {status === 'starting' && (
+        <div className="rounded-md bg-black/20 px-3 py-2">
+          <p className="text-sm font-bold text-accent">⏳ Gemensam start om {formatRemaining(startCountdown ?? 0)}</p>
+          <p className="text-xs text-text-muted">Alla startar samtidigt när nedräkningen når 0.</p>
+        </div>
       )}
 
       {status === 'completed' && (
