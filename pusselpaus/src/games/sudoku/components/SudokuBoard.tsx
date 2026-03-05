@@ -32,6 +32,7 @@ export default function SudokuBoard({
 
   return (
     <div
+      data-tour="sudoku-board"
       className="grid aspect-square w-full max-w-[min(90vw,400px)] grid-cols-9 grid-rows-9 gap-0 overflow-hidden rounded-xl border-2 border-brand/60"
       role="grid"
       aria-label="Sudoku-bräde"
@@ -64,6 +65,7 @@ export default function SudokuBoard({
         return (
           <button
             key={i}
+            data-tour={`cell-${i}`}
             className={`relative flex items-center justify-center ${borderR} ${borderB} ${bg} ${textColor} transition-colors duration-100 focus:outline-none`}
             style={{ fontSize: 'clamp(1rem, 4.5vw, 1.5rem)' }}
             onClick={() => onSelect(i)}

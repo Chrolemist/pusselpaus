@@ -19,6 +19,7 @@ export default function Numpad({
         {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => (
           <button
             key={n}
+            data-tour={`numpad-${n}`}
             disabled={disabled}
             onClick={() => onNumber(n)}
             className="flex aspect-square items-center justify-center rounded-lg bg-surface-card text-lg font-bold text-text shadow transition active:scale-95 disabled:opacity-30"
