@@ -128,7 +128,7 @@ export function useMultiplayer() {
   ): Promise<string | null> => {
     if (!user) return 'Ej inloggad';
     if (invitedIds.length === 0) return 'Välj minst en vän';
-    if (stake <= 0) return 'Stake måste vara > 0';
+    if (stake < 0) return 'Stake kan inte vara negativ';
 
     const { error } = await supabase.rpc('mp_create_match', {
       p_game_id: gameId,
@@ -136,7 +136,10 @@ export function useMultiplayer() {
       p_invited_ids: invitedIds,
     });
 
-    if (error) return error.message || 'Kunde inte skapa match';
+    if (error) {
+      console.error('[Multiplayer] create failed:', error);
+      return error.message || 'Kunde inte skapa match';
+    }
     await loadMatches();
     return null;
   }, [user, loadMatches]);
@@ -189,8 +192,6 @@ export function useMultiplayer() {
       console.error('[Multiplayer] submit failed:', error);
       return;
     }
-
-    localStorage.removeItem(`${ACTIVE_MATCH_KEY_PREFIX}${gameId}`);
     await loadMatches();
   }, [user, loadMatches]);
 

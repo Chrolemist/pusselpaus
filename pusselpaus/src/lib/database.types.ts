@@ -331,6 +331,13 @@ export interface Database {
         };
         Returns: void;
       };
+      mp_try_resolve_timeout: {
+        Args: {
+          p_match_id: string;
+          p_timeout_seconds?: number;
+        };
+        Returns: string;
+      };
     };
     Enums: Record<string, never>;
     CompositeTypes: Record<string, never>;

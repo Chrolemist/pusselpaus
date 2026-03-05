@@ -20,18 +20,24 @@ export default function MultiplayerPage() {
 
   const [gameId, setGameId] = useState<MultiplayerGameId>('sudoku');
   const [stake, setStake] = useState(25);
+  const [useStake, setUseStake] = useState(true);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [message, setMessage] = useState<string | null>(null);
+  const [isCreating, setIsCreating] = useState(false);
 
   const toggleFriend = (id: string) => {
     setSelectedIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
   };
 
   const create = async () => {
-    const err = await mp.createMatch(gameId, stake, selectedIds);
+    if (isCreating) return;
+    setIsCreating(true);
+    const effectiveStake = useStake ? Math.max(1, stake) : 0;
+    const err = await mp.createMatch(gameId, effectiveStake, selectedIds);
     setMessage(err ?? 'Match skapad ✅');
     if (!err) setSelectedIds([]);
     window.setTimeout(() => setMessage(null), 3000);
+    setIsCreating(false);
   };
 
   return (
@@ -40,7 +46,7 @@ export default function MultiplayerPage() {
 
       <h2 className="text-3xl font-bold">⚔️ Multiplayer</h2>
       <p className="text-center text-sm text-text-muted max-w-xl">
-        Utmana vänner med coin-insats. Alla lägger samma stake i potten — vinnaren tar allt.
+        Utmana vänner med stake eller kör utan stake. Vid stake lägger alla samma insats i potten, annars får vinnaren en bonus.
       </p>
 
       {message && (
@@ -49,6 +55,15 @@ export default function MultiplayerPage() {
 
       <section className="w-full max-w-2xl rounded-2xl bg-surface-card p-5 ring-1 ring-white/10">
         <h3 className="mb-3 font-semibold">Skapa match</h3>
+
+        <label className="mb-3 flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={useStake}
+            onChange={(e) => setUseStake(e.target.checked)}
+          />
+          <span className="text-text-muted">Använd stake (coin-insats)</span>
+        </label>
 
         <div className="mb-3 grid gap-3 sm:grid-cols-2">
           <label className="text-sm">
@@ -72,10 +87,15 @@ export default function MultiplayerPage() {
               step={1}
               value={stake}
               onChange={(e) => setStake(Math.max(1, Number(e.target.value) || 1))}
+              disabled={!useStake}
               className="w-full rounded-lg bg-black/30 px-3 py-2 ring-1 ring-white/10"
             />
           </label>
         </div>
+
+        {!useStake && (
+          <p className="mb-3 text-xs text-text-muted">Utan stake: ingen coin dras vid start. Vinnaren får multiplayer-bonus.</p>
+        )}
 
         <p className="mb-2 text-xs font-bold uppercase text-text-muted">Välj vänner att bjuda in</p>
         <div className="max-h-44 space-y-2 overflow-y-auto rounded-lg bg-black/20 p-3">
@@ -103,10 +123,10 @@ export default function MultiplayerPage() {
 
         <button
           onClick={create}
-          disabled={selectedIds.length === 0}
+          disabled={selectedIds.length === 0 || isCreating}
           className="mt-3 rounded-lg bg-brand/30 px-4 py-2 text-sm font-bold text-brand-light transition hover:bg-brand/50 disabled:opacity-50"
         >
-          Skapa multiplayer-match
+          {isCreating ? 'Skapar…' : 'Skapa multiplayer-match'}
         </button>
       </section>
 
@@ -117,7 +137,7 @@ export default function MultiplayerPage() {
         ) : (
           mp.grouped.incoming.map((entry) => (
             <div key={entry.match.id} className="rounded-xl bg-surface-card p-4 ring-1 ring-white/10">
-              <p className="text-sm font-semibold">{GAME_LABELS[entry.match.game_id as MultiplayerGameId]} • Stake {entry.match.stake} 🪙</p>
+              <p className="text-sm font-semibold">{GAME_LABELS[entry.match.game_id as MultiplayerGameId]} • {entry.match.stake > 0 ? `Stake ${entry.match.stake} 🪙` : 'Utan stake (bonus-läge)'}</p>
               <div className="mt-2 flex gap-2">
                 <button
                   onClick={async () => {
@@ -154,7 +174,7 @@ export default function MultiplayerPage() {
             const g = entry.match.game_id as MultiplayerGameId;
             return (
               <div key={entry.match.id} className="rounded-xl bg-surface-card p-4 ring-1 ring-white/10">
-                <p className="text-sm font-semibold">{GAME_LABELS[g]} • Potten växer med antal spelare</p>
+                <p className="text-sm font-semibold">{GAME_LABELS[g]} • {entry.match.stake > 0 ? 'Potten växer med antal spelare' : 'Bonus-läge utan stake'}</p>
                 <div className="mt-2 flex gap-2">
                   <Link
                     to={mp.gamePath(g)}
@@ -183,7 +203,7 @@ export default function MultiplayerPage() {
             return (
               <div key={entry.match.id} className="rounded-xl bg-black/20 px-4 py-3 ring-1 ring-white/10">
                 <p className="text-sm font-semibold">{GAME_LABELS[entry.match.game_id as MultiplayerGameId]}</p>
-                <p className="text-xs text-text-muted">Vinnare: {winner ? `${winner.username}#${winner.tag}` : 'okänd'} • Pot: {pot} 🪙</p>
+                <p className="text-xs text-text-muted">Vinnare: {winner ? `${winner.username}#${winner.tag}` : 'okänd'} • {pot > 0 ? `Pot: ${pot} 🪙` : 'Utan stake: bonus utdelad'}</p>
               </div>
             );
           })

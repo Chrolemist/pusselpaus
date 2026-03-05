@@ -10,6 +10,7 @@ import SudokuBoard from '../components/SudokuBoard';
 import Numpad from '../components/Numpad';
 import Timer from '../components/Timer';
 import DifficultyPicker from '../components/DifficultyPicker';
+import MultiplayerLiveBanner from '../../../components/MultiplayerLiveBanner';
 
 interface TutorialTarget {
   index: number;
@@ -314,6 +315,8 @@ export default function SudokuPage() {
         {state.difficulty === 'hard' && 'Svår'}
         {state.difficulty === 'expert' && 'Expert'}
       </span>
+
+      <MultiplayerLiveBanner gameId="sudoku" />
 
       <SudokuBoard
         board={state.board}

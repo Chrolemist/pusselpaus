@@ -8,6 +8,7 @@ import PathGrid from '../components/PathGrid';
 import { useNumberPath } from '../hooks/useNumberPath';
 import type { Difficulty } from '../core/types';
 import { DIFFICULTY_LABELS, GRID_LABELS } from '../core/types';
+import MultiplayerLiveBanner from '../../../components/MultiplayerLiveBanner';
 
 /* ── helpers ── */
 
@@ -103,6 +104,8 @@ export default function NumberPathPage() {
           </span>
         </p>
       </div>
+
+      <MultiplayerLiveBanner gameId="numberpath" />
 
       {/* Progress bar */}
       <div className="h-1.5 w-full max-w-sm overflow-hidden rounded-full bg-surface-card">

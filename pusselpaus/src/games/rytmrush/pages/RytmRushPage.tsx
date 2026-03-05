@@ -18,6 +18,7 @@ import { playWinJingle } from '../audio/rhythmAudio';
 import { useCoinRewards } from '../../../hooks/useCoinRewards';
 import { useServerGameStats } from '../../../hooks/useServerGameStats';
 import { useMultiplayer } from '../../../hooks/useMultiplayer';
+import MultiplayerLiveBanner from '../../../components/MultiplayerLiveBanner';
 
 /* ── Page component ── */
 
@@ -226,6 +227,10 @@ export default function RytmRushPage() {
           lastGrade={engine.lastGrade}
           gradeSeq={engine.gradeSeq}
         />
+
+        <div className="pointer-events-none absolute left-3 right-3 top-16 z-20">
+          <MultiplayerLiveBanner gameId="rytmrush" />
+        </div>
       </div>
 
       {/* Touch controls for mobile */}
@@ -318,6 +323,7 @@ function ResultsView({ engine, onBack }: ResultsViewProps) {
 
   return (
     <div className="flex min-h-dvh flex-col items-center justify-center gap-6 px-4 py-10">
+      <MultiplayerLiveBanner gameId="rytmrush" />
       <AnimatePresence>
         <motion.div
           className="flex flex-col items-center gap-4"
