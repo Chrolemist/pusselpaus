@@ -189,10 +189,16 @@ export default function NumberPathPage() {
             </p>
             <div className="flex gap-3">
               <button
-                onClick={() => game.setPhase('picking')}
+                onClick={() => game.newGame(game.puzzle!.difficulty)}
                 className="rounded-xl bg-brand px-5 py-2.5 font-semibold shadow transition active:scale-95"
               >
-                Nytt spel
+                Spela igen
+              </button>
+              <button
+                onClick={() => game.setPhase('picking')}
+                className="rounded-xl bg-surface-card px-5 py-2.5 font-semibold shadow ring-1 ring-white/10 transition hover:ring-brand/60 active:scale-95"
+              >
+                Byt nivå
               </button>
               <Link
                 to="/numberpath/stats"
