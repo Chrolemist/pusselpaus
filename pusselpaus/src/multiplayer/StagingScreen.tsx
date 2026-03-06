@@ -235,6 +235,7 @@ export default function StagingScreen({
   // Guard: prevent countdown interval recreation spam for same match
   const countdownTimerRef = useRef<number | null>(null);
   const countdownRunningForMatchRef = useRef<string | null>(null);
+  const countdownFallbackRefreshAtRef = useRef<number>(0);
   // Reset startSent when match changes (new match or match cleared)
   useEffect(() => {
     startSentRef.current = false;
@@ -247,6 +248,7 @@ export default function StagingScreen({
       countdownTimerRef.current = null;
     }
     countdownRunningForMatchRef.current = null;
+    countdownFallbackRefreshAtRef.current = 0;
   }, [activeMatchId]);
 
   // Derived stable values for the effect
@@ -367,16 +369,29 @@ export default function StagingScreen({
 
           if (
             remaining <= 0 &&
-            isHostForActiveMatch &&
             tickStartSentForMatchRef.current !== activeMatchMatchId
           ) {
             tickStartSentForMatchRef.current = activeMatchMatchId;
-            // Tick the match to in_progress — only once!
+            // Tick the match to in_progress — only once per client.
+            // Server-side function should be idempotent; this avoids single-host dependency.
             mpDebug('StagingScreen', 'countdown:tick_match_start', {
               gameId,
               matchId: activeMatchMatchId,
+              isHost: isHostForActiveMatch,
             });
             void mpRef.current.tickMatchStart(activeMatchMatchId);
+          } else if (remaining <= 0) {
+            // Fallback: if status update is delayed/missed on this client,
+            // keep forcing refresh while we're still in `starting`.
+            const now = Date.now();
+            if (now - countdownFallbackRefreshAtRef.current >= 1000) {
+              countdownFallbackRefreshAtRef.current = now;
+              mpDebug('StagingScreen', 'countdown:fallback_refresh', {
+                gameId,
+                matchId: activeMatchMatchId,
+              });
+              void mpRef.current.refresh();
+            }
           }
         };
         tick();
