@@ -537,11 +537,16 @@ export default function StagingScreen({
       skin: displaySkin(profile?.skin),
       level: profile?.level ?? null,
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      accepted:
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (player as any).ready === true ||
-        player.status === 'accepted' ||
-        (isMatchmade && player.user_id === user?.id && matchFoundAcceptedLocal),
+      accepted: isMatchmade
+        ? (
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            (player as any).ready === true ||
+            (player.user_id === user?.id && matchFoundAcceptedLocal)
+          )
+        : (
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            (player as any).ready === true || player.status === 'accepted'
+          ),
     }));
   }, [activeEntry, isMatchmade, user?.id, matchFoundAcceptedLocal]);
 
@@ -691,7 +696,6 @@ export default function StagingScreen({
     if (!isMatchmade) return;
     if (phase !== 'match-found' && phase !== 'waiting') return;
     if (!meReadyForActiveMatch) return;
-    if (activeNonForfeitedPlayers.length < 2) return;
     if (activeMatchStatus === 'starting' || activeMatchStatus === 'in_progress') return;
 
     const timer = window.setInterval(async () => {
@@ -709,7 +713,7 @@ export default function StagingScreen({
     }, 1200);
 
     return () => window.clearInterval(timer);
-  }, [activeMatchId, activeMatchStatus, gameId, isMatchmade, meReadyForActiveMatch, phase, activeNonForfeitedPlayers.length]);
+  }, [activeMatchId, activeMatchStatus, gameId, isMatchmade, meReadyForActiveMatch, phase]);
 
   // Safety net: keep pre-game state in sync even if realtime updates are delayed.
   useEffect(() => {
