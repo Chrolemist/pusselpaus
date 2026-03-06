@@ -69,9 +69,21 @@ function toBoolean(value: unknown): boolean | undefined {
   return undefined;
 }
 
+function pickRpcRow(value: unknown): Record<string, unknown> | null {
+  if (!value) return null;
+  if (Array.isArray(value)) {
+    const first = value[0];
+    return first && typeof first === 'object'
+      ? (first as Record<string, unknown>)
+      : null;
+  }
+  if (typeof value === 'object') return value as Record<string, unknown>;
+  return null;
+}
+
 function normalizeReadyResult(value: unknown): MpReadyResult | null {
-  if (!value || typeof value !== 'object') return null;
-  const row = value as Record<string, unknown>;
+  const row = pickRpcRow(value);
+  if (!row) return null;
   return {
     ok: toBoolean(row.ok),
     all_ready: toBoolean(row.all_ready) ?? toBoolean(row.allReady),
@@ -117,8 +129,8 @@ export interface MpStartIfReadyResult {
 }
 
 function normalizeStartIfReadyResult(value: unknown): MpStartIfReadyResult | null {
-  if (!value || typeof value !== 'object') return null;
-  const row = value as Record<string, unknown>;
+  const row = pickRpcRow(value);
+  if (!row) return null;
   return {
     ok: toBoolean(row.ok),
     started: toBoolean(row.started),
@@ -171,8 +183,8 @@ export interface MpReadyStateResult {
 }
 
 function normalizeReadyStateResult(value: unknown): MpReadyStateResult | null {
-  if (!value || typeof value !== 'object') return null;
-  const row = value as Record<string, unknown>;
+  const row = pickRpcRow(value);
+  if (!row) return null;
   return {
     ok: toBoolean(row.ok),
     status: typeof row.status === 'string' ? row.status : undefined,

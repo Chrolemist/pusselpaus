@@ -98,6 +98,10 @@ export default function MatchFoundOverlay({
   const onDeclineRef = useRef(onDecline);
   useEffect(() => { onDeclineRef.current = onDecline; }, [onDecline]);
 
+  const acceptedCount = acceptedCountOverride ?? players.filter((p) => p.accepted).length;
+  const totalCount = totalCountOverride ?? players.length;
+  const allAccepted = totalCount > 0 && acceptedCount >= totalCount;
+
   useEffect(() => {
     const acceptedFromPlayers = players.find((p) => p.id === myId)?.accepted === true;
     meAcceptedRef.current = hasAccepted || acceptedFromPlayers;
@@ -133,9 +137,10 @@ export default function MatchFoundOverlay({
       return;
     }
 
-    if (players.length < 2) {
+    if (totalCount < 2) {
       mpDebug('MatchFoundOverlay', 'countdown:waiting_for_players', {
         players: players.length,
+        totalCount,
         required: 2,
       });
       setSecondsLeft(timeLimit);
@@ -176,7 +181,7 @@ export default function MatchFoundOverlay({
 
       if (seconds <= 0) {
         if (timerRef.current) clearInterval(timerRef.current);
-        if (!declinedRef.current && !meAcceptedRef.current) {
+        if (!declinedRef.current && !allAccepted) {
           declinedRef.current = true;
           mpDebug('MatchFoundOverlay', 'countdown:expired_decline');
           onDeclineRef.current();
@@ -189,7 +194,7 @@ export default function MatchFoundOverlay({
       mpDebug('MatchFoundOverlay', 'countdown:cleanup_interval');
       if (timerRef.current) clearInterval(timerRef.current);
     };
-  }, [visible, timeLimit, noTimeout, enableSounds, players.length, deadlineAt]);
+  }, [visible, timeLimit, noTimeout, enableSounds, players.length, deadlineAt, totalCount, allAccepted]);
 
   /* ── Accept blip when new players accept ── */
   useEffect(() => {
@@ -203,7 +208,6 @@ export default function MatchFoundOverlay({
   /* ── Confetti when everyone accepts ── */
   useEffect(() => {
     if (!visible) return;
-    const allAccepted = players.length > 0 && players.every((p) => p.accepted);
     if (allAccepted) {
       confetti({
         particleCount: 120,
@@ -212,7 +216,7 @@ export default function MatchFoundOverlay({
         colors: ['#6366f1', '#818cf8', '#38bdf8', '#22c55e'],
       });
     }
-  }, [players, visible]);
+  }, [allAccepted, visible]);
 
   /* ── Handle accept ── */
   const handleAccept = useCallback(() => {
@@ -224,10 +228,7 @@ export default function MatchFoundOverlay({
   /* ── Derived values ── */
   const progress = secondsLeft / timeLimit;          // 1 → 0
   const dashOffset = RING_CIRCUMFERENCE * (1 - progress);
-  const allAccepted = players.length > 0 && players.every((p) => p.accepted);
   const meAccepted = hasAccepted || players.find((p) => p.id === myId)?.accepted;
-  const acceptedCount = acceptedCountOverride ?? players.filter((p) => p.accepted).length;
-  const totalCount = totalCountOverride ?? players.length;
 
   /* ── Urgency color for countdown ring ── */
   const ringColor =
