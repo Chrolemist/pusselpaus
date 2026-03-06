@@ -144,8 +144,8 @@ export default function MatchInboxPanel({ onClose }: MatchInboxPanelProps) {
             </p>
             {mp.grouped.waiting.map((entry) => {
               const isHost = entry.match.host_id === user?.id;
-              const acceptedCount = entry.players.filter(
-                (p) => p.player.status === 'accepted',
+              const readyCount = entry.players.filter(
+                (p) => p.player.ready,
               ).length;
 
               return (
@@ -157,7 +157,7 @@ export default function MatchInboxPanel({ onClose }: MatchInboxPanelProps) {
                     {gameLabel(entry.match.game_id)}
                   </p>
                   <p className="text-xs text-text-muted">
-                    {acceptedCount}/{entry.players.length} accepterat
+                    {readyCount}/{entry.players.length} redo
                     {entry.match.stake > 0
                       ? <> · {entry.match.stake} <Coins className="inline h-3 w-3 text-yellow-400" /></>
                       : ''}
@@ -168,7 +168,7 @@ export default function MatchInboxPanel({ onClose }: MatchInboxPanelProps) {
                       <span
                         key={player.user_id}
                         className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] ${
-                          player.status === 'accepted'
+                          player.ready
                             ? 'bg-green-500/20 text-green-300'
                             : player.status === 'invited'
                               ? 'bg-yellow-500/20 text-yellow-300'

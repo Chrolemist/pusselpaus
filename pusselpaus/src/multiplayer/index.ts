@@ -20,7 +20,6 @@ export {
   mpTickMatchStart,
   mpForfeitMatch,
   mpCancelMatch,
-  mpTryResolveTimeout,
 } from './api';
 
 // Hooks

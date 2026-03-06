@@ -42,7 +42,6 @@ import {
   mpForfeitMatch,
   mpCancelMatch,
   mpSubmitResult,
-  mpTryResolveTimeout,
 } from '../multiplayer/api';
 import { setActiveMatchPayload } from '../multiplayer/activeMatch';
 
@@ -159,14 +158,3 @@ describe('mpSubmitResult', () => {
   });
 });
 
-describe('mpTryResolveTimeout', () => {
-  it('returns resolve state string', async () => {
-    mockRpc.mockResolvedValue({ data: 'resolved:timeout', error: null });
-    expect(await mpTryResolveTimeout('match-1', 180)).toBe('resolved:timeout');
-  });
-
-  it('returns null on error', async () => {
-    mockRpc.mockResolvedValue({ data: null, error: { message: 'fail' } });
-    expect(await mpTryResolveTimeout('match-1')).toBeNull();
-  });
-});

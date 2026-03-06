@@ -281,7 +281,7 @@ export default function StagingScreen({
   }, [gameId, activeMatchMatchId, activeMatchStatus, activeMatchStartedAt, meForfeited, activeEntry]);
 
   const startGameOnce = useCallback(
-    (matchId: string, source: 'in_progress' | 'started_at_local') => {
+    (matchId: string, source: 'in_progress') => {
       if (gameStartedForMatchRef.current === matchId) return;
       gameStartedForMatchRef.current = matchId;
 
@@ -714,7 +714,7 @@ export default function StagingScreen({
       matchId: activeMatchId,
       matchStatus: activeEntry?.match.status ?? null,
       startSent: startSentRef.current,
-      allPlayersAccepted: activeEntry?.players.every((p) => p.player.status === 'accepted') ?? false,
+      allPlayersReady: allPlayersReady,
       isHost: activeEntry?.match.host_id === user?.id,
     });
     if (!activeMatchId) return;
@@ -1272,14 +1272,14 @@ export default function StagingScreen({
                   </div>
                   <span
                     className={`flex items-center gap-0.5 text-xs font-semibold ${
-                      player.status === 'accepted'
+                      player.ready
                         ? 'text-green-300'
                         : player.status === 'declined'
                           ? 'text-red-300'
                           : 'text-yellow-300'
                     }`}
                   >
-                    {player.status === 'accepted'
+                    {player.ready
                       ? <><Check className="h-3 w-3" /> Redo</>
                       : player.status === 'declined'
                         ? <><X className="h-3 w-3" /> Nekade</>

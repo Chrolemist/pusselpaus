@@ -195,23 +195,6 @@ export async function mpSubmitResult(
   }
 }
 
-/* ── timeout resolve ── */
-
-export async function mpTryResolveTimeout(
-  matchId: string,
-  timeoutSeconds = 180,
-): Promise<string | null> {
-  const { data, error } = await supabase.rpc('mp_try_resolve_timeout', {
-    p_match_id: matchId,
-    p_timeout_seconds: timeoutSeconds,
-  });
-  if (error) {
-    console.error('[mp] timeout resolve failed:', error);
-    return null;
-  }
-  return typeof data === 'string' ? data : null;
-}
-
 /* ── nuclear cleanup ──
  *
  *  Calls the server-side mp_force_cleanup() Postgres function which
