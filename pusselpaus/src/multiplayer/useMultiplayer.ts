@@ -257,12 +257,19 @@ export function useMultiplayer() {
 
   const startMatch = useCallback(
     async (matchId: string, countdownSeconds = 5): Promise<string | null> => {
+      const target = matches.find((entry) => entry.match.id === matchId);
+      const status = target?.match.status ?? null;
       const blocked = hasBlockingMatch(matchId);
       mpDebug('useMultiplayer', 'startMatch:called', {
         matchId,
         countdownSeconds,
         blocked,
+        status,
       });
+      if (status && status !== 'waiting') {
+        mpDebug('useMultiplayer', 'startMatch:ignored_not_waiting', { matchId, status });
+        return 'Matchen har redan startat eller är inte i vänteläge';
+      }
       if (blocked) {
         mpDebug('useMultiplayer', 'startMatch:blocked', { matchId });
         return 'Du har redan en annan aktiv multiplayer-match';
@@ -276,7 +283,7 @@ export function useMultiplayer() {
       if (!err) await loadMatches();
       return err;
     },
-    [loadMatches, hasBlockingMatch],
+    [loadMatches, hasBlockingMatch, matches],
   );
 
   const tickMatchStart = useCallback(

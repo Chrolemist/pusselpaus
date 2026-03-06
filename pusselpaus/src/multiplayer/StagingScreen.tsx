@@ -221,8 +221,13 @@ export default function StagingScreen({
 
   // Guard: prevent auto-start from calling mp.startMatch multiple times
   const startSentRef = useRef(false);
+  // Guard: prevent countdown tick RPC from firing repeatedly for same match
+  const tickStartSentForMatchRef = useRef<string | null>(null);
   // Reset startSent when match changes (new match or match cleared)
-  useEffect(() => { startSentRef.current = false; }, [activeMatchId]);
+  useEffect(() => {
+    startSentRef.current = false;
+    tickStartSentForMatchRef.current = null;
+  }, [activeMatchId]);
 
   // Derived stable values for the effect
   const activeMatchStatus = activeEntry?.match.status;
@@ -279,7 +284,6 @@ export default function StagingScreen({
       });
 
       if (startedAt) {
-        let tickSent = false;
         const tick = () => {
           const remaining = Math.max(0, Math.ceil((startedAt - Date.now()) / 1000));
           setCountdownValue(remaining);
@@ -288,11 +292,11 @@ export default function StagingScreen({
               gameId,
               matchId: activeMatchMatchId,
               remaining,
-              tickSent,
+              tickSentForMatch: tickStartSentForMatchRef.current,
             });
           }
-          if (remaining <= 0 && !tickSent) {
-            tickSent = true;
+          if (remaining <= 0 && tickStartSentForMatchRef.current !== activeMatchMatchId) {
+            tickStartSentForMatchRef.current = activeMatchMatchId;
             // Tick the match to in_progress — only once!
             mpDebug('StagingScreen', 'countdown:tick_match_start', {
               gameId,
