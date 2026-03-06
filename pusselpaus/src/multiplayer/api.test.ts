@@ -36,6 +36,8 @@ vi.mock('../lib/supabaseClient', () => ({
 import {
   mpCreateMatch,
   mpAcceptInvite,
+  mpMarkReady,
+  mpReadyState,
   mpDeclineInvite,
   mpStartIfReady,
   mpTickMatchStart,
@@ -106,6 +108,46 @@ describe('mpStartIfReady', () => {
       p_match_id: 'match-1',
       p_countdown_seconds: 5,
     });
+  });
+
+  it('normalizes array RPC response shape', async () => {
+    mockRpc.mockResolvedValue({
+      data: [{ ok: true, started: true, ready_count: 2, total_count: 2, started_at: '2026-03-06T20:00:00Z' }],
+      error: null,
+    });
+    const result = await mpStartIfReady('match-1', 3);
+    expect(result.error).toBeNull();
+    expect(result.data?.started).toBe(true);
+    expect(result.data?.ready_count).toBe(2);
+    expect(result.data?.total_count).toBe(2);
+  });
+});
+
+describe('ready RPC normalization', () => {
+  it('normalizes mp_mark_ready array response', async () => {
+    mockRpc.mockResolvedValue({
+      data: [{ ok: true, all_ready: false, ready_count: 1, total_count: 2 }],
+      error: null,
+    });
+    const result = await mpMarkReady('match-1');
+    expect(result.error).toBeNull();
+    expect(result.data?.ready_count).toBe(1);
+    expect(result.data?.total_count).toBe(2);
+    expect(result.data?.all_ready).toBe(false);
+  });
+
+  it('normalizes mp_ready_state array response', async () => {
+    mockRpc.mockResolvedValue({
+      data: [{ ok: true, status: 'waiting', all_ready: true, ready_count: 2, total_count: 2, me_ready: true }],
+      error: null,
+    });
+    const result = await mpReadyState('match-1');
+    expect(result.error).toBeNull();
+    expect(result.data?.status).toBe('waiting');
+    expect(result.data?.all_ready).toBe(true);
+    expect(result.data?.ready_count).toBe(2);
+    expect(result.data?.total_count).toBe(2);
+    expect(result.data?.me_ready).toBe(true);
   });
 });
 
