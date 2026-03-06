@@ -223,6 +223,8 @@ export default function StagingScreen({
   const startSentRef = useRef(false);
   // Guard: prevent countdown tick RPC from firing repeatedly for same match
   const tickStartSentForMatchRef = useRef<string | null>(null);
+  // Guard: ensure game onStart is invoked only once per match
+  const gameStartedForMatchRef = useRef<string | null>(null);
   // Guard: prevent countdown interval recreation spam for same match
   const countdownTimerRef = useRef<number | null>(null);
   const countdownRunningForMatchRef = useRef<string | null>(null);
@@ -230,6 +232,7 @@ export default function StagingScreen({
   useEffect(() => {
     startSentRef.current = false;
     tickStartSentForMatchRef.current = null;
+    gameStartedForMatchRef.current = null;
     if (countdownTimerRef.current) {
       window.clearInterval(countdownTimerRef.current);
       countdownTimerRef.current = null;
@@ -338,6 +341,12 @@ export default function StagingScreen({
         countdownTimerRef.current = null;
       }
       countdownRunningForMatchRef.current = null;
+
+      if (gameStartedForMatchRef.current === activeMatchMatchId) {
+        return;
+      }
+      gameStartedForMatchRef.current = activeMatchMatchId;
+
       mpDebug('StagingScreen', 'status_effect:in_progress_onStart', {
         gameId,
         matchId: activeMatchMatchId,
