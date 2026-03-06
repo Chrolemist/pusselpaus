@@ -863,7 +863,10 @@ export default function StagingScreen({
     const matchId = activeMatchIdRef.current;
     if (!matchId) return;
     const p = phaseRef.current;
-    if (p !== 'waiting' && p !== 'countdown' && p !== 'playing') return;
+    // Only auto-forfeit while actively playing.
+    // Pre-game phases (match-found/waiting/countdown) must not be cleaned up
+    // just because the user switches tab/window.
+    if (p !== 'playing') return;
 
     void (async () => {
       mpDebug('StagingScreen', 'forfeitNow:request_force_cleanup', {
@@ -895,31 +898,6 @@ export default function StagingScreen({
     };
     window.addEventListener('beforeunload', onBeforeUnload);
     return () => window.removeEventListener('beforeunload', onBeforeUnload);
-  }, [forfeitNow]);
-
-  /* ── Auto-forfeit on tab hidden (mobile tab switch / app minimize) ──
-   *  Random matches: forfeit after 5s hidden
-   *  Friend matches: forfeit after 30s hidden (more forgiving)
-   */
-  useEffect(() => {
-    let hiddenTimer: ReturnType<typeof setTimeout> | null = null;
-
-    const onVisibility = () => {
-      if (document.hidden) {
-        const delay = isMatchmadeRef.current ? 5_000 : 30_000;
-        hiddenTimer = setTimeout(() => {
-          forfeitNow();
-        }, delay);
-      } else {
-        if (hiddenTimer) { clearTimeout(hiddenTimer); hiddenTimer = null; }
-      }
-    };
-
-    document.addEventListener('visibilitychange', onVisibility);
-    return () => {
-      document.removeEventListener('visibilitychange', onVisibility);
-      if (hiddenTimer) clearTimeout(hiddenTimer);
-    };
   }, [forfeitNow]);
 
   /* ── If phase is 'playing', render the actual game ── */
