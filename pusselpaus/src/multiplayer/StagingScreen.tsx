@@ -599,14 +599,37 @@ export default function StagingScreen({
     if (isMatchmade) {
       setMatchFoundAcceptedLocal(true);
       void mpRef.current.refresh();
-      if (readyData) {
-        setServerReadyCount(readyData.ready_count ?? null);
-        setServerTotalCount(readyData.total_count ?? null);
-        setServerAllReady(readyData.all_ready ?? null);
+
+      let resolvedReadyData = readyData;
+      if (
+        !resolvedReadyData ||
+        resolvedReadyData.ready_count == null ||
+        resolvedReadyData.total_count == null
+      ) {
+        const readyStateSnapshot = await mpRef.current.readyState(activeMatchId);
+        mpDebug('StagingScreen', 'accept:ready_state_fallback', {
+          gameId,
+          matchId: activeMatchId,
+          error: readyStateSnapshot.error,
+          data: readyStateSnapshot.data ?? null,
+        });
+        if (readyStateSnapshot.data) {
+          resolvedReadyData = {
+            all_ready: readyStateSnapshot.data.all_ready,
+            ready_count: readyStateSnapshot.data.ready_count,
+            total_count: readyStateSnapshot.data.total_count,
+          };
+        }
+      }
+
+      if (resolvedReadyData) {
+        setServerReadyCount(resolvedReadyData.ready_count ?? null);
+        setServerTotalCount(resolvedReadyData.total_count ?? null);
+        setServerAllReady(resolvedReadyData.all_ready ?? null);
       }
       if (err) {
         flash('Backend saknar ready-state migration. Kör SQL-migrationen först.');
-      } else if ((readyData?.all_ready === true) && ((readyData?.total_count ?? 0) >= 2)) {
+      } else if ((resolvedReadyData?.all_ready === true) && ((resolvedReadyData?.total_count ?? 0) >= 2)) {
         mpDebug('StagingScreen', 'accept:start_probe_request', {
           gameId,
           matchId: activeMatchId,

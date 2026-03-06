@@ -69,20 +69,87 @@ function toBoolean(value: unknown): boolean | undefined {
   return undefined;
 }
 
+function normalizeKey(key: string): string {
+  return key.toLowerCase().replace(/[^a-z0-9]/g, '');
+}
+
+function readField(row: Record<string, unknown>, keys: string[]): unknown {
+  for (const key of keys) {
+    if (key in row) return row[key];
+  }
+
+  const normalizedMap = new Map<string, unknown>();
+  for (const [rawKey, value] of Object.entries(row)) {
+    normalizedMap.set(normalizeKey(rawKey), value);
+  }
+  for (const key of keys) {
+    const normalized = normalizeKey(key);
+    if (normalizedMap.has(normalized)) return normalizedMap.get(normalized);
+  }
+  return undefined;
+}
+
+const RPC_HINT_KEYS = [
+  'ok',
+  'all_ready',
+  'allReady',
+  'ready_count',
+  'readyCount',
+  'total_count',
+  'totalCount',
+  'me_ready',
+  'meReady',
+  'status',
+  'reason',
+  'started',
+  'started_at',
+  'startedAt',
+] as const;
+
+function hasRpcHints(row: Record<string, unknown>): boolean {
+  return RPC_HINT_KEYS.some((key) => readField(row, [key]) !== undefined);
+}
+
 function pickRpcRow(value: unknown): Record<string, unknown> | null {
   if (!value) return null;
   if (Array.isArray(value)) {
-    const first = value[0];
-    if (first && typeof first === 'object') {
-      return pickRpcRow(first);
+    for (const item of value) {
+      const row = pickRpcRow(item);
+      if (row) return row;
     }
     return null;
   }
   if (typeof value === 'object') {
     const row = value as Record<string, unknown>;
+    if (hasRpcHints(row)) return row;
+
     const nested = row.data ?? row.result ?? row.payload;
     if (nested !== undefined) {
       const nestedRow = pickRpcRow(nested);
+      if (nestedRow) {
+        return {
+          ...row,
+          ...nestedRow,
+        };
+      }
+    }
+
+    const objectEntries = Object.entries(row).filter(([, entryValue]) => (
+      entryValue !== null && typeof entryValue === 'object'
+    ));
+    if (objectEntries.length === 1) {
+      const [, singleNested] = objectEntries[0];
+      const nestedRow = pickRpcRow(singleNested);
+      if (nestedRow) {
+        return {
+          ...row,
+          ...nestedRow,
+        };
+      }
+    }
+
+    for (const [, entryValue] of objectEntries) {
+      const nestedRow = pickRpcRow(entryValue);
       if (nestedRow) {
         return {
           ...row,
@@ -99,12 +166,12 @@ function normalizeReadyResult(value: unknown): MpReadyResult | null {
   const row = pickRpcRow(value);
   if (!row) return null;
   return {
-    ok: toBoolean(row.ok),
-    all_ready: toBoolean(row.all_ready) ?? toBoolean(row.allReady),
-    ready_count: toNumber(row.ready_count) ?? toNumber(row.readyCount),
-    total_count: toNumber(row.total_count) ?? toNumber(row.totalCount),
-    status: typeof row.status === 'string' ? row.status : undefined,
-    reason: typeof row.reason === 'string' ? row.reason : undefined,
+    ok: toBoolean(readField(row, ['ok'])),
+    all_ready: toBoolean(readField(row, ['all_ready', 'allReady'])),
+    ready_count: toNumber(readField(row, ['ready_count', 'readyCount'])),
+    total_count: toNumber(readField(row, ['total_count', 'totalCount'])),
+    status: typeof readField(row, ['status']) === 'string' ? (readField(row, ['status']) as string) : undefined,
+    reason: typeof readField(row, ['reason']) === 'string' ? (readField(row, ['reason']) as string) : undefined,
   };
 }
 
@@ -146,13 +213,16 @@ function normalizeStartIfReadyResult(value: unknown): MpStartIfReadyResult | nul
   const row = pickRpcRow(value);
   if (!row) return null;
   return {
-    ok: toBoolean(row.ok),
-    started: toBoolean(row.started),
-    status: typeof row.status === 'string' ? row.status : undefined,
-    reason: typeof row.reason === 'string' ? row.reason : undefined,
-    started_at: typeof row.started_at === 'string' ? row.started_at : null,
-    ready_count: toNumber(row.ready_count) ?? toNumber(row.readyCount),
-    total_count: toNumber(row.total_count) ?? toNumber(row.totalCount),
+    ok: toBoolean(readField(row, ['ok'])),
+    started: toBoolean(readField(row, ['started'])),
+    status: typeof readField(row, ['status']) === 'string' ? (readField(row, ['status']) as string) : undefined,
+    reason: typeof readField(row, ['reason']) === 'string' ? (readField(row, ['reason']) as string) : undefined,
+    started_at: ((): string | null => {
+      const candidate = readField(row, ['started_at', 'startedAt']);
+      return typeof candidate === 'string' ? candidate : null;
+    })(),
+    ready_count: toNumber(readField(row, ['ready_count', 'readyCount'])),
+    total_count: toNumber(readField(row, ['total_count', 'totalCount'])),
   };
 }
 
@@ -200,13 +270,16 @@ function normalizeReadyStateResult(value: unknown): MpReadyStateResult | null {
   const row = pickRpcRow(value);
   if (!row) return null;
   return {
-    ok: toBoolean(row.ok),
-    status: typeof row.status === 'string' ? row.status : undefined,
-    all_ready: toBoolean(row.all_ready) ?? toBoolean(row.allReady),
-    ready_count: toNumber(row.ready_count) ?? toNumber(row.readyCount),
-    total_count: toNumber(row.total_count) ?? toNumber(row.totalCount),
-    me_ready: toBoolean(row.me_ready) ?? toBoolean(row.meReady),
-    started_at: typeof row.started_at === 'string' ? row.started_at : null,
+    ok: toBoolean(readField(row, ['ok'])),
+    status: typeof readField(row, ['status']) === 'string' ? (readField(row, ['status']) as string) : undefined,
+    all_ready: toBoolean(readField(row, ['all_ready', 'allReady'])),
+    ready_count: toNumber(readField(row, ['ready_count', 'readyCount'])),
+    total_count: toNumber(readField(row, ['total_count', 'totalCount'])),
+    me_ready: toBoolean(readField(row, ['me_ready', 'meReady'])),
+    started_at: ((): string | null => {
+      const candidate = readField(row, ['started_at', 'startedAt']);
+      return typeof candidate === 'string' ? candidate : null;
+    })(),
   };
 }
 
