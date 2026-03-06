@@ -94,18 +94,12 @@ export default function MatchFoundOverlay({
   const prevAcceptCount = useRef(0);
   const prevSecondsRef = useRef<number | null>(null);
   const declinedRef = useRef(false);
-  const meAcceptedRef = useRef(false);
   const onDeclineRef = useRef(onDecline);
   useEffect(() => { onDeclineRef.current = onDecline; }, [onDecline]);
 
   const acceptedCount = acceptedCountOverride ?? players.filter((p) => p.accepted).length;
   const totalCount = totalCountOverride ?? players.length;
   const allAccepted = totalCount > 0 && acceptedCount >= totalCount;
-
-  useEffect(() => {
-    const acceptedFromPlayers = players.find((p) => p.id === myId)?.accepted === true;
-    meAcceptedRef.current = hasAccepted || acceptedFromPlayers;
-  }, [players, myId, hasAccepted]);
 
   /* ── Play match-found sound when overlay opens ── */
   useEffect(() => {
