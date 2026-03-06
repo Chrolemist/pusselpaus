@@ -88,8 +88,14 @@ export default function MatchFoundOverlay({
   const prevAcceptCount = useRef(0);
   const prevSecondsRef = useRef<number | null>(null);
   const declinedRef = useRef(false);
+  const meAcceptedRef = useRef(false);
   const onDeclineRef = useRef(onDecline);
   useEffect(() => { onDeclineRef.current = onDecline; }, [onDecline]);
+
+  useEffect(() => {
+    const acceptedFromPlayers = players.find((p) => p.id === myId)?.accepted === true;
+    meAcceptedRef.current = hasAccepted || acceptedFromPlayers;
+  }, [players, myId, hasAccepted]);
 
   /* ── Play match-found sound when overlay opens ── */
   useEffect(() => {
@@ -164,7 +170,7 @@ export default function MatchFoundOverlay({
 
       if (seconds <= 0) {
         if (timerRef.current) clearInterval(timerRef.current);
-        if (!declinedRef.current) {
+        if (!declinedRef.current && !meAcceptedRef.current) {
           declinedRef.current = true;
           mpDebug('MatchFoundOverlay', 'countdown:expired_decline');
           onDeclineRef.current();
