@@ -291,6 +291,11 @@ export default function StagingScreen({
     }
 
     if (activeMatchStatus === 'starting') {
+      if (isMatchmade && !matchFoundAcceptedLocal) {
+        setPhase('match-found');
+        return;
+      }
+
       // Start the countdown
       const startedAt = activeMatchStartedAt
         ? new Date(activeMatchStartedAt).getTime()
@@ -349,6 +354,11 @@ export default function StagingScreen({
     }
 
     if (activeMatchStatus === 'in_progress') {
+      if (isMatchmade && !matchFoundAcceptedLocal) {
+        setPhase('match-found');
+        return;
+      }
+
       if (countdownTimerRef.current) {
         window.clearInterval(countdownTimerRef.current);
         countdownTimerRef.current = null;
@@ -373,7 +383,7 @@ export default function StagingScreen({
         matchId: activeMatchMatchId,
       });
     }
-  }, [activeMatchStatus, activeMatchStartedAt, activeMatchMatchId, activeMatchConfigSeed, activeMatchConfig, activeMatchHostId, isHostForActiveMatch, meForfeited, difficulty, gameId]);
+  }, [activeMatchStatus, activeMatchStartedAt, activeMatchMatchId, activeMatchConfigSeed, activeMatchConfig, activeMatchHostId, isHostForActiveMatch, meForfeited, difficulty, gameId, isMatchmade, matchFoundAcceptedLocal]);
 
   useEffect(() => {
     return () => {
@@ -467,13 +477,13 @@ export default function StagingScreen({
       return;
     }
     if (existingMatch.match.status === 'starting') {
-      setPhase('countdown');
+      setPhase(matchFoundAcceptedLocal ? 'countdown' : 'match-found');
       return;
     }
     if (existingMatch.match.status === 'in_progress') {
-      setPhase('playing');
+      setPhase(matchFoundAcceptedLocal ? 'playing' : 'match-found');
     }
-  }, [phase, activeMatchId, mp.matches, gameId, mm.status]);
+  }, [phase, activeMatchId, mp.matches, gameId, mm.status, matchFoundAcceptedLocal]);
 
   /* ── Overlay: derive MatchPlayer[] from activeEntry ── */
   const overlayPlayers = useMemo<MatchPlayer[]>(() => {
@@ -497,6 +507,7 @@ export default function StagingScreen({
     // Matchmade players are already accepted server-side by queue join.
     if (isMatchmade) {
       setMatchFoundAcceptedLocal(true);
+      void mpRef.current.refresh();
       return;
     }
     await mp.acceptInvite(activeMatchId);
@@ -505,7 +516,11 @@ export default function StagingScreen({
   /* ── Overlay: decline handler ── */
   const handleOverlayDecline = useCallback(async () => {
     if (activeMatchId) {
-      await mp.declineInvite(activeMatchId);
+      if (isMatchmade) {
+        await mpForceCleanupActiveMatches();
+      } else {
+        await mp.declineInvite(activeMatchId);
+      }
     }
     clearActiveMatch(gameId);
     setActiveMatchId(null);
@@ -513,7 +528,8 @@ export default function StagingScreen({
     setIsMatchmade(false);
     setMatchFoundAcceptedLocal(false);
     setPhase('staging');
-  }, [activeMatchId, gameId, mp]);
+    await mp.refresh();
+  }, [activeMatchId, gameId, isMatchmade, mp]);
 
   /* ── Auto-start when all players accept ── */
   // Derived stable primitives for the auto-start effect

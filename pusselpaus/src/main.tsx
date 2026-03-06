@@ -63,6 +63,21 @@ window.addEventListener('error', (event) => {
   const message = String(event.message ?? '');
   if (message.includes('Failed to fetch dynamically imported module')) {
     tryRecoverChunkError();
+    return;
+  }
+
+  const target = event.target;
+  if (!(target instanceof HTMLElement)) return;
+
+  if (target instanceof HTMLScriptElement || target instanceof HTMLLinkElement) {
+    const source =
+      target instanceof HTMLScriptElement
+        ? target.src
+        : target.href;
+
+    if (source.includes('/assets/')) {
+      tryRecoverChunkError();
+    }
   }
 });
 
