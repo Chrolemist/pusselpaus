@@ -8,6 +8,7 @@ import { useFriends } from '../../hooks/useFriends';
 import { useMultiplayer } from '../../multiplayer';
 import { levelProgress } from '../../core/xp';
 import { displaySkin } from '../../core/skin';
+import { Coins, Store, Trophy, Swords, Users, LogOut } from 'lucide-react';
 import FriendsPanel from './FriendsPanel.tsx';
 import MatchInboxPanel from './MatchInboxPanel.tsx';
 
@@ -174,8 +175,8 @@ export default function TopBar() {
           </div>
 
           {/* Coins */}
-          <div className="flex items-center gap-1 rounded-full bg-yellow-500/20 px-3 py-1">
-            <span className="text-sm">🪙</span>
+          <div className="flex items-center gap-1.5 rounded-full bg-yellow-500/20 px-3 py-1">
+            <Coins className="h-4 w-4 text-yellow-400" />
             <span className="font-mono text-sm font-bold text-yellow-300">
               {displayCoins.toLocaleString('sv-SE')}
             </span>
@@ -193,26 +194,26 @@ export default function TopBar() {
 
           <Link
             to="/shop"
-            className="text-sm text-text-muted hover:text-brand-light transition"
+            className="text-text-muted hover:text-brand-light transition"
             title="Skinshop"
           >
-            🛍️
+            <Store className="h-[18px] w-[18px]" />
           </Link>
 
           <Link
             to="/friends-leaderboard"
-            className="text-sm text-text-muted hover:text-brand-light transition"
+            className="text-text-muted hover:text-brand-light transition"
             title="Vänligan"
           >
-            🏆
+            <Trophy className="h-[18px] w-[18px]" />
           </Link>
 
           <button
             onClick={() => { setShowMatches((v) => !v); setShowFriends(false); }}
-            className="relative text-sm text-text-muted hover:text-brand-light transition"
+            className="relative text-text-muted hover:text-brand-light transition"
             title="Matcher"
           >
-            ⚔️
+            <Swords className="h-[18px] w-[18px]" />
             {incomingInviteCount > 0 && (
               <span className="absolute -right-2 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">
                 {incomingInviteCount > 9 ? '9+' : incomingInviteCount}
@@ -222,10 +223,10 @@ export default function TopBar() {
 
           <button
             onClick={() => { setShowFriends((v) => !v); setShowMatches(false); }}
-            className="relative text-lg hover:scale-110 transition"
+            className="relative text-text-muted hover:text-brand-light hover:scale-110 transition"
             title="Vänner"
           >
-            👥
+            <Users className="h-[18px] w-[18px]" />
             {incomingFriendCount > 0 && (
               <span className="absolute -right-2 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">
                 {incomingFriendCount > 9 ? '9+' : incomingFriendCount}
@@ -235,8 +236,9 @@ export default function TopBar() {
 
           <button
             onClick={signOut}
-            className="rounded-lg bg-red-500/20 px-3 py-1.5 text-xs font-bold text-red-400 transition hover:bg-red-500/40 active:scale-95"
+            className="flex items-center gap-1.5 rounded-lg bg-red-500/20 px-3 py-1.5 text-xs font-bold text-red-400 transition hover:bg-red-500/40 active:scale-95"
           >
+            <LogOut className="h-3.5 w-3.5" />
             Logga ut
           </button>
         </div>
@@ -252,7 +254,7 @@ export default function TopBar() {
               key={notice.id}
               className="pointer-events-auto flex items-center gap-2 rounded-xl border border-white/10 bg-surface-card/95 px-3 py-2 text-sm shadow-lg backdrop-blur"
             >
-              <span>{notice.kind === 'friend' ? '👥' : '⚔️'}</span>
+              <span>{notice.kind === 'friend' ? <Users className="h-4 w-4" /> : <Swords className="h-4 w-4" />}</span>
               <span className="text-text-muted">{notice.message}</span>
               {notice.kind === 'friend' ? (
                 <button

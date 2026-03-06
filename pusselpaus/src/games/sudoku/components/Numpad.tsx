@@ -1,3 +1,5 @@
+import { Delete, PenLine } from 'lucide-react';
+
 interface Props {
   onNumber: (n: number) => void;
   onErase: () => void;
@@ -35,7 +37,7 @@ export default function Numpad({
           onClick={onErase}
           className="flex items-center justify-center gap-2 rounded-lg bg-surface-card py-3 text-sm font-medium text-text-muted shadow transition active:scale-95 disabled:opacity-30"
         >
-          ⌫ Sudda
+          <Delete className="h-4 w-4" /> Sudda
         </button>
         <button
           disabled={disabled}
@@ -46,7 +48,7 @@ export default function Numpad({
               : 'bg-surface-card text-text-muted'
           }`}
         >
-          ✏️ Anteckna {noteMode ? 'PÅ' : 'AV'}
+          <PenLine className="h-4 w-4" /> Anteckna {noteMode ? 'PÅ' : 'AV'}
         </button>
       </div>
     </div>

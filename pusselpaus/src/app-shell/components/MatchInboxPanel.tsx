@@ -8,6 +8,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'motion/react';
+import { Swords, X, Coins, Check, Rocket, Trophy } from 'lucide-react';
 import { useAuth } from '../../auth';
 import {
   useMultiplayer,
@@ -59,9 +60,9 @@ export default function MatchInboxPanel({ onClose }: MatchInboxPanelProps) {
     >
       {/* Header */}
       <div className="flex items-center justify-between border-b border-white/10 px-4 py-3">
-        <h3 className="text-lg font-bold">⚔️ Matcher</h3>
+        <h3 className="flex items-center gap-1.5 text-lg font-bold"><Swords className="h-5 w-5" /> Matcher</h3>
         <button onClick={onClose} className="text-text-muted hover:text-white transition">
-          ✕
+          <X className="h-4 w-4" />
         </button>
       </div>
 
@@ -94,7 +95,7 @@ export default function MatchInboxPanel({ onClose }: MatchInboxPanelProps) {
                   <p className="text-xs text-text-muted">
                     Från {host ? <>{displaySkin(host.skin)} {host.username} <LevelBadge level={host.level} /></> : 'okänd'}
                     {entry.match.stake > 0
-                      ? ` · Stake ${entry.match.stake} 🪙`
+                      ? <> · Stake {entry.match.stake} <Coins className="inline h-3 w-3 text-yellow-400" /></>
                       : ' · Utan stake'}
                   </p>
                   <div className="mt-2 flex gap-2">
@@ -115,18 +116,18 @@ export default function MatchInboxPanel({ onClose }: MatchInboxPanelProps) {
                           navigate(gamePath(g));
                         }
                       }}
-                      className="rounded-md bg-green-500/20 px-3 py-1.5 text-xs font-bold text-green-300 transition hover:bg-green-500/40 active:scale-95"
+                      className="flex items-center gap-1 rounded-md bg-green-500/20 px-3 py-1.5 text-xs font-bold text-green-300 transition hover:bg-green-500/40 active:scale-95"
                     >
-                      ✓ Acceptera
+                      <Check className="h-3 w-3" /> Acceptera
                     </button>
                     <button
                       onClick={async () => {
                         const err = await mp.declineInvite(entry.match.id);
                         flash(err ?? 'Nekad');
                       }}
-                      className="rounded-md bg-red-500/20 px-3 py-1.5 text-xs font-bold text-red-300 transition hover:bg-red-500/40 active:scale-95"
+                      className="flex items-center gap-1 rounded-md bg-red-500/20 px-3 py-1.5 text-xs font-bold text-red-300 transition hover:bg-red-500/40 active:scale-95"
                     >
-                      ✕ Neka
+                      <X className="h-3 w-3" /> Neka
                     </button>
                   </div>
                 </div>
@@ -161,7 +162,7 @@ export default function MatchInboxPanel({ onClose }: MatchInboxPanelProps) {
                   <p className="text-xs text-text-muted">
                     {acceptedCount}/{entry.players.length} accepterat
                     {entry.match.stake > 0
-                      ? ` · ${entry.match.stake} 🪙`
+                      ? <> · {entry.match.stake} <Coins className="inline h-3 w-3 text-yellow-400" /></>
                       : ''}
                   </p>
 
@@ -235,9 +236,9 @@ export default function MatchInboxPanel({ onClose }: MatchInboxPanelProps) {
                 </p>
                 <button
                   onClick={() => goToGame(entry)}
-                  className="mt-2 w-full rounded-lg bg-brand/30 px-3 py-2 text-sm font-bold text-brand-light transition hover:bg-brand/50 active:scale-95"
+                  className="mt-2 w-full flex items-center justify-center gap-1.5 rounded-lg bg-brand/30 px-3 py-2 text-sm font-bold text-brand-light transition hover:bg-brand/50 active:scale-95"
                 >
-                  🚀 Gå till spelet
+                  <Rocket className="h-3.5 w-3.5" /> Gå till spelet
                 </button>
               </div>
             ))}
@@ -297,15 +298,15 @@ export default function MatchInboxPanel({ onClose }: MatchInboxPanelProps) {
                     <p className="text-sm font-semibold">
                       {gameLabel(entry.match.game_id)}
                     </p>
-                    <span className={`text-xs font-bold ${isMe ? 'text-success' : 'text-text-muted'}`}>
-                      {isMe ? '🏆 Vinst!' : 'Förlust'}
+                    <span className={`flex items-center gap-1 text-xs font-bold ${isMe ? 'text-success' : 'text-text-muted'}`}>
+                      {isMe ? <><Trophy className="h-3 w-3" /> Vinst!</> : 'Förlust'}
                     </span>
                   </div>
                   <p className="text-xs text-text-muted">
                     Vinnare: {winner
                       ? <>{displaySkin(winner.skin)} {winner.username} <LevelBadge level={winner.level} /></>
                       : 'okänd'}
-                    {pot > 0 ? ` · ${pot} 🪙` : ''}
+                    {pot > 0 ? <> · {pot} <Coins className="inline h-3 w-3 text-yellow-400" /></> : ''}
                   </p>
                 </div>
               );
@@ -316,7 +317,7 @@ export default function MatchInboxPanel({ onClose }: MatchInboxPanelProps) {
         {/* ── Empty state ── */}
         {!mp.loading && totalBadge === 0 && mp.grouped.completed.length === 0 && (
           <div className="flex flex-col items-center gap-3 py-8 text-center">
-            <span className="text-4xl">⚔️</span>
+            <Swords className="h-10 w-10 text-brand-light" />
             <p className="text-sm text-text-muted">
               Inga matcher just nu.
             </p>

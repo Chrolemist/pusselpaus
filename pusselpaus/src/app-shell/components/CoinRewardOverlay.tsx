@@ -17,6 +17,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
+import { Flame } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
 /* ── Constants ── */
@@ -348,7 +349,7 @@ export default function CoinRewardOverlay() {
                 animate={{ opacity: 1 }}
                 transition={{ delay: 0.6 }}
               >
-                🔥 Bra jobbat!
+                                <Flame className="inline h-3 w-3" /> Bra jobbat!
               </motion.p>
             )}
 

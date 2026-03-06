@@ -6,6 +6,7 @@ import { supabase } from '../../lib/supabaseClient';
 import type { UserGameStat } from '../../lib/database.types';
 import LevelBadge from '../../components/LevelBadge';
 import { displaySkin } from '../../core/skin';
+import { ArrowLeft, Trophy } from 'lucide-react';
 
 interface LeaderboardRow {
   id: string;
@@ -134,9 +135,13 @@ export default function FriendsLeaderboardPage() {
 
   return (
     <div className="flex min-h-full flex-col items-center gap-6 px-4 py-10">
-      <Link to="/" className="self-start text-sm text-text-muted hover:text-brand-light">← Tillbaka</Link>
+      <Link to="/" className="flex items-center gap-1 self-start text-sm text-text-muted hover:text-brand-light">
+        <ArrowLeft className="h-4 w-4" /> Tillbaka
+      </Link>
 
-      <h2 className="text-3xl font-bold">🏆 Vänligan</h2>
+      <h2 className="flex items-center gap-2 text-3xl font-bold">
+        <Trophy className="h-7 w-7 text-yellow-400" /> Vänligan
+      </h2>
       <p className="text-sm text-text-muted text-center">
         Ranking baseras på vinster först, sedan bästa score.
       </p>

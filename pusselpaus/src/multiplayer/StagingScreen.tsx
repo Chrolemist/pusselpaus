@@ -17,6 +17,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'motion/react';
+import { ArrowLeft, Users, Search, Clock, X, Check } from 'lucide-react';
 import { useAuth } from '../auth';
 import { useFriends } from '../hooks/useFriends';
 import { games } from '../game-registry';
@@ -407,8 +408,8 @@ export default function StagingScreen({
   /* ── Staging / Inviting / Waiting ── */
   return (
     <div className="flex min-h-dvh flex-col items-center justify-center gap-6 px-4 py-10">
-      <Link to="/" className="self-start text-sm text-text-muted hover:text-brand-light">
-        ← Tillbaka
+      <Link to="/" className="flex items-center gap-1 self-start text-sm text-text-muted hover:text-brand-light">
+        <ArrowLeft className="h-3.5 w-3.5" /> Tillbaka
       </Link>
 
       <div className="text-center">
@@ -508,13 +509,12 @@ export default function StagingScreen({
             <span className="relative z-10">Starta</span>
           </motion.button>
 
-          {/* Subtle invite button */}
           {user && (
             <button
               onClick={() => setPhase('inviting')}
-              className="text-sm text-text-muted underline underline-offset-4 hover:text-brand-light transition"
+              className="flex items-center gap-1.5 text-sm text-text-muted underline underline-offset-4 hover:text-brand-light transition"
             >
-              👥 Bjud in vän och spela multiplayer
+              <Users className="h-3.5 w-3.5" /> Bjud in vän och spela multiplayer
             </button>
           )}
 
@@ -525,9 +525,9 @@ export default function StagingScreen({
                 setPhase('queuing');
                 void handleJoinQueue();
               }}
-              className="text-sm text-text-muted underline underline-offset-4 hover:text-accent transition"
+              className="flex items-center gap-1.5 text-sm text-text-muted underline underline-offset-4 hover:text-accent transition"
             >
-              🔍 Sök random match
+              <Search className="h-3.5 w-3.5" /> Sök random match
             </button>
           )}
         </div>
@@ -712,9 +712,9 @@ export default function StagingScreen({
 
               {/* Queue info */}
               <div className="flex items-center gap-4 text-xs text-text-muted">
-                <span>⏱ {mm.elapsed}s</span>
+                <span className="flex items-center gap-1"><Clock className="h-3 w-3" /> {mm.elapsed}s</span>
                 {mm.queueSize > 0 && (
-                  <span>👥 {mm.queueSize} i kön</span>
+                  <span className="flex items-center gap-1"><Users className="h-3 w-3" /> {mm.queueSize} i kön</span>
                 )}
               </div>
 
@@ -730,9 +730,9 @@ export default function StagingScreen({
 
               <button
                 onClick={handleLeaveQueue}
-                className="w-full rounded-xl bg-red-500/20 px-4 py-3 text-sm font-semibold text-red-300 transition hover:bg-red-500/35 active:scale-95"
+                className="flex items-center justify-center gap-1.5 w-full rounded-xl bg-red-500/20 px-4 py-3 text-sm font-semibold text-red-300 transition hover:bg-red-500/35 active:scale-95"
               >
-                ✕ Avbryt sökning
+                <X className="h-3.5 w-3.5" /> Avbryt sökning
               </button>
             </div>
           </div>
@@ -743,8 +743,8 @@ export default function StagingScreen({
       {phase === 'waiting' && activeEntry && (
         <div className="w-full max-w-sm">
           <div className="rounded-xl bg-surface-card p-5 ring-1 ring-white/10">
-            <p className="mb-3 text-center text-sm font-semibold text-brand-light">
-              ⏳ Väntar på spelare…
+            <p className="mb-3 flex items-center justify-center gap-1.5 text-sm font-semibold text-brand-light">
+              <Clock className="h-4 w-4" /> Väntar på spelare…
             </p>
 
             {/* Player slots */}
@@ -763,7 +763,7 @@ export default function StagingScreen({
                     <LevelBadge level={profile?.level} />
                   </div>
                   <span
-                    className={`text-xs font-semibold ${
+                    className={`flex items-center gap-0.5 text-xs font-semibold ${
                       player.status === 'accepted'
                         ? 'text-green-300'
                         : player.status === 'declined'
@@ -772,10 +772,10 @@ export default function StagingScreen({
                     }`}
                   >
                     {player.status === 'accepted'
-                      ? '✓ Redo'
+                      ? <><Check className="h-3 w-3" /> Redo</>
                       : player.status === 'declined'
-                        ? '✗ Nekade'
-                        : '⏳ Väntar'}
+                        ? <><X className="h-3 w-3" /> Nekade</>
+                        : <><Clock className="h-3 w-3" /> Väntar</>}
                   </span>
                 </div>
               ))}

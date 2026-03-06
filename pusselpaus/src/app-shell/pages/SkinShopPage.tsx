@@ -4,6 +4,7 @@ import { useAuth } from '../../auth';
 import { supabase } from '../../lib/supabaseClient';
 import type { Profile, Skin } from '../../lib/database.types';
 import { displaySkin } from '../../core/skin';
+import { ArrowLeft, Store, Coins } from 'lucide-react';
 
 export default function SkinShopPage() {
   const { user, profile, refreshProfile, updateProfile } = useAuth();
@@ -45,7 +46,7 @@ export default function SkinShopPage() {
     setMessage(null);
     try {
       await updateProfile({ skin: skin.emoji });
-      setMessage(`${skin.name} utrustad ✅`);
+      setMessage(`${skin.name} utrustad`);
     } catch {
       setMessage('Kunde inte byta skin just nu.');
     } finally {
@@ -95,7 +96,7 @@ export default function SkinShopPage() {
 
       await refreshProfile();
       await loadShop();
-      setMessage(`Du köpte ${skin.name}! 🛍️`);
+      setMessage(`Du köpte ${skin.name}!`);
     } catch {
       setMessage('Något gick fel vid köp.');
     } finally {
@@ -105,13 +106,17 @@ export default function SkinShopPage() {
 
   return (
     <div className="flex min-h-full flex-col items-center gap-6 px-4 py-10">
-      <Link to="/" className="self-start text-sm text-text-muted hover:text-brand-light">← Tillbaka</Link>
+      <Link to="/" className="flex items-center gap-1 self-start text-sm text-text-muted hover:text-brand-light">
+        <ArrowLeft className="h-4 w-4" /> Tillbaka
+      </Link>
 
-      <h2 className="text-3xl font-bold">🛍️ Skinshop</h2>
+      <h2 className="flex items-center gap-2 text-3xl font-bold">
+        <Store className="h-7 w-7 text-brand-light" /> Skinshop
+      </h2>
       <p className="text-sm text-text-muted">Lås upp nya avatars med dina coins</p>
 
-      <div className="rounded-full bg-yellow-500/20 px-4 py-2 text-sm">
-        <span className="mr-2">🪙</span>
+      <div className="flex items-center gap-2 rounded-full bg-yellow-500/20 px-4 py-2 text-sm">
+        <Coins className="h-4 w-4 text-yellow-400" />
         <span className="font-mono font-bold text-yellow-300">{coins.toLocaleString('sv-SE')}</span>
       </div>
 
@@ -137,7 +142,7 @@ export default function SkinShopPage() {
                 <span className="text-5xl">{skin.emoji}</span>
                 <p className="text-lg font-semibold">{skin.name}</p>
                 <p className="text-center text-xs text-text-muted">{skin.description}</p>
-                <p className="text-sm font-bold text-yellow-300">🪙 {skin.price.toLocaleString('sv-SE')}</p>
+                <p className="flex items-center gap-1 text-sm font-bold text-yellow-300"><Coins className="h-3.5 w-3.5" /> {skin.price.toLocaleString('sv-SE')}</p>
 
                 {equipped ? (
                   <span className="rounded-lg bg-green-500/20 px-3 py-1 text-xs font-semibold text-green-300">

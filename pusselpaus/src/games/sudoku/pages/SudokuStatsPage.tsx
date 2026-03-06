@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import { ArrowLeft, Grid3X3 } from 'lucide-react';
 import { loadStats } from '../core/storage';
 import type { Difficulty } from '../core/types';
 
@@ -26,19 +27,21 @@ export default function SudokuStatsPage() {
       <div className="flex w-full max-w-sm justify-between">
         <Link
           to="/"
-          className="text-sm text-text-muted hover:text-brand-light"
+          className="flex items-center gap-1 text-sm text-text-muted hover:text-brand-light"
         >
-          ← Lobby
+          <ArrowLeft className="h-3.5 w-3.5" /> Lobby
         </Link>
         <Link
           to="/sudoku"
-          className="text-sm text-text-muted hover:text-brand-light"
+          className="flex items-center gap-1 text-sm text-text-muted hover:text-brand-light"
         >
-          🔢 Sudoku
+          <Grid3X3 className="h-3.5 w-3.5" /> Sudoku
         </Link>
       </div>
 
-      <h2 className="text-3xl font-bold">🔢 Sudoku-statistik</h2>
+      <h2 className="flex items-center gap-2 text-3xl font-bold">
+        <Grid3X3 className="h-7 w-7 text-brand-light" /> Sudoku-statistik
+      </h2>
 
       <div className="flex gap-6 text-center">
         <div>

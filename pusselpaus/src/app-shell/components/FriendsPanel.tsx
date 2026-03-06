@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { motion } from 'motion/react';
 import { Link } from 'react-router-dom';
+import { Users, X, Check, Swords, BarChart3, Trash2 } from 'lucide-react';
 import { useFriends } from '../../hooks/useFriends';
 import { useAuth } from '../../auth';
 import { supabase } from '../../lib/supabaseClient';
@@ -100,9 +101,9 @@ export default function FriendsPanel({ onClose }: FriendsPanelProps) {
     >
       {/* Header */}
       <div className="flex items-center justify-between border-b border-white/10 px-4 py-3">
-        <h3 className="text-lg font-bold">👥 Vänner</h3>
+        <h3 className="flex items-center gap-1.5 text-lg font-bold"><Users className="h-5 w-5" /> Vänner</h3>
         <button onClick={onClose} className="text-text-muted hover:text-white transition">
-          ✕
+          <X className="h-4 w-4" />
         </button>
       </div>
 
@@ -184,15 +185,15 @@ export default function FriendsPanel({ onClose }: FriendsPanelProps) {
                 <div className="flex gap-1">
                   <button
                     onClick={() => acceptRequest(f.friendshipId)}
-                    className="rounded-lg bg-green-500/20 px-2 py-1 text-xs font-bold text-green-400 transition hover:bg-green-500/40"
+                    className="flex items-center gap-0.5 rounded-lg bg-green-500/20 px-2 py-1 text-xs font-bold text-green-400 transition hover:bg-green-500/40"
                   >
-                    ✓
+                    <Check className="h-3 w-3" />
                   </button>
                   <button
                     onClick={() => removeFriend(f.friendshipId)}
-                    className="rounded-lg bg-red-500/20 px-2 py-1 text-xs font-bold text-red-400 transition hover:bg-red-500/40"
+                    className="flex items-center gap-0.5 rounded-lg bg-red-500/20 px-2 py-1 text-xs font-bold text-red-400 transition hover:bg-red-500/40"
                   >
-                    ✕
+                    <X className="h-3 w-3" />
                   </button>
                 </div>
               </div>
@@ -230,21 +231,21 @@ export default function FriendsPanel({ onClose }: FriendsPanelProps) {
                     className="rounded-md bg-accent/20 px-2 py-1 text-[11px] font-semibold text-accent hover:bg-accent/40"
                     title="Utmana via spelet"
                   >
-                    ⚔️
+                    <Swords className="h-3.5 w-3.5" />
                   </Link>
                   <button
                     onClick={() => viewStats(f.friend)}
                     className="rounded-md bg-brand/20 px-2 py-1 text-[11px] font-semibold text-brand-light hover:bg-brand/40"
                     title="Visa statistik"
                   >
-                    📊
+                    <BarChart3 className="h-3.5 w-3.5" />
                   </button>
                   <button
                     onClick={() => removeFriend(f.friendshipId)}
                     className="text-xs text-text-muted hover:text-red-400 transition"
                     title="Ta bort vän"
                   >
-                    🗑
+                    <Trash2 className="h-3.5 w-3.5" />
                   </button>
                 </div>
               </div>
@@ -298,7 +299,7 @@ export default function FriendsPanel({ onClose }: FriendsPanelProps) {
 
         {!loading && friends.length === 0 && (
           <p className="text-center text-sm text-text-muted py-8">
-            Inga vänner ännu – adda någon ovan! ☝️
+            Inga vänner ännu – adda någon ovan!
           </p>
         )}
       </div>

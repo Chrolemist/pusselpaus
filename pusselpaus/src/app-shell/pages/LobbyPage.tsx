@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { games } from '../../game-registry';
 import { useAuth } from '../../auth';
+import { Puzzle, BarChart3, Store, Brain, User } from 'lucide-react';
 
 export default function LobbyPage() {
   const { isGuest, exitGuestMode } = useAuth();
@@ -8,8 +9,9 @@ export default function LobbyPage() {
 
   return (
     <div className="flex min-h-full flex-col items-center justify-center px-4 py-10">
-      <h1 className="mb-2 text-4xl font-extrabold tracking-tight text-brand-light">
-        🧩 PusselPaus
+      <h1 className="mb-2 flex items-center gap-2 text-4xl font-extrabold tracking-tight text-brand-light">
+        <Puzzle className="h-9 w-9" />
+        PusselPaus
       </h1>
       <p className="mb-10 text-text-muted text-center max-w-xs">
         Välkommen till din reklamfria hjärngympa. Välj ett spel nedan!
@@ -17,7 +19,7 @@ export default function LobbyPage() {
 
       {isGuest && (
         <div className="mb-6 rounded-xl bg-surface-card px-4 py-3 text-center ring-1 ring-white/10">
-          <p className="text-sm text-text-muted">👤 Gästläge: allt sparas bara lokalt på denna enhet.</p>
+          <p className="text-sm text-text-muted"><User className="mr-1 inline h-4 w-4" />Gästläge: allt sparas bara lokalt på denna enhet.</p>
           <button
             onClick={exitGuestMode}
             className="mt-2 rounded-md bg-brand/30 px-3 py-1 text-xs font-semibold text-brand-light hover:bg-brand/50"
@@ -52,7 +54,7 @@ export default function LobbyPage() {
         })}
 
         <div className="flex flex-col items-center gap-3 rounded-2xl border-2 border-dashed border-white/10 p-6 opacity-40">
-          <span className="text-5xl">🧠</span>
+          <Brain className="h-12 w-12" />
           <span className="text-xl font-semibold">Fler spel snart…</span>
           <span className="text-sm text-text-muted">Håll utkik!</span>
         </div>
@@ -60,17 +62,17 @@ export default function LobbyPage() {
 
       <Link
         to="/stats"
-        className="mt-8 text-sm text-text-muted underline underline-offset-4 hover:text-brand-light"
+        className="mt-8 flex items-center gap-1.5 text-sm text-text-muted underline underline-offset-4 hover:text-brand-light"
       >
-        📊 Statistik
+        <BarChart3 className="h-4 w-4" /> Statistik
       </Link>
 
       {!isGuest && (
         <Link
           to="/shop"
-          className="mt-2 text-sm text-text-muted underline underline-offset-4 hover:text-brand-light"
+          className="mt-2 flex items-center gap-1.5 text-sm text-text-muted underline underline-offset-4 hover:text-brand-light"
         >
-          🛍️ Skinshop
+          <Store className="h-4 w-4" /> Skinshop
         </Link>
       )}
     </div>

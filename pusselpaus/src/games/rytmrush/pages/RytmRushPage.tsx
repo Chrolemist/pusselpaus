@@ -3,6 +3,7 @@
 import { useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import confetti from 'canvas-confetti';
+import { PartyPopper, Frown } from 'lucide-react';
 import Lane from '../components/Lane';
 import Hud from '../components/Hud';
 import { useRhythmEngine } from '../hooks/useRhythmEngine';
@@ -292,7 +293,7 @@ function ResultsView({ engine, onBack }: ResultsViewProps) {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
         >
-          <p className="text-5xl">{won ? '🎉' : '😅'}</p>
+          <p className="flex justify-center text-5xl">{won ? <PartyPopper className="h-12 w-12 text-success" /> : <Frown className="h-12 w-12 text-text-muted" />}</p>
           <h2 className="text-3xl font-bold">
             {won ? 'Du överlevde hela banan!' : 'Game over!'}
           </h2>

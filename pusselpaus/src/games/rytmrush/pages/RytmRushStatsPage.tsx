@@ -1,6 +1,7 @@
 /* ── RytmRush – stats page ── */
 
 import { Link } from 'react-router-dom';
+import { ArrowLeft, Music } from 'lucide-react';
 import { loadStats } from '../core/storage';
 import type { Difficulty } from '../core/types';
 import { DIFFICULTY_LABELS } from '../core/types';
@@ -13,18 +14,20 @@ export default function RytmRushStatsPage() {
   return (
     <div className="flex min-h-full flex-col items-center gap-6 px-4 py-10">
       <div className="flex w-full max-w-sm justify-between">
-        <Link to="/" className="text-sm text-text-muted hover:text-brand-light">
-          ← Lobby
+        <Link to="/" className="flex items-center gap-1 text-sm text-text-muted hover:text-brand-light">
+          <ArrowLeft className="h-3.5 w-3.5" /> Lobby
         </Link>
         <Link
           to="/rytmrush"
-          className="text-sm text-text-muted hover:text-brand-light"
+          className="flex items-center gap-1 text-sm text-text-muted hover:text-brand-light"
         >
-          🎵 RytmRush
+          <Music className="h-3.5 w-3.5" /> RytmRush
         </Link>
       </div>
 
-      <h2 className="text-3xl font-bold">🎵 RytmRush – statistik</h2>
+      <h2 className="flex items-center gap-2 text-3xl font-bold">
+        <Music className="h-7 w-7 text-brand-light" /> RytmRush – statistik
+      </h2>
 
       <div className="flex gap-6 text-center">
         <div>

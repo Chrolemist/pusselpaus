@@ -1,6 +1,7 @@
 /* ── Sifferstigen – stats page ── */
 
 import { Link } from 'react-router-dom';
+import { ArrowLeft, Footprints } from 'lucide-react';
 import { loadStats } from '../core/storage';
 import type { Difficulty } from '../core/types';
 import { DIFFICULTY_LABELS, GRID_LABELS } from '../core/types';
@@ -20,18 +21,20 @@ export default function NumberPathStatsPage() {
   return (
     <div className="flex min-h-full flex-col items-center gap-6 px-4 py-10">
       <div className="flex w-full max-w-sm justify-between">
-        <Link to="/" className="text-sm text-text-muted hover:text-brand-light">
-          ← Lobby
+        <Link to="/" className="flex items-center gap-1 text-sm text-text-muted hover:text-brand-light">
+          <ArrowLeft className="h-3.5 w-3.5" /> Lobby
         </Link>
         <Link
           to="/numberpath"
-          className="text-sm text-text-muted hover:text-brand-light"
+          className="flex items-center gap-1 text-sm text-text-muted hover:text-brand-light"
         >
-          🚶 Sifferstigen
+          <Footprints className="h-3.5 w-3.5" /> Sifferstigen
         </Link>
       </div>
 
-      <h2 className="text-3xl font-bold">🚶 Sifferstigen – statistik</h2>
+      <h2 className="flex items-center gap-2 text-3xl font-bold">
+        <Footprints className="h-7 w-7 text-brand-light" /> Sifferstigen – statistik
+      </h2>
 
       <div className="flex gap-6 text-center">
         <div>

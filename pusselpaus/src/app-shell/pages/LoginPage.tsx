@@ -2,6 +2,7 @@
 
 import { useAuth } from '../../auth';
 import { motion } from 'motion/react';
+import { Puzzle } from 'lucide-react';
 
 export default function LoginPage() {
   const { signInWithGoogle, enterGuestMode, loading } = useAuth();
@@ -14,7 +15,7 @@ export default function LoginPage() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
       >
-        <span className="text-6xl">🧩</span>
+        <Puzzle className="h-16 w-16 text-brand-light" />
         <h1 className="text-4xl font-extrabold tracking-tight text-brand-light">
           PusselPaus
         </h1>

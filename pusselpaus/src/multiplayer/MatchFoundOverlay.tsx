@@ -26,6 +26,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import confetti from 'canvas-confetti';
+import { Swords, Check, X, Rocket } from 'lucide-react';
 import { playMatchFound, playAcceptTick, playCountdownTick } from './matchSounds';
 import { displaySkin } from '../core/skin';
 
@@ -274,7 +275,7 @@ export default function MatchFoundOverlay({
                   animate={{ scale: [1, 1.08, 1], opacity: [0.8, 1, 0.8] }}
                   transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
                 >
-                  <span className="text-3xl">⚔️</span>
+                  <Swords className="h-8 w-8 text-brand-light" />
                 </motion.div>
               </motion.div>
             )}
@@ -326,7 +327,7 @@ export default function MatchFoundOverlay({
                         exit={{ scale: 0 }}
                         transition={{ type: 'spring', stiffness: 400, damping: 15 }}
                       >
-                        ✓
+                        <Check className="h-3 w-3" />
                       </motion.div>
                     )}
                   </AnimatePresence>
@@ -361,15 +362,15 @@ export default function MatchFoundOverlay({
                     whileHover={{ scale: 1.03 }}
                     whileTap={{ scale: 0.95 }}
                   >
-                    ✓ Acceptera
+                    <Check className="h-4 w-4" /> Acceptera
                   </motion.button>
                   <motion.button
                     onClick={onDecline}
-                    className="rounded-xl bg-white/5 px-5 py-3.5 text-sm font-semibold text-text-muted ring-1 ring-white/10 transition hover:bg-red-500/15 hover:text-red-300 hover:ring-red-500/30"
+                    className="flex items-center justify-center gap-1 rounded-xl bg-white/5 px-5 py-3.5 text-sm font-semibold text-text-muted ring-1 ring-white/10 transition hover:bg-red-500/15 hover:text-red-300 hover:ring-red-500/30"
                     whileHover={{ scale: 1.03 }}
                     whileTap={{ scale: 0.95 }}
                   >
-                    ✕
+                    <X className="h-4 w-4" />
                   </motion.button>
                 </>
               ) : (
@@ -384,7 +385,7 @@ export default function MatchFoundOverlay({
                       animate={{ scale: [1, 1.2, 1] }}
                       transition={{ duration: 0.6, repeat: Infinity, repeatDelay: 1 }}
                     >
-                      ✓
+                      <Check className="h-5 w-5" />
                     </motion.span>
                     <span className="text-sm font-semibold">Accepterat!</span>
                   </div>
@@ -397,11 +398,11 @@ export default function MatchFoundOverlay({
                   {noTimeout && (
                     <motion.button
                       onClick={onDecline}
-                      className="mt-2 rounded-lg bg-white/5 px-4 py-2 text-xs font-semibold text-text-muted ring-1 ring-white/10 transition hover:bg-red-500/15 hover:text-red-300 hover:ring-red-500/30"
+                      className="mt-2 flex items-center gap-1 rounded-lg bg-white/5 px-4 py-2 text-xs font-semibold text-text-muted ring-1 ring-white/10 transition hover:bg-red-500/15 hover:text-red-300 hover:ring-red-500/30"
                       whileHover={{ scale: 1.03 }}
                       whileTap={{ scale: 0.95 }}
                     >
-                      ✕ Lämna
+                      <X className="h-3 w-3" /> Lämna
                     </motion.button>
                   )}
                 </motion.div>
@@ -417,7 +418,7 @@ export default function MatchFoundOverlay({
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0 }}
                 >
-                  Alla redo — spelet startar! 🚀
+                  Alla redo — spelet startar! <Rocket className="inline h-4 w-4" />
                 </motion.p>
               )}
             </AnimatePresence>

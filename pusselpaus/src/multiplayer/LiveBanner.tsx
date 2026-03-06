@@ -11,6 +11,7 @@ import { displaySkin } from '../core/skin';
 
 import { Link } from 'react-router-dom';
 import { useEffect, useState } from 'react';
+import { Swords, Trophy, Zap, Clock } from 'lucide-react';
 import { useLiveMatch } from './useLiveMatch';
 import { mpTickMatchStart, mpForfeitMatch } from './api';
 import { gameLabel } from './useMultiplayer';
@@ -71,8 +72,8 @@ export default function LiveBanner({ gameId }: Props) {
   return (
     <div className="w-full max-w-[min(90vw,420px)] rounded-xl bg-surface-card/90 px-4 py-3 ring-1 ring-white/10">
       <div className="mb-2 flex items-center justify-between gap-3">
-        <p className="text-xs font-bold uppercase tracking-wide text-brand-light">
-          ⚔️ Multiplayer live · {label}
+        <p className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-brand-light">
+          <Swords className="h-3.5 w-3.5" /> Multiplayer live · {label}
         </p>
         <Link
           to="/"
@@ -142,8 +143,8 @@ export default function LiveBanner({ gameId }: Props) {
 
       {status === 'starting' && (
         <div className="rounded-md bg-black/20 px-3 py-2">
-          <p className="text-sm font-bold text-accent">
-            ⏳ Gemensam start om {formatRemaining(startCountdown ?? 0)}
+          <p className="flex items-center gap-1.5 text-sm font-bold text-accent">
+            <Clock className="h-4 w-4" /> Gemensam start om {formatRemaining(startCountdown ?? 0)}
           </p>
           <p className="text-xs text-text-muted">
             Alla startar samtidigt när nedräkningen når 0.
@@ -154,9 +155,9 @@ export default function LiveBanner({ gameId }: Props) {
       {status === 'completed' && (
         <div className="rounded-md bg-black/20 px-3 py-2">
           <p
-            className={`text-sm font-bold ${live.outcome === 'won' ? 'text-green-300' : 'text-red-300'}`}
+            className={`flex items-center gap-1.5 text-sm font-bold ${live.outcome === 'won' ? 'text-green-300' : 'text-red-300'}`}
           >
-            {live.outcome === 'won' ? '🏆 Du vann matchen!' : '💥 Matchen är avgjord'}
+            {live.outcome === 'won' ? <><Trophy className="h-4 w-4" /> Du vann matchen!</> : <><Zap className="h-4 w-4" /> Matchen är avgjord</>}
           </p>
           <p className="text-xs text-text-muted">
             Vinnare: {live.winner ? `${live.winner.username}#${live.winner.tag}` : 'okänd'}

@@ -15,6 +15,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import confetti from 'canvas-confetti';
 import * as Tone from 'tone';
+import { Star, Coins, PartyPopper, Sparkles, Check } from 'lucide-react';
 import { levelUpCoinBonus } from '../../core/xp';
 
 /* ── Constants ── */
@@ -172,7 +173,7 @@ export default function LevelUpOverlay() {
               animate={{ rotate: [0, 8, -8, 0], scale: [1, 1.15, 1] }}
               transition={{ duration: 1.2, repeat: Infinity, repeatDelay: 0.8 }}
             >
-              ⭐
+              <Star className="h-12 w-12 text-yellow-400 fill-yellow-400" />
             </motion.div>
 
             {/* Title */}
@@ -212,7 +213,7 @@ export default function LevelUpOverlay() {
               animate={{ y: 0, opacity: 1 }}
               transition={{ delay: 0.5 }}
             >
-              <span className="text-lg">🪙</span>
+              <Coins className="h-5 w-5 text-yellow-400" />
               <span className="text-sm font-bold text-yellow-200">
                 +{data.coinBonus} coins bonus
               </span>
@@ -221,22 +222,22 @@ export default function LevelUpOverlay() {
             {/* Milestone bonus callout */}
             {data.newLevel % 10 === 0 && (
               <motion.p
-                className="text-xs font-semibold text-yellow-400/80"
+                className="flex items-center gap-1 text-xs font-semibold text-yellow-400/80"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={{ delay: 0.7 }}
               >
-                🎉 Milstolpe! Extra bonus för Level {data.newLevel}!
+                <PartyPopper className="h-3.5 w-3.5" /> Milstolpe! Extra bonus för Level {data.newLevel}!
               </motion.p>
             )}
             {data.newLevel % 5 === 0 && data.newLevel % 10 !== 0 && (
               <motion.p
-                className="text-xs font-semibold text-yellow-400/80"
+                className="flex items-center gap-1 text-xs font-semibold text-yellow-400/80"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={{ delay: 0.7 }}
               >
-                ✨ Bonus för Level {data.newLevel}!
+                <Sparkles className="h-3.5 w-3.5" /> Bonus för Level {data.newLevel}!
               </motion.p>
             )}
 
@@ -260,7 +261,7 @@ export default function LevelUpOverlay() {
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
             >
-              ✓ OK
+              <Check className="h-4 w-4" /> OK
             </motion.button>
           </motion.div>
         </motion.div>

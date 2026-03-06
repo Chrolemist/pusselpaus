@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { driver, type Driver } from 'driver.js';
 import 'driver.js/dist/driver.css';
 import confetti from 'canvas-confetti';
+import { ArrowLeft, BarChart3, BookOpen, PartyPopper, X } from 'lucide-react';
 import type { Board, Difficulty } from '../core/types';
 import { row, col, box } from '../core/types';
 import { loadGame } from '../core/storage';
@@ -272,9 +273,9 @@ export default function SudokuPage() {
       <div className="flex w-full max-w-[min(90vw,400px)] items-center justify-between">
         <Link
           to="/"
-          className="text-sm text-text-muted underline underline-offset-4 hover:text-brand-light"
+          className="flex items-center gap-1 text-sm text-text-muted underline underline-offset-4 hover:text-brand-light"
         >
-          ← Lobby
+          <ArrowLeft className="h-3.5 w-3.5" /> Lobby
         </Link>
         <Timer
           elapsed={state.elapsed}
@@ -302,7 +303,7 @@ export default function SudokuPage() {
 
       {state.solved && (
         <div className="flex flex-col items-center gap-2 rounded-xl bg-success/20 px-6 py-4 text-center">
-          <span className="text-2xl">🎉</span>
+          <PartyPopper className="h-7 w-7 text-success" />
           <p className="font-bold text-success">Grattis, du löste det!</p>
           <p className="text-sm text-text-muted">
             Tid:{' '}
@@ -330,16 +331,16 @@ export default function SudokuPage() {
         {tutorialPhase === 'idle' ? (
           <button
             onClick={startTutorial}
-            className="mt-2 text-xs text-text-muted underline underline-offset-4 hover:text-brand-light"
+            className="mt-2 flex items-center gap-1 text-xs text-text-muted underline underline-offset-4 hover:text-brand-light"
           >
-            📘 Starta interaktiv guide
+            <BookOpen className="h-3.5 w-3.5" /> Starta interaktiv guide
           </button>
         ) : (
           <button
             onClick={stopTutorial}
-            className="mt-2 text-xs text-text-muted underline underline-offset-4 hover:text-brand-light"
+            className="mt-2 flex items-center gap-1 text-xs text-text-muted underline underline-offset-4 hover:text-brand-light"
           >
-            ✖ Avsluta guide
+            <X className="h-3.5 w-3.5" /> Avsluta guide
           </button>
         )}
         {!state.solved && (
@@ -356,9 +357,9 @@ export default function SudokuPage() {
         )}
         <Link
           to="/sudoku/stats"
-          className="mt-2 text-xs text-text-muted underline underline-offset-4 hover:text-brand-light"
+          className="mt-2 flex items-center gap-1 text-xs text-text-muted underline underline-offset-4 hover:text-brand-light"
         >
-          📊 Statistik
+          <BarChart3 className="h-3.5 w-3.5" /> Statistik
         </Link>
       </div>
 

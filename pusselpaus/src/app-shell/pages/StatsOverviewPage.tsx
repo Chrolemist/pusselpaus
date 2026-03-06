@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { games } from '../../game-registry';
 import type { GameStatsSummary } from '../../game-registry';
+import { ArrowLeft, BarChart3 } from 'lucide-react';
 
 function fmt(seconds: number | null): string {
   if (seconds === null) return '–';
@@ -32,12 +33,14 @@ export default function StatsOverviewPage() {
     <div className="flex min-h-full flex-col items-center gap-6 px-4 py-10">
       <Link
         to="/"
-        className="self-start text-sm text-text-muted hover:text-brand-light"
+        className="flex items-center gap-1 self-start text-sm text-text-muted hover:text-brand-light"
       >
-        ← Tillbaka
+        <ArrowLeft className="h-4 w-4" /> Tillbaka
       </Link>
 
-      <h2 className="text-3xl font-bold">📊 Översikt</h2>
+      <h2 className="flex items-center gap-2 text-3xl font-bold">
+        <BarChart3 className="h-7 w-7 text-brand-light" /> Översikt
+      </h2>
       <p className="text-sm text-text-muted">Sammanställd statistik från alla spel</p>
 
       <div className="flex gap-6 text-center">

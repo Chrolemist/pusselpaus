@@ -4,6 +4,7 @@ import { useEffect, useRef, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import confetti from 'canvas-confetti';
+import { ArrowLeft, BarChart3, Footprints, PartyPopper, Undo2, Lightbulb, Trash2, RefreshCw } from 'lucide-react';
 import PathGrid from '../components/PathGrid';
 import { useNumberPath } from '../hooks/useNumberPath';
 import type { Difficulty } from '../core/types';
@@ -62,21 +63,23 @@ export default function NumberPathPage() {
     <div className="flex min-h-full flex-col items-center gap-4 px-4 py-6">
       {/* Header */}
       <div className="flex w-full max-w-sm items-center justify-between">
-        <Link to="/" className="text-sm text-text-muted hover:text-brand-light">
-          ← Lobby
+        <Link to="/" className="flex items-center gap-1 text-sm text-text-muted hover:text-brand-light">
+          <ArrowLeft className="h-3.5 w-3.5" /> Lobby
         </Link>
         <span className="font-mono text-sm text-accent">{fmt(game.elapsed)}</span>
         <Link
           to="/numberpath/stats"
           className="text-sm text-text-muted hover:text-brand-light"
         >
-          📊
+          <BarChart3 className="h-4 w-4" />
         </Link>
       </div>
 
       {/* Title & progress text */}
       <div className="text-center">
-        <h2 className="text-xl font-bold">🚶 Sifferstigen</h2>
+        <h2 className="flex items-center gap-2 text-xl font-bold">
+          <Footprints className="h-5 w-5 text-brand-light" /> Sifferstigen
+        </h2>
         <p className="text-sm text-text-muted">
           {game.currentStep} / {game.total} steg
           <span className="ml-2 text-xs">
@@ -128,28 +131,28 @@ export default function NumberPathPage() {
           <button
             onClick={game.undoLast}
             disabled={game.pathCells.length <= 1}
-            className="rounded-xl bg-surface-card px-4 py-2.5 text-sm font-medium shadow ring-1 ring-white/10 transition hover:ring-brand/60 active:scale-95 disabled:opacity-40"
+            className="flex items-center gap-1.5 rounded-xl bg-surface-card px-4 py-2.5 text-sm font-medium shadow ring-1 ring-white/10 transition hover:ring-brand/60 active:scale-95 disabled:opacity-40"
           >
-            ↩ Ångra
+            <Undo2 className="h-3.5 w-3.5" /> Ångra
           </button>
           <button
             onClick={game.showHint}
-            className="rounded-xl bg-surface-card px-4 py-2.5 text-sm font-medium shadow ring-1 ring-white/10 transition hover:ring-success/60 active:scale-95"
+            className="flex items-center gap-1.5 rounded-xl bg-surface-card px-4 py-2.5 text-sm font-medium shadow ring-1 ring-white/10 transition hover:ring-success/60 active:scale-95"
           >
-            💡 Ledtråd{game.hintsUsed > 0 && ` (${game.hintsUsed})`}
+            <Lightbulb className="h-3.5 w-3.5" /> Ledtråd{game.hintsUsed > 0 && ` (${game.hintsUsed})`}
           </button>
           <button
             onClick={game.clearPath}
             disabled={game.pathCells.length <= 1}
-            className="rounded-xl bg-surface-card px-4 py-2.5 text-sm font-medium shadow ring-1 ring-white/10 transition hover:ring-brand/60 active:scale-95 disabled:opacity-40"
+            className="flex items-center gap-1.5 rounded-xl bg-surface-card px-4 py-2.5 text-sm font-medium shadow ring-1 ring-white/10 transition hover:ring-brand/60 active:scale-95 disabled:opacity-40"
           >
-            🗑 Rensa
+            <Trash2 className="h-3.5 w-3.5" /> Rensa
           </button>
           <button
             onClick={() => stagingResetRef.current?.()}
-            className="rounded-xl bg-surface-card px-4 py-2.5 text-sm font-medium shadow ring-1 ring-white/10 transition hover:ring-brand/60 active:scale-95"
+            className="flex items-center gap-1.5 rounded-xl bg-surface-card px-4 py-2.5 text-sm font-medium shadow ring-1 ring-white/10 transition hover:ring-brand/60 active:scale-95"
           >
-            🆕 Nytt
+            <RefreshCw className="h-3.5 w-3.5" /> Nytt
           </button>
         </div>
       )}
@@ -164,7 +167,7 @@ export default function NumberPathPage() {
             transition={{ delay: 0.5, duration: 0.4, ease: 'easeOut' }}
             className="flex flex-col items-center gap-4 rounded-2xl bg-surface-card p-6 shadow-xl ring-1 ring-white/10"
           >
-            <span className="text-4xl">🎉</span>
+            <PartyPopper className="h-10 w-10 text-success" />
             <h3 className="text-2xl font-bold text-success">Klart!</h3>
             <p className="text-text-muted">
               {DIFFICULTY_LABELS[game.puzzle!.difficulty]} ({GRID_LABELS[game.puzzle!.difficulty]})

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { BookOpen } from 'lucide-react';
 
 interface TutorialStep {
   id: number;
@@ -67,7 +68,9 @@ export default function SudokuGuide() {
 
   return (
     <section className="w-full max-w-[min(90vw,400px)] space-y-3 rounded-xl bg-surface-card p-4 shadow ring-1 ring-white/10">
-      <h3 className="text-sm font-bold text-brand-light">📘 Interaktiv Sudoku-guide</h3>
+      <h3 className="flex items-center gap-1.5 text-sm font-bold text-brand-light">
+        <BookOpen className="h-4 w-4" /> Interaktiv Sudoku-guide
+      </h3>
       <p className="text-xs text-text-muted">Steg {Math.min(stepIndex + 1, STEPS.length)} av {STEPS.length}</p>
 
       <div className="rounded-lg bg-brand/15 p-3 text-xs text-text">
