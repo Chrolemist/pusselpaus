@@ -1,8 +1,12 @@
-import { Suspense } from 'react';
+import { Suspense, lazy } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './auth';
 import { LobbyPage, StatsOverviewPage, LoginPage, SkinShopPage, FriendsLeaderboardPage, TopBar } from './app-shell';
+import LevelUpOverlay from './app-shell/components/LevelUpOverlay';
+import { useHeartbeat } from './hooks/useHeartbeat';
 import { games } from './game-registry';
+
+const DevMatchTestPage = lazy(() => import('./dev/DevMatchTestPage'));
 
 function AppRoutes() {
   const { user, loading, isGuest } = useAuth();
@@ -17,9 +21,13 @@ function AppRoutes() {
 
   const isLoggedIn = !!user;
 
+  // Periodic heartbeat keeps last_seen fresh so AFK detection works
+  useHeartbeat();
+
   return (
     <>
       {isLoggedIn && <TopBar />}
+      {isLoggedIn && <LevelUpOverlay />}
       <Routes>
         <Route path="/" element={<LobbyPage />} />
         <Route path="/stats" element={<StatsOverviewPage />} />
@@ -40,6 +48,8 @@ function AppRoutes() {
               />
             );
           })}
+        {/* Dev tools (only accessible via direct URL) */}
+        <Route path="/dev/match-test" element={<DevMatchTestPage />} />
       </Routes>
     </>
   );

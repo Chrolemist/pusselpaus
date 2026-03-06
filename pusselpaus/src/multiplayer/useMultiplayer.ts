@@ -252,7 +252,7 @@ export function useMultiplayer() {
     (
       gameId: string,
       matchId: string,
-      options?: { config?: MatchConfig; configSeed?: number },
+      options?: { config?: MatchConfig; configSeed?: number; showOverlay?: boolean },
     ) => {
       localStorage.setItem(
         getActiveMatchKey(gameId),
@@ -261,6 +261,7 @@ export function useMultiplayer() {
           setAt: new Date().toISOString(),
           config: options?.config,
           configSeed: options?.configSeed,
+          showOverlay: options?.showOverlay,
         }),
       );
     },

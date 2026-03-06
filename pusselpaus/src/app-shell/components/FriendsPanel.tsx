@@ -8,6 +8,7 @@ import { useAuth } from '../../auth';
 import { supabase } from '../../lib/supabaseClient';
 import type { Profile, UserGameStat } from '../../lib/database.types';
 import LevelBadge from '../../components/LevelBadge';
+import { isUserOnline, lastSeenLabel } from '../../core/onlineStatus';
 
 interface FriendsPanelProps {
   onClose: () => void;
@@ -38,10 +39,13 @@ export default function FriendsPanel({ onClose }: FriendsPanelProps) {
     let cancelled = false;
 
     const fetchOnline = async () => {
+      // Only fetch users marked online with a recent last_seen
+      const threshold = new Date(Date.now() - 5 * 60 * 1000).toISOString();
       const { data } = await supabase
         .from('profiles')
         .select('*')
         .eq('is_online', true)
+        .gte('last_seen', threshold)
         .returns<Profile[]>();
 
       if (cancelled) return;
@@ -210,10 +214,10 @@ export default function FriendsPanel({ onClose }: FriendsPanelProps) {
                     </div>
                     <div className="flex items-center gap-1">
                       <span
-                        className={`inline-block h-1.5 w-1.5 rounded-full ${f.friend.is_online ? 'bg-green-400' : 'bg-gray-500'}`}
+                        className={`inline-block h-1.5 w-1.5 rounded-full ${isUserOnline(f.friend) ? 'bg-green-400' : 'bg-gray-500'}`}
                       />
                       <p className="text-xs text-text-muted">
-                        {f.friend.is_online ? 'Online' : 'Offline'}
+                        {isUserOnline(f.friend) ? 'Online' : lastSeenLabel(f.friend.last_seen) || 'Offline'}
                       </p>
                     </div>
                   </div>

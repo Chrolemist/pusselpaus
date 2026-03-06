@@ -5,6 +5,8 @@ export interface ActiveMatchPayload {
   setAt: string;
   configSeed?: number;
   config?: Record<string, unknown>;
+  /** When true, StagingScreen shows the match-found overlay on load */
+  showOverlay?: boolean;
 }
 
 export type MatchConfig = Record<string, string | number | boolean | null>;

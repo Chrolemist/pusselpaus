@@ -103,7 +103,15 @@ export default function MatchInboxPanel({ onClose }: MatchInboxPanelProps) {
                         if (err) {
                           flash(err);
                         } else {
-                          flash('Accepterad ✅');
+                          // Navigate to game page and trigger match-found overlay
+                          const g = entry.match.game_id;
+                          mp.setActiveMatch(g, entry.match.id, {
+                            config: (entry.match.config as MatchConfig | null) ?? undefined,
+                            configSeed: entry.match.config_seed ?? undefined,
+                            showOverlay: true,
+                          });
+                          onClose();
+                          navigate(gamePath(g));
                         }
                       }}
                       className="rounded-md bg-green-500/20 px-3 py-1.5 text-xs font-bold text-green-300 transition hover:bg-green-500/40 active:scale-95"

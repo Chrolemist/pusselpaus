@@ -36,3 +36,14 @@ export type { MultiplayerGameState } from './useMultiplayerGame';
 export { default as LiveBanner } from './LiveBanner';
 export { default as StagingScreen } from './StagingScreen';
 export type { StagingResult } from './StagingScreen';
+export { default as MatchFoundOverlay } from './MatchFoundOverlay';
+export type { MatchPlayer, MatchFoundOverlayProps } from './MatchFoundOverlay';
+
+// Matchmaking
+export { useMatchmaking } from './useMatchmaking';
+export type { MatchmakingState, MatchmakingStatus } from './useMatchmaking';
+export { matchmakeJoin, matchmakeLeave, matchmakePoll } from './matchmakingApi';
+export type { MatchmakeResult } from './matchmakingApi';
+
+// Audio
+export { playMatchFound, playAcceptTick, playCountdownTick, disposeMatchSounds } from './matchSounds';

@@ -316,6 +316,25 @@ export interface Database {
     };
     Views: Record<string, never>;
     Functions: {
+      matchmake_join: {
+        Args: {
+          p_game_id: string;
+          p_difficulty: string | null;
+        };
+        Returns: Json;
+      };
+      matchmake_leave: {
+        Args: {
+          p_game_id: string;
+        };
+        Returns: void;
+      };
+      matchmake_poll: {
+        Args: {
+          p_game_id: string;
+        };
+        Returns: Json;
+      };
       mp_create_match: {
         Args: {
           p_game_id: string;

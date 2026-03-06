@@ -25,8 +25,12 @@ import {
   useMultiplayer,
   gameLabel,
 } from './useMultiplayer';
+import { useMatchmaking } from './useMatchmaking';
 import { setActiveMatchPayload, clearActiveMatch, getActiveMatchPayload } from './activeMatch';
+import MatchFoundOverlay from './MatchFoundOverlay';
+import type { MatchPlayer } from './MatchFoundOverlay';
 import type { MatchConfig } from './types';
+import { isUserOnline, lastSeenLabel } from '../core/onlineStatus';
 
 /* ── Types ── */
 
@@ -72,13 +76,15 @@ export default function StagingScreen({
   const { user } = useAuth();
   const { friends } = useFriends();
   const mp = useMultiplayer();
+  const mm = useMatchmaking(gameId);
 
   const gameDef = useMemo(() => games.find((g) => g.id === gameId), [gameId]);
   const label = gameLabel(gameId);
   const difficulties = gameDef?.multiplayer?.difficulties ?? [];
 
   /* ── State machine: 'staging' → 'inviting' → 'waiting' → 'countdown' → 'playing' ── */
-  type Phase = 'staging' | 'inviting' | 'waiting' | 'countdown' | 'playing';
+  /*                   'staging' → 'queuing' → 'match-found' → 'waiting' → ...           */
+  type Phase = 'staging' | 'inviting' | 'waiting' | 'countdown' | 'playing' | 'queuing' | 'match-found';
   const [phase, setPhase] = useState<Phase>('staging');
   const [difficulty, setDifficulty] = useState(
     defaultDifficulty ?? difficulties[0]?.value ?? 'medium',
@@ -88,6 +94,8 @@ export default function StagingScreen({
   const [message, setMessage] = useState<string | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [activeMatchId, setActiveMatchId] = useState<string | null>(null);
+  /** True when the match-found overlay was triggered by a friend invite (no countdown timer) */
+  const [isInviteOverlay, setIsInviteOverlay] = useState(false);
 
   const acceptedFriends = useMemo(
     () => friends.filter((f) => f.status === 'accepted').map((f) => f.friend),
@@ -100,11 +108,14 @@ export default function StagingScreen({
       (resetRef as React.MutableRefObject<(() => void) | null>).current = () => {
         setPhase('staging');
         setActiveMatchId(null);
+        setIsInviteOverlay(false);
         setSelectedFriends([]);
         setMessage(null);
+        // Also leave matchmaking queue if active
+        if (mm.status === 'queuing') void mm.leave();
       };
     }
-  }, [resetRef]);
+  }, [resetRef, mm]);
 
   /* ── Check if we already have an active match (e.g. page refresh) ── */
   useEffect(() => {
@@ -115,6 +126,16 @@ export default function StagingScreen({
       const entry = mp.matches.find((m) => m.match.id === existing.matchId);
       if (entry) {
         const status = entry.match.status;
+
+        // Show match-found overlay if flagged (friend invite just accepted)
+        if (existing.showOverlay && status === 'waiting') {
+          setIsInviteOverlay(true);
+          setPhase('match-found');
+          // Clear the flag so a page refresh goes to normal waiting
+          setActiveMatchPayload(gameId, { ...existing, showOverlay: undefined });
+          return;
+        }
+
         if (status === 'waiting' || status === 'starting') {
           setPhase('waiting');
         } else if (status === 'in_progress') {
@@ -169,13 +190,81 @@ export default function StagingScreen({
         matchId: activeEntry.match.id,
       });
     }
-  }, [activeEntry?.match.status, activeEntry?.match.started_at]);
+  }, [activeEntry?.match.status, activeEntry?.match.started_at, activeEntry, difficulty, mp, onStart]);
 
   /* ── Flash message ── */
   const flash = useCallback((msg: string) => {
     setMessage(msg);
     setTimeout(() => setMessage(null), 3000);
   }, []);
+
+  /* ── Matchmaking: when matched, show match-found overlay ── */
+  useEffect(() => {
+    if (mm.status !== 'matched' || !mm.matchId) return;
+    const matchId = mm.matchId;
+
+    setActiveMatchPayload(gameId, {
+      matchId,
+      setAt: new Date().toISOString(),
+      configSeed: mm.configSeed ?? undefined,
+      config: { difficulty },
+    });
+    setActiveMatchId(matchId);
+    setPhase('match-found');
+
+    // Refresh mp data so the match appears in the list
+    void mp.refresh();
+  }, [mm.status, mm.matchId, mm.configSeed, difficulty, gameId, mp]);
+
+  /* ── Overlay: derive MatchPlayer[] from activeEntry ── */
+  const overlayPlayers = useMemo<MatchPlayer[]>(() => {
+    if (!activeEntry) return [];
+    return activeEntry.players.map(({ player, profile }) => ({
+      id: profile?.id ?? player.user_id,
+      username: profile?.username ?? 'Spelare',
+      tag: profile?.tag ?? '????',
+      skin: profile?.skin ?? '🙂',
+      level: profile?.level ?? null,
+      accepted: player.status === 'accepted',
+    }));
+  }, [activeEntry]);
+
+  /* ── Overlay: accept handler ── */
+  const handleOverlayAccept = useCallback(async () => {
+    if (!activeMatchId) return;
+    await mp.acceptInvite(activeMatchId);
+  }, [activeMatchId, mp]);
+
+  /* ── Overlay: decline handler ── */
+  const handleOverlayDecline = useCallback(async () => {
+    if (activeMatchId) {
+      await mp.declineInvite(activeMatchId);
+    }
+    clearActiveMatch(gameId);
+    setActiveMatchId(null);
+    setIsInviteOverlay(false);
+    setPhase('staging');
+  }, [activeMatchId, gameId, mp]);
+
+  /* ── Auto-start when all players accept (matchmaking) ── */
+  useEffect(() => {
+    if (phase !== 'match-found' || !activeEntry) return;
+    const allAccepted = activeEntry.players.every((p) => p.player.status === 'accepted');
+    if (allAccepted && activeEntry.match.host_id === user?.id) {
+      void mp.startMatch(activeEntry.match.id, 5);
+    }
+  }, [phase, activeEntry, user?.id, mp]);
+
+  /* ── Matchmaking: join queue handler ── */
+  const handleJoinQueue = useCallback(async () => {
+    await mm.join(difficulty);
+  }, [mm, difficulty]);
+
+  /* ── Matchmaking: leave queue handler ── */
+  const handleLeaveQueue = useCallback(async () => {
+    await mm.leave();
+    setPhase('staging');
+  }, [mm]);
 
   /* ── Solo start ── */
   const handleSoloStart = useCallback(() => {
@@ -299,6 +388,21 @@ export default function StagingScreen({
     );
   }
 
+  /* ── Match-found overlay (matchmaking ready-up) ── */
+  if (phase === 'match-found') {
+    return (
+      <MatchFoundOverlay
+        visible
+        players={overlayPlayers}
+        timeLimit={15}
+        myId={user?.id ?? ''}
+        onAccept={handleOverlayAccept}
+        onDecline={handleOverlayDecline}
+        noTimeout={isInviteOverlay}
+      />
+    );
+  }
+
   /* ── Staging / Inviting / Waiting ── */
   return (
     <div className="flex min-h-dvh flex-col items-center justify-center gap-6 px-4 py-10">
@@ -374,6 +478,19 @@ export default function StagingScreen({
               👥 Bjud in vän och spela multiplayer
             </button>
           )}
+
+          {/* Quick matchmaking button */}
+          {user && (
+            <button
+              onClick={() => {
+                setPhase('queuing');
+                void handleJoinQueue();
+              }}
+              className="text-sm text-text-muted underline underline-offset-4 hover:text-accent transition"
+            >
+              🔍 Sök random match
+            </button>
+          )}
         </div>
       )}
 
@@ -430,8 +547,8 @@ export default function StagingScreen({
                     </span>
                     <LevelBadge level={f.level} />
                   </div>
-                  <span className={`text-[11px] ${f.is_online ? 'text-green-300' : 'text-text-muted'}`}>
-                    {f.is_online ? 'Online' : 'Offline'}
+                  <span className={`text-[11px] ${isUserOnline(f) ? 'text-green-300' : 'text-text-muted'}`}>
+                    {isUserOnline(f) ? 'Online' : lastSeenLabel(f.last_seen) || 'Offline'}
                   </span>
                 </label>
               ))
@@ -452,6 +569,53 @@ export default function StagingScreen({
             >
               Avbryt
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── QUEUING phase: searching for random match ── */}
+      {phase === 'queuing' && (
+        <div className="w-full max-w-sm">
+          <div className="rounded-xl bg-surface-card p-6 ring-1 ring-white/10">
+            <div className="flex flex-col items-center gap-4">
+              {/* Animated search indicator */}
+              <motion.div
+                className="text-5xl"
+                animate={{ rotate: [0, 360] }}
+                transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}
+              >
+                🔍
+              </motion.div>
+
+              <p className="text-sm font-semibold text-brand-light">
+                Söker motståndare…
+              </p>
+
+              {/* Queue info */}
+              <div className="flex items-center gap-4 text-xs text-text-muted">
+                <span>⏱ {mm.elapsed}s</span>
+                {mm.queueSize > 0 && (
+                  <span>👥 {mm.queueSize} i kön</span>
+                )}
+              </div>
+
+              {mm.error && (
+                <p className="text-xs text-red-300">{mm.error}</p>
+              )}
+
+              <p className="text-center text-[11px] text-text-muted">
+                Matchar dig automatiskt med 1–4 andra spelare.
+                <br />
+                Spelet startar så fort minst 2 spelare hittas.
+              </p>
+
+              <button
+                onClick={handleLeaveQueue}
+                className="w-full rounded-xl bg-red-500/20 px-4 py-3 text-sm font-semibold text-red-300 transition hover:bg-red-500/35 active:scale-95"
+              >
+                ✕ Avbryt sökning
+              </button>
+            </div>
           </div>
         </div>
       )}

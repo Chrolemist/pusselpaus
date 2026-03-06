@@ -104,3 +104,13 @@ export function calculateXpReward(params: XpRewardParams): number {
 
   return xp;
 }
+
+/* ── Level-up coin bonus ── */
+
+/** Small coin bonus awarded on each level-up. */
+export function levelUpCoinBonus(newLevel: number): number {
+  // Every 10th level gives a bigger bonus
+  if (newLevel % 10 === 0) return 15;
+  if (newLevel % 5 === 0) return 8;
+  return 3;
+}

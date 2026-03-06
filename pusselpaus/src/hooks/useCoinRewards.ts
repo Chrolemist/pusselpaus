@@ -1,7 +1,7 @@
 import { useCallback } from 'react';
 import { useAuth } from '../auth';
 import { supabase } from '../lib/supabaseClient';
-import { calculateXpReward, levelFromXp, type XpRewardParams } from '../core/xp';
+import { calculateXpReward, levelFromXp, levelUpCoinBonus, type XpRewardParams } from '../core/xp';
 
 export const COIN_AWARDED_EVENT = 'pusselpaus:coins-awarded';
 export const LEVEL_UP_EVENT = 'pusselpaus:level-up';
@@ -121,10 +121,13 @@ export function useCoinRewards() {
     // Emit XP event
     window.dispatchEvent(new CustomEvent(XP_AWARDED_EVENT, { detail: { xp: xpGain } }));
 
-    // Emit level-up event
+    // Emit level-up event + award coin bonus
     const leveledUp = newLevel > oldLevel;
     if (leveledUp) {
+      const coinBonus = levelUpCoinBonus(newLevel);
       window.dispatchEvent(new CustomEvent(LEVEL_UP_EVENT, { detail: { oldLevel, newLevel } }));
+      // Award the coin bonus (fire-and-forget, separate from the XP update)
+      await addCoins(coinBonus);
     }
 
     await refreshProfile();
