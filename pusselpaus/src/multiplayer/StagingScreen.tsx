@@ -226,6 +226,8 @@ export default function StagingScreen({
 
   // Guard: prevent auto-start from calling mp.startMatch multiple times
   const startSentRef = useRef(false);
+  // Guard: local accept click required before auto-start
+  const localAcceptMatchIdRef = useRef<string | null>(null);
   // Guard: prevent countdown tick RPC from firing repeatedly for same match
   const tickStartSentForMatchRef = useRef<string | null>(null);
   // Guard: ensure game onStart is invoked only once per match
@@ -236,6 +238,7 @@ export default function StagingScreen({
   // Reset startSent when match changes (new match or match cleared)
   useEffect(() => {
     startSentRef.current = false;
+    localAcceptMatchIdRef.current = null;
     tickStartSentForMatchRef.current = null;
     gameStartedForMatchRef.current = null;
     setMatchFoundAcceptedLocal(false);
@@ -504,6 +507,7 @@ export default function StagingScreen({
   /* ── Overlay: accept handler ── */
   const handleOverlayAccept = useCallback(async () => {
     if (!activeMatchId) return;
+    localAcceptMatchIdRef.current = activeMatchId;
     // Matchmade players are already accepted server-side by queue join.
     if (isMatchmade) {
       setMatchFoundAcceptedLocal(true);
@@ -535,7 +539,9 @@ export default function StagingScreen({
   // Derived stable primitives for the auto-start effect
   const allPlayersAccepted = activeEntry?.players.every((p) => p.player.status === 'accepted') ?? false;
   const isHost = activeEntry?.match.host_id === user?.id;
-  const canStartMatchFoundPhase = !isMatchmade || matchFoundAcceptedLocal;
+  const hasLocalAcceptForActiveMatch =
+    !!activeMatchMatchId && localAcceptMatchIdRef.current === activeMatchMatchId;
+  const canStartMatchFoundPhase = hasLocalAcceptForActiveMatch && (!isMatchmade || matchFoundAcceptedLocal);
 
   useEffect(() => {
     mpDebug('StagingScreen', 'auto_start:evaluate', {
@@ -546,6 +552,7 @@ export default function StagingScreen({
       allPlayersAccepted,
       isHost,
       isMatchmade,
+      hasLocalAcceptForActiveMatch,
       startSent: startSentRef.current,
     });
     if (!activeMatchMatchId || !allPlayersAccepted || !isHost) return;
@@ -562,7 +569,7 @@ export default function StagingScreen({
       void mpRef.current.startMatch(activeMatchMatchId, isMatchmade ? 3 : 5);
     }
     // Matchmade flow should start from match-found overlay only, never directly from waiting.
-  }, [phase, activeMatchMatchId, activeMatchStatus, allPlayersAccepted, isHost, isMatchmade, canStartMatchFoundPhase]);
+  }, [phase, activeMatchMatchId, activeMatchStatus, allPlayersAccepted, isHost, isMatchmade, hasLocalAcceptForActiveMatch, canStartMatchFoundPhase]);
 
   /* ── Matchmaking: join queue handler ── */
   const handleJoinQueue = useCallback(async () => {
