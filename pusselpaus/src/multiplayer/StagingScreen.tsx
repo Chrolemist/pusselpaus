@@ -566,12 +566,26 @@ export default function StagingScreen({
       void mpRef.current.refresh();
       if (err) {
         flash('Backend saknar ready-state migration. Kör SQL-migrationen först.');
+      } else {
+        mpDebug('StagingScreen', 'accept:start_probe_request', {
+          gameId,
+          matchId: activeMatchId,
+          phase,
+          immediate: true,
+        });
+        const startErr = await mp.startMatchIfReady(activeMatchId, 3);
+        mpDebug('StagingScreen', 'accept:start_probe_result', {
+          gameId,
+          matchId: activeMatchId,
+          error: startErr,
+          immediate: true,
+        });
       }
     }
     if (err && !isMatchmade) {
       flash('Kunde inte markera redo. Försök igen.');
     }
-  }, [activeMatchId, isMatchmade, mp, flash, gameId]);
+  }, [activeMatchId, isMatchmade, mp, flash, gameId, phase]);
 
   /* ── Overlay: decline handler ── */
   const handleOverlayDecline = useCallback(async () => {
@@ -664,20 +678,21 @@ export default function StagingScreen({
     }
   }, [phase, mm.status, mm.error]);
 
-  // Host-side safety net: after accepting in matchmade flow, keep probing
-  // server-authoritative start until backend reports all-ready and transitions.
+  // Safety net: after accepting in matchmade flow, keep probing
+  // server-authoritative start until backend transitions.
+  // Any client can probe; backend enforces host/all-ready rules.
   useEffect(() => {
     if (!activeMatchId) return;
     if (!isMatchmade) return;
-    if (phase !== 'match-found') return;
+    if (phase !== 'match-found' && phase !== 'waiting') return;
     if (!meReadyForActiveMatch) return;
-    if (!isHostForActiveMatch) return;
     if (activeMatchStatus === 'starting' || activeMatchStatus === 'in_progress') return;
 
     const timer = window.setInterval(async () => {
       mpDebug('StagingScreen', 'accept:start_probe_request', {
         gameId,
         matchId: activeMatchId,
+        phase,
       });
       const err = await mpRef.current.startMatchIfReady(activeMatchId, 3);
       mpDebug('StagingScreen', 'accept:start_probe_result', {
@@ -688,7 +703,7 @@ export default function StagingScreen({
     }, 1200);
 
     return () => window.clearInterval(timer);
-  }, [activeMatchId, activeMatchStatus, gameId, isHostForActiveMatch, isMatchmade, meReadyForActiveMatch, phase]);
+  }, [activeMatchId, activeMatchStatus, gameId, isMatchmade, meReadyForActiveMatch, phase]);
 
   // Safety net: keep pre-game state in sync even if realtime updates are delayed.
   useEffect(() => {
