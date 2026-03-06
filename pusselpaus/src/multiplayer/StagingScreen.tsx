@@ -34,6 +34,7 @@ import type { MatchPlayer } from './MatchFoundOverlay';
 import type { MatchConfig } from './types';
 import { isUserOnline, lastSeenLabel } from '../core/onlineStatus';
 import { displaySkin } from '../core/skin';
+import { mpDebug } from './debug';
 
 /* ── Types ── */
 
@@ -102,6 +103,16 @@ export default function StagingScreen({
   /** True when the current match came from random matchmaking (auto-start, no overlay) */
   const [isMatchmade, setIsMatchmade] = useState(false);
 
+  useEffect(() => {
+    mpDebug('StagingScreen', 'phase:changed', {
+      gameId,
+      phase,
+      activeMatchId,
+      isMatchmade,
+      isInviteOverlay,
+    });
+  }, [gameId, phase, activeMatchId, isMatchmade, isInviteOverlay]);
+
   const acceptedFriends = useMemo(
     () => friends.filter((f) => f.status === 'accepted').map((f) => f.friend),
     [friends],
@@ -130,6 +141,14 @@ export default function StagingScreen({
       // Find the match in the lobby data and decide the phase
       const entry = mp.matches.find((m) => m.match.id === existing.matchId);
 
+      mpDebug('StagingScreen', 'restore:found_local_payload', {
+        gameId,
+        matchId: existing.matchId,
+        showOverlay: existing.showOverlay === true,
+        matchmade: existing.matchmade === true,
+        entryFound: Boolean(entry),
+      });
+
       // Match not found in lobby data yet — wait for it to load
       if (!entry) return;
 
@@ -139,6 +158,12 @@ export default function StagingScreen({
 
       // Stale match: completed, cancelled, or I forfeited — clear and go to staging
       if (status === 'completed' || status === 'cancelled' || iForfeited) {
+        mpDebug('StagingScreen', 'restore:stale_match_cleanup', {
+          gameId,
+          matchId: existing.matchId,
+          status,
+          iForfeited,
+        });
         clearActiveMatch(gameId);
         setActiveMatchId(null);
         setPhase('staging');
@@ -151,6 +176,11 @@ export default function StagingScreen({
 
       // Show match-found overlay if flagged (friend invite just accepted)
       if (existing.showOverlay && status === 'waiting') {
+        mpDebug('StagingScreen', 'restore:show_overlay', {
+          gameId,
+          matchId: existing.matchId,
+          status,
+        });
         setIsInviteOverlay(true);
         setPhase('match-found');
         // Clear the flag so a page refresh goes to normal waiting
@@ -159,12 +189,18 @@ export default function StagingScreen({
       }
 
       if (status === 'waiting') {
+        mpDebug('StagingScreen', 'restore:set_waiting', { gameId, matchId: existing.matchId });
         setPhase('waiting');
       } else if (status === 'starting') {
         // Don't show waiting phase — let the countdown effect handle it
         // (avoids showing "Starta match" button for an already-started match)
+        mpDebug('StagingScreen', 'restore:status_starting_skip_waiting_phase', {
+          gameId,
+          matchId: existing.matchId,
+        });
       } else if (status === 'in_progress') {
         // Already in progress — go straight to game
+        mpDebug('StagingScreen', 'restore:set_playing', { gameId, matchId: existing.matchId });
         setPhase('playing');
       }
     }
@@ -197,10 +233,32 @@ export default function StagingScreen({
   const meForfeited = activeEntry?.players.find((p) => p.player.user_id === user?.id)?.player.forfeited === true;
 
   useEffect(() => {
+    if (!activeMatchMatchId) return;
+    mpDebug('StagingScreen', 'active_match:snapshot', {
+      gameId,
+      matchId: activeMatchMatchId,
+      status: activeMatchStatus,
+      startedAt: activeMatchStartedAt ?? null,
+      meForfeited,
+      players: activeEntry?.players.map((p) => ({
+        userId: p.player.user_id,
+        status: p.player.status,
+        forfeited: p.player.forfeited,
+      })) ?? [],
+    });
+  }, [gameId, activeMatchMatchId, activeMatchStatus, activeMatchStartedAt, meForfeited, activeEntry]);
+
+  useEffect(() => {
     if (!activeMatchStatus || !activeMatchMatchId) return;
 
     // Match ended or I forfeited — clean up and go back to staging
     if (activeMatchStatus === 'completed' || activeMatchStatus === 'cancelled' || meForfeited) {
+      mpDebug('StagingScreen', 'status_effect:cleanup_to_staging', {
+        gameId,
+        matchId: activeMatchMatchId,
+        status: activeMatchStatus,
+        meForfeited,
+      });
       clearActiveMatch(gameId);
       setActiveMatchId(null);
       setIsMatchmade(false);
@@ -214,14 +272,32 @@ export default function StagingScreen({
         ? new Date(activeMatchStartedAt).getTime()
         : null;
 
+      mpDebug('StagingScreen', 'status_effect:starting', {
+        gameId,
+        matchId: activeMatchMatchId,
+        startedAt: activeMatchStartedAt ?? null,
+      });
+
       if (startedAt) {
         let tickSent = false;
         const tick = () => {
           const remaining = Math.max(0, Math.ceil((startedAt - Date.now()) / 1000));
           setCountdownValue(remaining);
+          if (remaining <= 3) {
+            mpDebug('StagingScreen', 'countdown:tick', {
+              gameId,
+              matchId: activeMatchMatchId,
+              remaining,
+              tickSent,
+            });
+          }
           if (remaining <= 0 && !tickSent) {
             tickSent = true;
             // Tick the match to in_progress — only once!
+            mpDebug('StagingScreen', 'countdown:tick_match_start', {
+              gameId,
+              matchId: activeMatchMatchId,
+            });
             void mpRef.current.tickMatchStart(activeMatchMatchId);
           }
         };
@@ -233,6 +309,10 @@ export default function StagingScreen({
     }
 
     if (activeMatchStatus === 'in_progress') {
+      mpDebug('StagingScreen', 'status_effect:in_progress_onStart', {
+        gameId,
+        matchId: activeMatchMatchId,
+      });
       setPhase('playing');
       onStartRef.current({
         multiplayer: true,
@@ -309,17 +389,35 @@ export default function StagingScreen({
   const isHost = activeEntry?.match.host_id === user?.id;
 
   useEffect(() => {
+    mpDebug('StagingScreen', 'auto_start:evaluate', {
+      gameId,
+      phase,
+      matchId: activeMatchMatchId ?? null,
+      matchStatus: activeMatchStatus ?? null,
+      allPlayersAccepted,
+      isHost,
+      isMatchmade,
+      startSent: startSentRef.current,
+    });
     if (!activeMatchMatchId || !allPlayersAccepted || !isHost) return;
     if (startSentRef.current) return; // Already sent — don't call again
 
     // For match-found overlay (friend invite): host starts when all accept
     if (phase === 'match-found') {
       startSentRef.current = true;
+      mpDebug('StagingScreen', 'auto_start:trigger_friend_invite', {
+        gameId,
+        matchId: activeMatchMatchId,
+      });
       void mpRef.current.startMatch(activeMatchMatchId, 5);
     }
     // For matchmade (random queue): auto-start as soon as all accepted, shorter countdown
     if (phase === 'waiting' && isMatchmade && activeMatchStatus === 'waiting') {
       startSentRef.current = true;
+      mpDebug('StagingScreen', 'auto_start:trigger_matchmade', {
+        gameId,
+        matchId: activeMatchMatchId,
+      });
       void mpRef.current.startMatch(activeMatchMatchId, 3);
     }
   }, [phase, activeMatchMatchId, activeMatchStatus, allPlayersAccepted, isHost, isMatchmade]);
@@ -415,16 +513,53 @@ export default function StagingScreen({
 
   /* ── Start the multiplayer match (host only) ── */
   const handleMultiplayerStart = useCallback(async () => {
+    mpDebug('StagingScreen', 'manual_start:clicked', {
+      gameId,
+      matchId: activeMatchId,
+      matchStatus: activeEntry?.match.status ?? null,
+      startSent: startSentRef.current,
+      allPlayersAccepted: activeEntry?.players.every((p) => p.player.status === 'accepted') ?? false,
+      isHost: activeEntry?.match.host_id === user?.id,
+    });
     if (!activeMatchId) return;
     // Guard: don't call if auto-start already fired or match already left 'waiting'
-    if (startSentRef.current) return;
+    if (startSentRef.current) {
+      mpDebug('StagingScreen', 'manual_start:ignored_start_already_sent', {
+        gameId,
+        matchId: activeMatchId,
+      });
+      return;
+    }
+    if (activeEntry?.match.status !== 'waiting') {
+      mpDebug('StagingScreen', 'manual_start:ignored_not_waiting', {
+        gameId,
+        matchId: activeMatchId,
+        matchStatus: activeEntry?.match.status ?? null,
+      });
+      flash('Matchen är inte i vänteläge längre.');
+      return;
+    }
     startSentRef.current = true;
+    mpDebug('StagingScreen', 'manual_start:request', {
+      gameId,
+      matchId: activeMatchId,
+    });
     const err = await mp.startMatch(activeMatchId, 5);
     if (err) {
       startSentRef.current = false; // Reset so user can retry
+      mpDebug('StagingScreen', 'manual_start:error', {
+        gameId,
+        matchId: activeMatchId,
+        error: err,
+      });
       flash(err);
+      return;
     }
-  }, [activeMatchId, mp, flash]);
+    mpDebug('StagingScreen', 'manual_start:ok', {
+      gameId,
+      matchId: activeMatchId,
+    });
+  }, [activeMatchId, activeEntry, gameId, mp, flash]);
 
   /* ── Cancel match ── */
   const handleCancelMatch = useCallback(async () => {

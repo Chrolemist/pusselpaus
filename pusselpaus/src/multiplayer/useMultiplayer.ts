@@ -14,6 +14,7 @@ import type { MultiplayerMatch, MultiplayerMatchPlayer, Profile } from '../lib/d
 import { games } from '../game-registry';
 import { getActiveMatchKey } from './activeMatch';
 import type { MatchConfig } from './types';
+import { mpDebug } from './debug';
 import {
   mpCreateMatch,
   mpAcceptInvite,
@@ -256,8 +257,22 @@ export function useMultiplayer() {
 
   const startMatch = useCallback(
     async (matchId: string, countdownSeconds = 5): Promise<string | null> => {
-      if (hasBlockingMatch(matchId)) return 'Du har redan en annan aktiv multiplayer-match';
+      const blocked = hasBlockingMatch(matchId);
+      mpDebug('useMultiplayer', 'startMatch:called', {
+        matchId,
+        countdownSeconds,
+        blocked,
+      });
+      if (blocked) {
+        mpDebug('useMultiplayer', 'startMatch:blocked', { matchId });
+        return 'Du har redan en annan aktiv multiplayer-match';
+      }
       const err = await mpStartMatch(matchId, countdownSeconds);
+      mpDebug('useMultiplayer', 'startMatch:result', {
+        matchId,
+        countdownSeconds,
+        error: err,
+      });
       if (!err) await loadMatches();
       return err;
     },
@@ -266,7 +281,9 @@ export function useMultiplayer() {
 
   const tickMatchStart = useCallback(
     async (matchId: string): Promise<string | null> => {
+      mpDebug('useMultiplayer', 'tickMatchStart:called', { matchId });
       const result = await mpTickMatchStart(matchId);
+      mpDebug('useMultiplayer', 'tickMatchStart:result', { matchId, result });
       await loadMatches();
       return result;
     },

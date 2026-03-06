@@ -29,6 +29,7 @@ import confetti from 'canvas-confetti';
 import { Swords, Check, X, Rocket } from 'lucide-react';
 import { playMatchFound, playAcceptTick, playCountdownTick } from './matchSounds';
 import { displaySkin } from '../core/skin';
+import { mpDebug } from './debug';
 
 /* ── Types ── */
 
@@ -83,37 +84,53 @@ export default function MatchFoundOverlay({
   /* ── Play match-found sound when overlay opens ── */
   useEffect(() => {
     if (!visible) return;
+    mpDebug('MatchFoundOverlay', 'overlay:visible_play_match_found', {
+      players: players.length,
+      noTimeout,
+      timeLimit,
+    });
     void playMatchFound();
-  }, [visible]);
+  }, [visible, players.length, noTimeout, timeLimit]);
 
   /* ── Countdown timer (resets on open) ── */
   useEffect(() => {
     if (!visible) {
       // Reset on close so next open starts fresh
       return () => {
+        mpDebug('MatchFoundOverlay', 'countdown:reset_on_close');
         setHasAccepted(false);
         setSecondsLeft(timeLimit);
       };
     }
 
     // No countdown for friend-invite flow
-    if (noTimeout) return;
+    if (noTimeout) {
+      mpDebug('MatchFoundOverlay', 'countdown:skipped_noTimeout');
+      return;
+    }
 
     let seconds = timeLimit;
+    mpDebug('MatchFoundOverlay', 'countdown:start', { seconds, timeLimit });
 
     timerRef.current = setInterval(() => {
       seconds -= 1;
+      mpDebug('MatchFoundOverlay', 'countdown:tick', { seconds });
       if (seconds <= 0) {
         if (timerRef.current) clearInterval(timerRef.current);
         setSecondsLeft(0);
+        mpDebug('MatchFoundOverlay', 'countdown:expired_decline');
         onDecline();
         return;
       }
-      if (seconds <= 5) void playCountdownTick();
+      if (seconds <= 5) {
+        mpDebug('MatchFoundOverlay', 'countdown:play_tick_sound', { seconds });
+        void playCountdownTick();
+      }
       setSecondsLeft(seconds);
     }, 1000);
 
     return () => {
+      mpDebug('MatchFoundOverlay', 'countdown:cleanup_interval');
       if (timerRef.current) clearInterval(timerRef.current);
     };
   }, [visible, timeLimit, onDecline, noTimeout]);
