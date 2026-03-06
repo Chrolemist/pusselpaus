@@ -362,18 +362,6 @@ export default function StagingScreen({
             });
           }
 
-          // Non-host clients start exactly at server started_at to avoid
-          // waiting for delayed realtime status flip to in_progress.
-          if (remainingMs <= 0 && !isHostForActiveMatch) {
-            if (countdownTimerRef.current) {
-              window.clearInterval(countdownTimerRef.current);
-              countdownTimerRef.current = null;
-            }
-            countdownRunningForMatchRef.current = null;
-            startGameOnce(activeMatchMatchId, 'started_at_local');
-            return;
-          }
-
           if (
             remaining <= 0 &&
             isHostForActiveMatch &&
@@ -531,7 +519,9 @@ export default function StagingScreen({
         isMatchmade && player.user_id === user?.id
           ? matchFoundAcceptedLocal
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          : (((player as any).ready === true) || ((player as any).ready == null && player.status === 'accepted')),
+          : (isMatchmade
+              ? (player as any).ready === true
+              : (((player as any).ready === true) || ((player as any).ready == null && player.status === 'accepted'))),
     }));
   }, [activeEntry, isMatchmade, user?.id, matchFoundAcceptedLocal]);
 
@@ -545,12 +535,15 @@ export default function StagingScreen({
     if (isMatchmade) {
       setMatchFoundAcceptedLocal(true);
       void mpRef.current.refresh();
+      if (err) {
+        flash('Backend saknar ready-state migration. Kör SQL-migrationen först.');
+      }
     }
     if (err && !isMatchmade) {
       // Backward compatibility on environments without mp_mark_ready yet.
       await mp.acceptInvite(activeMatchId);
     }
-  }, [activeMatchId, isMatchmade, mp]);
+  }, [activeMatchId, isMatchmade, mp, flash]);
 
   /* ── Overlay: decline handler ── */
   const handleOverlayDecline = useCallback(async () => {
@@ -576,6 +569,7 @@ export default function StagingScreen({
     // Legacy fallback: older backend may not have ready column yet.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const ready = (p.player as any).ready;
+    if (isMatchmade) return ready === true;
     return ready === true || (ready == null && p.player.status === 'accepted');
   }) ?? false;
   const isHost = activeEntry?.match.host_id === user?.id;
