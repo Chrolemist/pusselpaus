@@ -149,6 +149,32 @@ describe('ready RPC normalization', () => {
     expect(result.data?.total_count).toBe(2);
     expect(result.data?.me_ready).toBe(true);
   });
+
+  it('normalizes nested mp_mark_ready payload response', async () => {
+    mockRpc.mockResolvedValue({
+      data: { ok: true, data: { all_ready: false, ready_count: 1, total_count: 2 } },
+      error: null,
+    });
+    const result = await mpMarkReady('match-1');
+    expect(result.error).toBeNull();
+    expect(result.data?.ready_count).toBe(1);
+    expect(result.data?.total_count).toBe(2);
+    expect(result.data?.all_ready).toBe(false);
+  });
+
+  it('normalizes nested mp_ready_state payload response', async () => {
+    mockRpc.mockResolvedValue({
+      data: { ok: true, result: { status: 'waiting', all_ready: true, ready_count: 2, total_count: 2, me_ready: true } },
+      error: null,
+    });
+    const result = await mpReadyState('match-1');
+    expect(result.error).toBeNull();
+    expect(result.data?.status).toBe('waiting');
+    expect(result.data?.all_ready).toBe(true);
+    expect(result.data?.ready_count).toBe(2);
+    expect(result.data?.total_count).toBe(2);
+    expect(result.data?.me_ready).toBe(true);
+  });
 });
 
 describe('mpTickMatchStart', () => {

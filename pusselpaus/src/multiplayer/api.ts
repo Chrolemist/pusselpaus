@@ -73,11 +73,25 @@ function pickRpcRow(value: unknown): Record<string, unknown> | null {
   if (!value) return null;
   if (Array.isArray(value)) {
     const first = value[0];
-    return first && typeof first === 'object'
-      ? (first as Record<string, unknown>)
-      : null;
+    if (first && typeof first === 'object') {
+      return pickRpcRow(first);
+    }
+    return null;
   }
-  if (typeof value === 'object') return value as Record<string, unknown>;
+  if (typeof value === 'object') {
+    const row = value as Record<string, unknown>;
+    const nested = row.data ?? row.result ?? row.payload;
+    if (nested !== undefined) {
+      const nestedRow = pickRpcRow(nested);
+      if (nestedRow) {
+        return {
+          ...row,
+          ...nestedRow,
+        };
+      }
+    }
+    return row;
+  }
   return null;
 }
 
