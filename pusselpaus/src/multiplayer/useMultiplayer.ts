@@ -318,7 +318,25 @@ export function useMultiplayer() {
         data,
       });
       await loadMatches();
-      return error;
+      if (error) return error;
+      if (!data?.ok) {
+        switch (data?.reason) {
+          case 'not_host':
+            return 'Bara hosten kan starta matchen';
+          case 'not_enough_players':
+            return 'Det krävs minst två spelare';
+          case 'not_all_ready':
+            return 'Alla spelare måste acceptera innan start';
+          case 'invalid_status':
+            return 'Matchen är inte i vänteläge';
+          default:
+            return 'Kunde inte starta match';
+        }
+      }
+      if (data.started === false) {
+        return 'Matchen kunde inte startas ännu';
+      }
+      return null;
     },
     [loadMatches],
   );

@@ -144,9 +144,6 @@ export default function MatchInboxPanel({ onClose }: MatchInboxPanelProps) {
             </p>
             {mp.grouped.waiting.map((entry) => {
               const isHost = entry.match.host_id === user?.id;
-              const allAccepted = entry.players.every(
-                (p) => p.player.status === 'accepted',
-              );
               const acceptedCount = entry.players.filter(
                 (p) => p.player.status === 'accepted',
               ).length;
@@ -189,11 +186,10 @@ export default function MatchInboxPanel({ onClose }: MatchInboxPanelProps) {
                       <>
                         <button
                           onClick={async () => {
-                            const err = await mp.startMatch(entry.match.id, 5);
+                            const err = await mp.startMatchIfReady(entry.match.id, 5);
                             if (err) flash(err);
                             else goToGame(entry);
                           }}
-                          disabled={!allAccepted}
                           className="rounded-md bg-green-500/20 px-3 py-1.5 text-xs font-bold text-green-300 transition hover:bg-green-500/40 active:scale-95 disabled:opacity-40"
                         >
                           ▶ Starta
