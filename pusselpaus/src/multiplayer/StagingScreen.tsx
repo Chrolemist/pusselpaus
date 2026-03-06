@@ -158,8 +158,11 @@ export default function StagingScreen({
         return;
       }
 
-      if (status === 'waiting' || status === 'starting') {
+      if (status === 'waiting') {
         setPhase('waiting');
+      } else if (status === 'starting') {
+        // Don't show waiting phase — let the countdown effect handle it
+        // (avoids showing "Starta match" button for an already-started match)
       } else if (status === 'in_progress') {
         // Already in progress — go straight to game
         setPhase('playing');
@@ -179,6 +182,11 @@ export default function StagingScreen({
   useEffect(() => { mpRef.current = mp; }, [mp]);
   const onStartRef = useRef(onStart);
   useEffect(() => { onStartRef.current = onStart; }, [onStart]);
+
+  // Guard: prevent auto-start from calling mp.startMatch multiple times
+  const startSentRef = useRef(false);
+  // Reset startSent when match changes (new match or match cleared)
+  useEffect(() => { startSentRef.current = false; }, [activeMatchId]);
 
   // Derived stable values for the effect
   const activeMatchStatus = activeEntry?.match.status;
@@ -296,23 +304,25 @@ export default function StagingScreen({
   }, [activeMatchId, gameId, mp]);
 
   /* ── Auto-start when all players accept ── */
+  // Derived stable primitives for the auto-start effect
+  const allPlayersAccepted = activeEntry?.players.every((p) => p.player.status === 'accepted') ?? false;
+  const isHost = activeEntry?.match.host_id === user?.id;
+
   useEffect(() => {
-    if (!activeEntry) return;
+    if (!activeMatchMatchId || !allPlayersAccepted || !isHost) return;
+    if (startSentRef.current) return; // Already sent — don't call again
+
     // For match-found overlay (friend invite): host starts when all accept
     if (phase === 'match-found') {
-      const allAccepted = activeEntry.players.every((p) => p.player.status === 'accepted');
-      if (allAccepted && activeEntry.match.host_id === user?.id) {
-        void mp.startMatch(activeEntry.match.id, 5);
-      }
+      startSentRef.current = true;
+      void mpRef.current.startMatch(activeMatchMatchId, 5);
     }
     // For matchmade (random queue): auto-start as soon as all accepted, shorter countdown
-    if (phase === 'waiting' && isMatchmade && activeEntry.match.status === 'waiting') {
-      const allAccepted = activeEntry.players.every((p) => p.player.status === 'accepted');
-      if (allAccepted && activeEntry.match.host_id === user?.id) {
-        void mp.startMatch(activeEntry.match.id, 3);
-      }
+    if (phase === 'waiting' && isMatchmade && activeMatchStatus === 'waiting') {
+      startSentRef.current = true;
+      void mpRef.current.startMatch(activeMatchMatchId, 3);
     }
-  }, [phase, activeEntry, user?.id, mp, isMatchmade]);
+  }, [phase, activeMatchMatchId, activeMatchStatus, allPlayersAccepted, isHost, isMatchmade]);
 
   /* ── Matchmaking: join queue handler ── */
   const handleJoinQueue = useCallback(async () => {
@@ -406,8 +416,14 @@ export default function StagingScreen({
   /* ── Start the multiplayer match (host only) ── */
   const handleMultiplayerStart = useCallback(async () => {
     if (!activeMatchId) return;
+    // Guard: don't call if auto-start already fired or match already left 'waiting'
+    if (startSentRef.current) return;
+    startSentRef.current = true;
     const err = await mp.startMatch(activeMatchId, 5);
-    if (err) flash(err);
+    if (err) {
+      startSentRef.current = false; // Reset so user can retry
+      flash(err);
+    }
   }, [activeMatchId, mp, flash]);
 
   /* ── Cancel match ── */
@@ -417,6 +433,7 @@ export default function StagingScreen({
     await mp.cancelMatch(activeMatchId);
     clearActiveMatch(gameId);
     setActiveMatchId(null);
+    startSentRef.current = false;
     setPhase('staging');
   }, [activeMatchId, mp, gameId]);
 
