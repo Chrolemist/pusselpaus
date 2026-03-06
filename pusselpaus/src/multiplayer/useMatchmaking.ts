@@ -47,7 +47,6 @@ export function useMatchmaking(gameId: string): MatchmakingState {
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const mountedRef = useRef(true);
-  const difficultyRef = useRef<string | null>(null);
 
   // Track status for unmount cleanup
   const statusRef = useRef(status);
@@ -107,7 +106,6 @@ export function useMatchmaking(gameId: string): MatchmakingState {
     setError(null);
     setElapsed(0);
     setStatus('queuing');
-    difficultyRef.current = difficulty;
 
     const { data, error: joinError } = await matchmakeJoin(gameId, difficulty);
 

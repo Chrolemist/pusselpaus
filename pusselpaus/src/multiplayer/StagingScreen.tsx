@@ -632,7 +632,7 @@ export default function StagingScreen({
     }
 
     await mm.join(difficulty);
-  }, [mm, difficulty, mp, user?.id]);
+  }, [mm, difficulty, mp]);
 
   /* ── Matchmaking: leave queue handler ── */
   const handleLeaveQueue = useCallback(async () => {
@@ -755,7 +755,7 @@ export default function StagingScreen({
       gameId,
       matchId: activeMatchId,
     });
-  }, [activeMatchId, activeEntry, gameId, mp, flash]);
+  }, [activeMatchId, activeEntry, gameId, mp, flash, allPlayersReady]);
 
   /* ── Cancel match ── */
   const handleCancelMatch = useCallback(async () => {
@@ -907,7 +907,7 @@ export default function StagingScreen({
         myId={user?.id ?? ''}
         onAccept={handleOverlayAccept}
         onDecline={handleOverlayDecline}
-        noTimeout={isInviteOverlay}
+        noTimeout={isInviteOverlay || isMatchmade}
         enableSounds={!isMatchmade}
       />
     );

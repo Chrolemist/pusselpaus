@@ -69,6 +69,7 @@ export default function LiveBanner({ gameId }: Props) {
 
   const status = live.match.status;
   const label = gameLabel(gameId);
+  const hasWinner = Boolean(live.match.winner_id);
 
   return (
     <div className="w-full max-w-[min(90vw,420px)] rounded-xl bg-surface-card/90 px-4 py-3 ring-1 ring-white/10">
@@ -157,12 +158,16 @@ export default function LiveBanner({ gameId }: Props) {
       {status === 'completed' && (
         <div className="rounded-md bg-black/20 px-3 py-2">
           <p
-            className={`flex items-center gap-1.5 text-sm font-bold ${live.outcome === 'won' ? 'text-green-300' : 'text-red-300'}`}
+            className={`flex items-center gap-1.5 text-sm font-bold ${live.outcome === 'won' ? 'text-green-300' : hasWinner ? 'text-red-300' : 'text-yellow-300'}`}
           >
-            {live.outcome === 'won' ? <><Trophy className="h-4 w-4" /> Du vann matchen!</> : <><Zap className="h-4 w-4" /> Matchen är avgjord</>}
+            {live.outcome === 'won'
+              ? <><Trophy className="h-4 w-4" /> Du vann matchen!</>
+              : hasWinner
+                ? <><Zap className="h-4 w-4" /> Matchen är avgjord</>
+                : <><Clock className="h-4 w-4" /> Matchen avslutades utan vinnare</>}
           </p>
           <p className="text-xs text-text-muted">
-            Vinnare: {live.winner ? `${live.winner.username}#${live.winner.tag}` : 'okänd'}
+            Vinnare: {live.winner ? `${live.winner.username}#${live.winner.tag}` : 'ingen'}
           </p>
         </div>
       )}
