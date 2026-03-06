@@ -578,14 +578,94 @@ export default function StagingScreen({
         <div className="w-full max-w-sm">
           <div className="rounded-xl bg-surface-card p-6 ring-1 ring-white/10">
             <div className="flex flex-col items-center gap-4">
-              {/* Animated search indicator */}
-              <motion.div
-                className="text-5xl"
-                animate={{ rotate: [0, 360] }}
-                transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}
-              >
-                🔍
-              </motion.div>
+              {/* Animated search visualization */}
+              <div className="relative flex h-28 w-28 items-center justify-center">
+                {/* Outer pulsing ring */}
+                <motion.div
+                  className="absolute inset-0 rounded-full border-2 border-brand/30"
+                  animate={{ scale: [1, 1.35, 1], opacity: [0.5, 0, 0.5] }}
+                  transition={{ duration: 2.5, repeat: Infinity, ease: 'easeInOut' }}
+                />
+                {/* Second pulsing ring (delayed) */}
+                <motion.div
+                  className="absolute inset-0 rounded-full border-2 border-accent/25"
+                  animate={{ scale: [1, 1.25, 1], opacity: [0.4, 0, 0.4] }}
+                  transition={{ duration: 2.5, repeat: Infinity, ease: 'easeInOut', delay: 0.8 }}
+                />
+
+                {/* Spinning dashed ring */}
+                <motion.div
+                  className="absolute inset-2 rounded-full"
+                  style={{ border: '2px dashed rgba(99,102,241,0.35)' }}
+                  animate={{ rotate: 360 }}
+                  transition={{ duration: 8, repeat: Infinity, ease: 'linear' }}
+                />
+
+                {/* Counter-spinning dotted ring */}
+                <motion.div
+                  className="absolute inset-5 rounded-full"
+                  style={{ border: '1.5px dotted rgba(56,189,248,0.3)' }}
+                  animate={{ rotate: -360 }}
+                  transition={{ duration: 6, repeat: Infinity, ease: 'linear' }}
+                />
+
+                {/* Orbiting dots */}
+                {[0, 1, 2, 3, 4, 5].map((i) => (
+                  <motion.div
+                    key={i}
+                    className="absolute"
+                    style={{ width: 112, height: 112 }}
+                    animate={{ rotate: 360 }}
+                    transition={{
+                      duration: 3 + i * 0.4,
+                      repeat: Infinity,
+                      ease: 'linear',
+                      delay: i * 0.3,
+                    }}
+                  >
+                    <motion.div
+                      className="absolute rounded-full"
+                      style={{
+                        width: i % 2 === 0 ? 6 : 4,
+                        height: i % 2 === 0 ? 6 : 4,
+                        top: 0,
+                        left: '50%',
+                        marginLeft: i % 2 === 0 ? -3 : -2,
+                        background: ['#6366f1', '#38bdf8', '#818cf8', '#22c55e', '#f59e0b', '#a78bfa'][i],
+                      }}
+                      animate={{ opacity: [0.4, 1, 0.4], scale: [0.8, 1.3, 0.8] }}
+                      transition={{ duration: 1.5 + i * 0.2, repeat: Infinity, ease: 'easeInOut' }}
+                    />
+                  </motion.div>
+                ))}
+
+                {/* Center glow */}
+                <motion.div
+                  className="absolute h-10 w-10 rounded-full"
+                  style={{
+                    background: 'radial-gradient(circle, rgba(99,102,241,0.25) 0%, transparent 70%)',
+                  }}
+                  animate={{ scale: [1, 1.4, 1], opacity: [0.6, 1, 0.6] }}
+                  transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
+                />
+
+                {/* Center bouncing dots */}
+                <div className="relative z-10 flex items-center gap-1.5">
+                  {[0, 1, 2].map((i) => (
+                    <motion.div
+                      key={i}
+                      className="h-2.5 w-2.5 rounded-full bg-brand-light"
+                      animate={{ y: [0, -8, 0], opacity: [0.5, 1, 0.5] }}
+                      transition={{
+                        duration: 0.8,
+                        repeat: Infinity,
+                        ease: 'easeInOut',
+                        delay: i * 0.2,
+                      }}
+                    />
+                  ))}
+                </div>
+              </div>
 
               <p className="text-sm font-semibold text-brand-light">
                 Söker motståndare…
