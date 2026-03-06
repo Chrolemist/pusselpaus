@@ -427,6 +427,54 @@ export default function StagingScreen({
     setPhase('match-found');
   }, [mm.status, mm.matchId, mm.configSeed, difficulty, gameId]);
 
+  /* ── Recovery: if queue UI is stuck but match already exists, adopt it ── */
+  useEffect(() => {
+    if (phase !== 'queuing') return;
+    if (activeMatchId) return;
+
+    const existingMatch = mp.matches.find((entry) => {
+      if (entry.match.game_id !== gameId) return false;
+      const status = entry.match.status;
+      if (status !== 'waiting' && status !== 'starting' && status !== 'in_progress') return false;
+      return entry.me?.status === 'accepted';
+    });
+
+    if (!existingMatch) return;
+
+    mpDebug('StagingScreen', 'queue_recovery:adopt_existing_match', {
+      gameId,
+      matchId: existingMatch.match.id,
+      status: existingMatch.match.status,
+      mmStatus: mm.status,
+    });
+
+    setActiveMatchPayload(gameId, {
+      matchId: existingMatch.match.id,
+      setAt: new Date().toISOString(),
+      configSeed: existingMatch.match.config_seed ?? undefined,
+      config: (existingMatch.match.config as Record<string, unknown> | null) ?? undefined,
+      matchmade: true,
+      showOverlay: existingMatch.match.status === 'waiting' ? true : undefined,
+    });
+
+    setActiveMatchId(existingMatch.match.id);
+    setIsMatchmade(true);
+    setIsInviteOverlay(false);
+    setMatchFoundAcceptedLocal(false);
+
+    if (existingMatch.match.status === 'waiting') {
+      setPhase('match-found');
+      return;
+    }
+    if (existingMatch.match.status === 'starting') {
+      setPhase('countdown');
+      return;
+    }
+    if (existingMatch.match.status === 'in_progress') {
+      setPhase('playing');
+    }
+  }, [phase, activeMatchId, mp.matches, gameId, mm.status]);
+
   /* ── Overlay: derive MatchPlayer[] from activeEntry ── */
   const overlayPlayers = useMemo<MatchPlayer[]>(() => {
     if (!activeEntry) return [];
