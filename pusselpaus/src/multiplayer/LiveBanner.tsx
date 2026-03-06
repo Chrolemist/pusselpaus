@@ -14,6 +14,7 @@ import { useEffect, useState } from 'react';
 import { Swords, Trophy, Zap, Clock } from 'lucide-react';
 import { useLiveMatch } from './useLiveMatch';
 import { mpTickMatchStart, mpForfeitMatch } from './api';
+import { clearActiveMatch } from './activeMatch';
 import { gameLabel } from './useMultiplayer';
 import LevelBadge from '../components/LevelBadge';
 
@@ -131,6 +132,7 @@ export default function LiveBanner({ gameId }: Props) {
                   if (!live.match) return;
                   if (!window.confirm('Vill du ge upp matchen?')) return;
                   await mpForfeitMatch(live.match.id);
+                  clearActiveMatch(gameId);
                 }}
                 className="rounded-md bg-red-500/20 px-2 py-1 text-[11px] font-semibold text-red-300 hover:bg-red-500/35"
               >

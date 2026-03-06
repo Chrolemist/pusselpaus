@@ -126,27 +126,40 @@ export default function StagingScreen({
   useEffect(() => {
     const existing = getActiveMatchPayload(gameId);
     if (existing?.matchId) {
-      setActiveMatchId(existing.matchId);
       // Find the match in the lobby data and decide the phase
       const entry = mp.matches.find((m) => m.match.id === existing.matchId);
-      if (entry) {
-        const status = entry.match.status;
 
-        // Show match-found overlay if flagged (friend invite just accepted)
-        if (existing.showOverlay && status === 'waiting') {
-          setIsInviteOverlay(true);
-          setPhase('match-found');
-          // Clear the flag so a page refresh goes to normal waiting
-          setActiveMatchPayload(gameId, { ...existing, showOverlay: undefined });
-          return;
-        }
+      // Match not found in lobby data yet — wait for it to load
+      if (!entry) return;
 
-        if (status === 'waiting' || status === 'starting') {
-          setPhase('waiting');
-        } else if (status === 'in_progress') {
-          // Already in progress — go straight to game
-          setPhase('playing');
-        }
+      const status = entry.match.status;
+      const mePlayer = entry.players.find((p) => p.player.user_id === user?.id);
+      const iForfeited = mePlayer?.player.forfeited === true;
+
+      // Stale match: completed, cancelled, or I forfeited — clear and go to staging
+      if (status === 'completed' || status === 'cancelled' || iForfeited) {
+        clearActiveMatch(gameId);
+        setActiveMatchId(null);
+        setPhase('staging');
+        return;
+      }
+
+      setActiveMatchId(existing.matchId);
+
+      // Show match-found overlay if flagged (friend invite just accepted)
+      if (existing.showOverlay && status === 'waiting') {
+        setIsInviteOverlay(true);
+        setPhase('match-found');
+        // Clear the flag so a page refresh goes to normal waiting
+        setActiveMatchPayload(gameId, { ...existing, showOverlay: undefined });
+        return;
+      }
+
+      if (status === 'waiting' || status === 'starting') {
+        setPhase('waiting');
+      } else if (status === 'in_progress') {
+        // Already in progress — go straight to game
+        setPhase('playing');
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -162,6 +175,17 @@ export default function StagingScreen({
     if (!activeEntry) return;
 
     const status = activeEntry.match.status;
+    const mePlayer = activeEntry.players.find((p) => p.player.user_id === user?.id);
+    const iForfeited = mePlayer?.player.forfeited === true;
+
+    // Match ended or I forfeited — clean up and go back to staging
+    if (status === 'completed' || status === 'cancelled' || iForfeited) {
+      clearActiveMatch(gameId);
+      setActiveMatchId(null);
+      setIsMatchmade(false);
+      setPhase('staging');
+      return;
+    }
 
     if (status === 'starting') {
       // Start the countdown
@@ -195,7 +219,7 @@ export default function StagingScreen({
         matchId: activeEntry.match.id,
       });
     }
-  }, [activeEntry?.match.status, activeEntry?.match.started_at, activeEntry, difficulty, mp, onStart]);
+  }, [activeEntry?.match.status, activeEntry?.match.started_at, activeEntry, difficulty, mp, onStart, user?.id, gameId]);
 
   /* ── Flash message ── */
   const flash = useCallback((msg: string) => {
