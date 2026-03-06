@@ -327,7 +327,7 @@ export default function StagingScreen({
     if (activeMatchStatus === 'starting') {
       if (gameStartedForMatchRef.current === activeMatchMatchId) return;
 
-      if (isMatchmade && (!meReadyForActiveMatch || !activeAllReadyServer)) {
+      if (isMatchmade && !meReadyForActiveMatch) {
         setPhase('match-found');
         return;
       }
@@ -405,7 +405,7 @@ export default function StagingScreen({
     }
 
     if (activeMatchStatus === 'in_progress') {
-      if (isMatchmade && (!meReadyForActiveMatch || !activeAllReadyServer)) {
+      if (isMatchmade && !meReadyForActiveMatch) {
         setPhase('match-found');
         return;
       }
@@ -425,7 +425,7 @@ export default function StagingScreen({
       });
       startGameOnce(activeMatchMatchId, 'in_progress');
     }
-  }, [activeMatchStatus, activeMatchStartedAt, activeMatchMatchId, activeMatchHostId, isHostForActiveMatch, activeAllReadyServer, meForfeited, gameId, isMatchmade, meReadyForActiveMatch, startGameOnce]);
+  }, [activeMatchStatus, activeMatchStartedAt, activeMatchMatchId, activeMatchHostId, isHostForActiveMatch, meForfeited, gameId, isMatchmade, meReadyForActiveMatch, startGameOnce]);
 
   useEffect(() => {
     return () => {
