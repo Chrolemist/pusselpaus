@@ -27,6 +27,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import confetti from 'canvas-confetti';
 import { playMatchFound, playAcceptTick, playCountdownTick } from './matchSounds';
+import { displaySkin } from '../core/skin';
 
 /* ── Types ── */
 
@@ -298,7 +299,7 @@ export default function MatchFoundOverlay({
                   transition={{ delay: 0.5 + i * 0.1, type: 'spring', stiffness: 300, damping: 20 }}
                 >
                   {/* Avatar */}
-                  <span className="text-2xl">{p.skin ?? '🙂'}</span>
+                  <span className="text-2xl">{displaySkin(p.skin)}</span>
 
                   {/* Name */}
                   <span className="max-w-[80px] truncate text-xs font-semibold">

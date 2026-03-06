@@ -7,6 +7,8 @@
  *  Game label is read from game-registry – no hardcoded map needed.
  */
 
+import { displaySkin } from '../core/skin';
+
 import { Link } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { useLiveMatch } from './useLiveMatch';
@@ -103,7 +105,7 @@ export default function LiveBanner({ gameId }: Props) {
               <div key={player.id} className="flex items-center justify-between text-xs">
                 <span className="flex items-center gap-1 truncate text-text-muted">
                   {profile
-                    ? <>{profile.skin ?? '🙂'} {profile.username}#{profile.tag} <LevelBadge level={profile.level} /></>
+                    ? <>{displaySkin(profile.skin)} {profile.username}#{profile.tag} <LevelBadge level={profile.level} /></>
                     : 'Spelare'}
                 </span>
                 <span

@@ -16,6 +16,7 @@ import {
 } from '../../multiplayer';
 import type { MatchConfig } from '../../multiplayer';
 import LevelBadge from '../../components/LevelBadge';
+import { displaySkin } from '../../core/skin';
 
 interface MatchInboxPanelProps {
   onClose: () => void;
@@ -91,7 +92,7 @@ export default function MatchInboxPanel({ onClose }: MatchInboxPanelProps) {
                     {gameLabel(entry.match.game_id)}
                   </p>
                   <p className="text-xs text-text-muted">
-                    Från {host ? <>{host.skin ?? '🙂'} {host.username} <LevelBadge level={host.level} /></> : 'okänd'}
+                    Från {host ? <>{displaySkin(host.skin)} {host.username} <LevelBadge level={host.level} /></> : 'okänd'}
                     {entry.match.stake > 0
                       ? ` · Stake ${entry.match.stake} 🪙`
                       : ' · Utan stake'}
@@ -176,7 +177,7 @@ export default function MatchInboxPanel({ onClose }: MatchInboxPanelProps) {
                               : 'bg-red-500/20 text-red-300'
                         }`}
                       >
-                        {prof?.skin ?? '🙂'} {prof?.username ?? '?'}
+                        {displaySkin(prof?.skin)} {prof?.username ?? '?'}
                         <LevelBadge level={prof?.level} />
                       </span>
                     ))}
@@ -302,7 +303,7 @@ export default function MatchInboxPanel({ onClose }: MatchInboxPanelProps) {
                   </div>
                   <p className="text-xs text-text-muted">
                     Vinnare: {winner
-                      ? <>{winner.skin ?? '🙂'} {winner.username} <LevelBadge level={winner.level} /></>
+                      ? <>{displaySkin(winner.skin)} {winner.username} <LevelBadge level={winner.level} /></>
                       : 'okänd'}
                     {pot > 0 ? ` · ${pot} 🪙` : ''}
                   </p>

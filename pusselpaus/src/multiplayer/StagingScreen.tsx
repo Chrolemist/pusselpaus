@@ -31,6 +31,7 @@ import MatchFoundOverlay from './MatchFoundOverlay';
 import type { MatchPlayer } from './MatchFoundOverlay';
 import type { MatchConfig } from './types';
 import { isUserOnline, lastSeenLabel } from '../core/onlineStatus';
+import { displaySkin } from '../core/skin';
 
 /* ── Types ── */
 
@@ -223,7 +224,7 @@ export default function StagingScreen({
       id: profile?.id ?? player.user_id,
       username: profile?.username ?? 'Spelare',
       tag: profile?.tag ?? '????',
-      skin: profile?.skin ?? '🙂',
+      skin: displaySkin(profile?.skin),
       level: profile?.level ?? null,
       accepted: player.status === 'accepted',
     }));
@@ -375,7 +376,7 @@ export default function StagingScreen({
           <div className="mt-4 flex gap-3">
             {activeEntry.players.map(({ player, profile }) => (
               <div key={player.id} className="flex flex-col items-center gap-1">
-                <span className="text-2xl">{profile?.skin ?? '🙂'}</span>
+                <span className="text-2xl">{displaySkin(profile?.skin)}</span>
                 <span className="text-[11px] text-text-muted">
                   {profile?.username ?? 'Spelare'}
                 </span>
@@ -579,7 +580,7 @@ export default function StagingScreen({
                       onChange={() => toggleFriend(f.id)}
                       className="accent-brand"
                     />
-                    <span>{f.skin ?? '🙂'}</span>
+                    <span>{displaySkin(f.skin)}</span>
                     <span className="text-sm">
                       {f.username}#{f.tag}
                     </span>
@@ -754,7 +755,7 @@ export default function StagingScreen({
                   className="flex items-center justify-between rounded-lg bg-black/20 px-3 py-2"
                 >
                   <div className="flex items-center gap-2">
-                    <span className="text-xl">{profile?.skin ?? '🙂'}</span>
+                    <span className="text-xl">{displaySkin(profile?.skin)}</span>
                     <span className="text-sm">
                       {profile?.username ?? 'Spelare'}
                       <span className="text-text-muted">#{profile?.tag ?? '????'}</span>

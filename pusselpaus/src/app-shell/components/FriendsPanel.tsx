@@ -9,6 +9,7 @@ import { supabase } from '../../lib/supabaseClient';
 import type { Profile, UserGameStat } from '../../lib/database.types';
 import LevelBadge from '../../components/LevelBadge';
 import { isUserOnline, lastSeenLabel } from '../../core/onlineStatus';
+import { displaySkin } from '../../core/skin';
 
 interface FriendsPanelProps {
   onClose: () => void;
@@ -135,7 +136,7 @@ export default function FriendsPanel({ onClose }: FriendsPanelProps) {
             {onlinePlayers.map((p) => (
               <div key={p.id} className="flex items-center justify-between rounded-lg bg-black/20 px-3 py-2">
                 <div className="flex items-center gap-2">
-                  <span>{p.skin ?? '🙂'}</span>
+                  <span>{displaySkin(p.skin)}</span>
                   <div>
                     <div className="flex items-center gap-1.5">
                       <p className="text-sm font-semibold">{p.username}</p>
@@ -171,7 +172,7 @@ export default function FriendsPanel({ onClose }: FriendsPanelProps) {
             {pending.map((f) => (
               <div key={f.friendshipId} className="flex items-center justify-between rounded-xl bg-black/20 px-3 py-2 mb-2">
                 <div className="flex items-center gap-2">
-                  <span className="text-xl">{f.friend.skin ?? '🙂'}</span>
+                  <span className="text-xl">{displaySkin(f.friend.skin)}</span>
                   <div>
                     <div className="flex items-center gap-1.5">
                       <p className="text-sm font-semibold">{f.friend.username}</p>
@@ -206,7 +207,7 @@ export default function FriendsPanel({ onClose }: FriendsPanelProps) {
             {accepted.map((f) => (
               <div key={f.friendshipId} className="flex items-center justify-between rounded-xl bg-black/20 px-3 py-2 mb-2">
                 <div className="flex items-center gap-2">
-                  <span className="text-xl">{f.friend.skin ?? '🙂'}</span>
+                  <span className="text-xl">{displaySkin(f.friend.skin)}</span>
                   <div>
                     <div className="flex items-center gap-1.5">
                       <p className="text-sm font-semibold">{f.friend.username}</p>
@@ -286,7 +287,7 @@ export default function FriendsPanel({ onClose }: FriendsPanelProps) {
             {sent.map((f) => (
               <div key={f.friendshipId} className="flex items-center justify-between rounded-xl bg-black/20 px-3 py-2 mb-2">
                 <div className="flex items-center gap-2">
-                  <span className="text-xl">{f.friend.skin ?? '🙂'}</span>
+                  <span className="text-xl">{displaySkin(f.friend.skin)}</span>
                   <p className="text-sm">{f.friend.username}</p>
                 </div>
                 <span className="text-xs text-text-muted">Väntar…</span>

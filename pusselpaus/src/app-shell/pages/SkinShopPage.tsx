@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '../../auth';
 import { supabase } from '../../lib/supabaseClient';
 import type { Profile, Skin } from '../../lib/database.types';
+import { displaySkin } from '../../core/skin';
 
 export default function SkinShopPage() {
   const { user, profile, refreshProfile, updateProfile } = useAuth();
@@ -124,7 +125,7 @@ export default function SkinShopPage() {
         <div className="grid w-full max-w-3xl gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {skins.map((skin) => {
             const owned = ownedSkinIds.has(skin.id);
-            const equipped = profile?.skin === skin.emoji;
+            const equipped = displaySkin(profile?.skin) === skin.emoji;
             const insufficientCoins = !owned && coins < skin.price;
             const busy = busySkinId === skin.id;
 

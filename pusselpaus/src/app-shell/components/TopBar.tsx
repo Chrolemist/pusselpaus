@@ -7,6 +7,7 @@ import { useOnlineCount } from '../../hooks/useOnlineCount';
 import { useFriends } from '../../hooks/useFriends';
 import { useMultiplayer } from '../../multiplayer';
 import { levelProgress } from '../../core/xp';
+import { displaySkin } from '../../core/skin';
 import FriendsPanel from './FriendsPanel.tsx';
 import MatchInboxPanel from './MatchInboxPanel.tsx';
 
@@ -88,7 +89,7 @@ export default function TopBar() {
     ?? user.email?.split('@')[0]
     ?? 'Spelare';
   const displayTag = profile?.tag ?? '0000';
-  const displaySkin = profile?.skin ?? '🙂';
+  const displaySkinEmoji = displaySkin(profile?.skin);
   const displayCoins = profile?.coins ?? 0;
   const displayLevel = profile?.level ?? 1;
   const xpProgress = levelProgress(profile?.xp ?? 0);
@@ -119,7 +120,7 @@ export default function TopBar() {
         {/* Left: avatar + name + tag */}
         <div className="flex items-center gap-2 min-w-0">
           <Link to="/" className="shrink-0 text-2xl">
-            {displaySkin}
+            {displaySkinEmoji}
           </Link>
 
           {editing ? (

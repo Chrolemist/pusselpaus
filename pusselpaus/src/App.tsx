@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './auth';
 import { LobbyPage, StatsOverviewPage, LoginPage, SkinShopPage, FriendsLeaderboardPage, TopBar } from './app-shell';
 import LevelUpOverlay from './app-shell/components/LevelUpOverlay';
+import CoinRewardOverlay from './app-shell/components/CoinRewardOverlay';
 import { useHeartbeat } from './hooks/useHeartbeat';
 import { games } from './game-registry';
 
@@ -27,6 +28,7 @@ function AppRoutes() {
   return (
     <>
       {isLoggedIn && <TopBar />}
+      {isLoggedIn && <CoinRewardOverlay />}
       {isLoggedIn && <LevelUpOverlay />}
       <Routes>
         <Route path="/" element={<LobbyPage />} />

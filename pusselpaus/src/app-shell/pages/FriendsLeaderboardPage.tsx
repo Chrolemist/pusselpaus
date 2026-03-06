@@ -5,6 +5,7 @@ import { useFriends } from '../../hooks/useFriends';
 import { supabase } from '../../lib/supabaseClient';
 import type { UserGameStat } from '../../lib/database.types';
 import LevelBadge from '../../components/LevelBadge';
+import { displaySkin } from '../../core/skin';
 
 interface LeaderboardRow {
   id: string;
@@ -43,7 +44,7 @@ export default function FriendsLeaderboardPage() {
         id: user.id,
         username: profile?.username ?? (user.email?.split('@')[0] ?? 'Du'),
         tag: profile?.tag ?? '0000',
-        skin: profile?.skin ?? '🙂',
+        skin: displaySkin(profile?.skin),
         level: profile?.level ?? 1,
         isMe: true,
       });
