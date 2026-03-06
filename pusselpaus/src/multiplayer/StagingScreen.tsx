@@ -270,8 +270,18 @@ export default function StagingScreen({
   const isHostForActiveMatch = activeMatchHostId === user?.id;
   const activeNonForfeitedPlayers = activeEntry?.players.filter((p) => p.player.forfeited !== true) ?? [];
   const meForfeited = activeEntry?.players.find((p) => p.player.user_id === user?.id)?.player.forfeited === true;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const meReadyFromServer = (activeEntry?.players.find((p) => p.player.user_id === user?.id)?.player as any)?.ready === true;
+  // For matchmade: ready boolean is pre-set, so check ready_at vs created_at
+  const mePlayer = activeEntry?.players.find((p) => p.player.user_id === user?.id);
+  const meReadyFromServer = (() => {
+    if (!mePlayer || !activeEntry) return false;
+    if (isMatchmade) {
+      const readyAt = mePlayer.player.ready_at ? new Date(mePlayer.player.ready_at).getTime() : 0;
+      const createdAt = new Date(activeEntry.match.created_at).getTime();
+      return readyAt > createdAt + 1000;
+    }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return (mePlayer.player as any).ready === true;
+  })();
   const meReadyForActiveMatch = matchFoundAcceptedLocal || meReadyFromServer;
 
   useEffect(() => {
@@ -539,19 +549,23 @@ export default function StagingScreen({
   /* ── Overlay: derive MatchPlayer[] from activeEntry ── */
   const overlayPlayers = useMemo<MatchPlayer[]>(() => {
     if (!activeEntry) return [];
+    const matchCreatedAt = new Date(activeEntry.match.created_at).getTime();
 
     return activeEntry.players.map(({ player, profile }) => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const readyFromRow = (player as any).ready === true;
       const isMe = player.user_id === user?.id;
 
       let accepted: boolean;
       if (isMatchmade) {
-        // For matchmade: only ready===true from DB row, or local click for myself
-        accepted = readyFromRow || (isMe && matchFoundAcceptedLocal);
+        // For matchmade: the ready boolean is pre-set by matchmaking backend,
+        // so we use ready_at timestamp: if it was set AFTER match creation,
+        // the player explicitly clicked accept.
+        const readyAt = player.ready_at ? new Date(player.ready_at).getTime() : 0;
+        const clickedAccept = readyAt > matchCreatedAt + 1000;
+        accepted = clickedAccept || (isMe && matchFoundAcceptedLocal);
       } else {
         // For friend invite: ready or status accepted
-        accepted = readyFromRow || player.status === 'accepted';
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        accepted = (player as any).ready === true || player.status === 'accepted';
       }
 
       return {
@@ -625,12 +639,20 @@ export default function StagingScreen({
 
   /* ── Auto-start when all players accept ── */
   // Derived stable primitives for the auto-start effect
-  const allPlayersReady =
-    activeNonForfeitedPlayers.length >= 2 &&
-    activeNonForfeitedPlayers.every((p) => {
+  const allPlayersReady = (() => {
+    if (activeNonForfeitedPlayers.length < 2) return false;
+    if (isMatchmade && activeEntry) {
+      const matchCreatedMs = new Date(activeEntry.match.created_at).getTime();
+      return activeNonForfeitedPlayers.every((p) => {
+        const readyAt = p.player.ready_at ? new Date(p.player.ready_at).getTime() : 0;
+        return readyAt > matchCreatedMs + 1000;
+      });
+    }
+    return activeNonForfeitedPlayers.every((p) => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       return (p.player as any).ready === true;
     });
+  })();
   const isHost = activeEntry?.match.host_id === user?.id;
   const hasLocalAcceptForActiveMatch =
     !!activeMatchMatchId && localAcceptMatchIdRef.current === activeMatchMatchId;
@@ -704,12 +726,12 @@ export default function StagingScreen({
 
     const players = activeEntry.players.filter((p) => p.player.forfeited !== true);
     const total = players.length;
+    const matchCreatedMs = new Date(activeEntry.match.created_at).getTime();
     const ready = players.filter((p) => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const row = p.player as any;
-      // For matchmade: ONLY ready===true counts. status==='accepted' is set at
-      // match creation for all matchmade players, so it does NOT mean they clicked accept.
-      return row.ready === true;
+      // For matchmade: ready boolean is pre-set by matchmaking backend on creation.
+      // Use ready_at timestamp: only count as ready if set AFTER match creation.
+      const readyAt = p.player.ready_at ? new Date(p.player.ready_at).getTime() : 0;
+      return readyAt > matchCreatedMs + 1000;
     }).length;
 
     mpDebug('StagingScreen', 'accept:player_row_counts', {
