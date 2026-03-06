@@ -462,12 +462,50 @@ export default function StagingScreen({
           )}
 
           {/* Big start button */}
-          <button
+          <motion.button
             onClick={handleSoloStart}
-            className="w-full rounded-2xl bg-brand px-8 py-4 text-xl font-bold text-white shadow-xl transition active:scale-[0.97] hover:bg-brand-light"
+            className="group relative w-full overflow-hidden rounded-2xl px-8 py-4 text-xl font-bold text-white shadow-xl"
+            style={{ background: 'linear-gradient(135deg, #6366f1 0%, #818cf8 50%, #6366f1 100%)' }}
+            whileHover={{ scale: 1.03, boxShadow: '0 0 32px rgba(99,102,241,0.5)' }}
+            whileTap={{ scale: 0.96 }}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ type: 'spring', stiffness: 200, damping: 18 }}
           >
-            Starta! 🚀
-          </button>
+            {/* Shimmer sweep */}
+            <motion.div
+              className="pointer-events-none absolute inset-0"
+              style={{
+                background: 'linear-gradient(105deg, transparent 40%, rgba(255,255,255,0.18) 50%, transparent 60%)',
+              }}
+              animate={{ x: ['-100%', '200%'] }}
+              transition={{ duration: 2.5, repeat: Infinity, ease: 'easeInOut', repeatDelay: 1.5 }}
+            />
+            {/* Ambient glow pulse */}
+            <motion.div
+              className="pointer-events-none absolute -inset-1 rounded-2xl"
+              style={{ background: 'radial-gradient(circle at 50% 50%, rgba(129,140,248,0.3) 0%, transparent 70%)' }}
+              animate={{ opacity: [0.4, 0.8, 0.4] }}
+              transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
+            />
+            {/* Floating micro-particles */}
+            {[0, 1, 2, 3, 4].map((i) => (
+              <motion.span
+                key={i}
+                className="pointer-events-none absolute rounded-full"
+                style={{
+                  width: 3 + (i % 3),
+                  height: 3 + (i % 3),
+                  background: ['#c7d2fe', '#a5b4fc', '#e0e7ff', '#38bdf8', '#818cf8'][i],
+                  left: `${15 + i * 17}%`,
+                  bottom: '20%',
+                }}
+                animate={{ y: [0, -18 - i * 4, 0], opacity: [0, 0.9, 0] }}
+                transition={{ duration: 2 + i * 0.3, repeat: Infinity, delay: i * 0.5, ease: 'easeInOut' }}
+              />
+            ))}
+            <span className="relative z-10">Starta</span>
+          </motion.button>
 
           {/* Subtle invite button */}
           {user && (
@@ -745,13 +783,25 @@ export default function StagingScreen({
             {/* Host controls */}
             {activeEntry.match.host_id === user?.id && (
               <div className="mt-4 flex gap-2">
-                <button
+                <motion.button
                   onClick={handleMultiplayerStart}
                   disabled={!activeEntry.players.every((p) => p.player.status === 'accepted')}
-                  className="flex-1 rounded-xl bg-brand px-4 py-3 text-sm font-bold text-white shadow transition active:scale-95 disabled:opacity-50"
+                  className="relative flex-1 overflow-hidden rounded-xl px-4 py-3 text-sm font-bold text-white shadow disabled:opacity-50"
+                  style={{ background: 'linear-gradient(135deg, #6366f1 0%, #818cf8 50%, #6366f1 100%)' }}
+                  whileHover={{ scale: 1.04, boxShadow: '0 0 24px rgba(99,102,241,0.45)' }}
+                  whileTap={{ scale: 0.95 }}
                 >
-                  Starta match! 🚀
-                </button>
+                  {/* Shimmer */}
+                  <motion.div
+                    className="pointer-events-none absolute inset-0"
+                    style={{
+                      background: 'linear-gradient(105deg, transparent 40%, rgba(255,255,255,0.15) 50%, transparent 60%)',
+                    }}
+                    animate={{ x: ['-100%', '200%'] }}
+                    transition={{ duration: 2.5, repeat: Infinity, ease: 'easeInOut', repeatDelay: 2 }}
+                  />
+                  <span className="relative z-10">Starta match</span>
+                </motion.button>
                 <button
                   onClick={handleCancelMatch}
                   className="rounded-xl bg-red-500/20 px-4 py-3 text-sm font-semibold text-red-300 transition hover:bg-red-500/35"
