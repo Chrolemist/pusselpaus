@@ -219,6 +219,8 @@ export default function RytmRushPage() {
               transportTime={engine.transportTime}
               active={engine.pressedLanes.has(i)}
               laneCount={engine.song?.lanes ?? 4}
+              onPointerDown={() => engine.handleKeyDown(i)}
+              onPointerUp={() => engine.handleKeyUp(i)}
             />
           );
         })}
@@ -235,24 +237,7 @@ export default function RytmRushPage() {
         </div>
       </div>
 
-      {/* Touch controls for mobile */}
-      <div className="flex h-20 shrink-0">
-        {LANE_LABELS.map((label, i) => (
-          <button
-            key={i}
-            className="flex flex-1 items-center justify-center text-lg font-bold opacity-70 active:opacity-100"
-            style={{
-              backgroundColor: `${LANE_COLORS[i]}33`,
-              color: LANE_COLORS[i],
-            }}
-            onPointerDown={() => engine.handleKeyDown(i)}
-            onPointerUp={() => engine.handleKeyUp(i)}
-            onPointerLeave={() => engine.handleKeyUp(i)}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
+
     </div>
     ) : (
       <div className="flex min-h-full items-center justify-center text-text-muted">Laddar…</div>

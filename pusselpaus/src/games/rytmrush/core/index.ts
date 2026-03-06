@@ -17,6 +17,7 @@ export {
   LANE_LABELS,
   LANE_COLORS,
   SCROLL_TIME,
+  HIT_ZONE_BOTTOM,
   emptyStats,
 } from './types';
 export { SONGS, getSong } from './songs';

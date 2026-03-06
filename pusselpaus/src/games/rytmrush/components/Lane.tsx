@@ -2,7 +2,7 @@
 
 import { motion, AnimatePresence } from 'motion/react';
 import type { BlockState } from '../core/types';
-import { SCROLL_TIME, LANE_COLORS } from '../core/types';
+import { SCROLL_TIME, LANE_COLORS, HIT_ZONE_BOTTOM } from '../core/types';
 
 interface LaneProps {
   laneIndex: number;
@@ -10,35 +10,57 @@ interface LaneProps {
   transportTime: number;
   active: boolean;            // key is held down
   laneCount: number;
+  onPointerDown?: () => void;
+  onPointerUp?: () => void;
 }
 
 /**
- * Block position: 0 = top (spawn), 1 = hit zone.
- * position = (transportTime - (noteTime - SCROLL_TIME)) / SCROLL_TIME
+ * Scroll-zone scale factor.
+ * The visible travel distance (top → hit-zone) occupies
+ * (100 - HIT_ZONE_BOTTOM)% of the lane height.
+ */
+const SCALE = (100 - HIT_ZONE_BOTTOM) / 100;
+
+/**
+ * Block position: 0 = top (spawn), 100 = hit zone.
+ * Values > 100 mean the block has passed the hit zone.
  */
 function getPositionPercent(noteTime: number, transportTime: number): number {
   const elapsed = transportTime - (noteTime - SCROLL_TIME);
   return (elapsed / SCROLL_TIME) * 100;
 }
 
-export default function Lane({ laneIndex, blocks, transportTime, active, laneCount }: LaneProps) {
+export default function Lane({ laneIndex, blocks, transportTime, active, laneCount, onPointerDown, onPointerUp }: LaneProps) {
   const color = LANE_COLORS[laneIndex];
   const laneWidth = `${100 / laneCount}%`;
 
   return (
     <div
       className="relative h-full overflow-hidden"
-      style={{ width: laneWidth }}
+      style={{ width: laneWidth, touchAction: 'none' }}
+      onPointerDown={onPointerDown}
+      onPointerUp={onPointerUp}
+      onPointerLeave={onPointerUp}
     >
       {/* Lane background line */}
       <div
         className="absolute inset-0 border-x border-white/5"
       />
 
+      {/* Dark fade below the hit zone */}
+      <div
+        className="absolute left-0 right-0 bottom-0 z-[5]"
+        style={{
+          height: `${HIT_ZONE_BOTTOM}%`,
+          background: 'linear-gradient(to bottom, transparent, rgba(0,0,0,0.5))',
+        }}
+      />
+
       {/* Hit zone glow */}
       <div
-        className="absolute bottom-0 left-0 right-0 h-16 z-10"
+        className="absolute left-0 right-0 h-20 z-10"
         style={{
+          bottom: `${HIT_ZONE_BOTTOM - 4}%`,
           background: active
             ? `linear-gradient(to top, ${color}44, transparent)`
             : 'linear-gradient(to top, rgba(255,255,255,0.05), transparent)',
@@ -48,8 +70,9 @@ export default function Lane({ laneIndex, blocks, transportTime, active, laneCou
 
       {/* Hit zone marker */}
       <div
-        className="absolute bottom-14 left-1 right-1 h-1 rounded-full z-10"
+        className="absolute left-1 right-1 h-1 rounded-full z-10"
         style={{
+          bottom: `${HIT_ZONE_BOTTOM}%`,
           backgroundColor: active ? color : 'rgba(255,255,255,0.2)',
           boxShadow: active ? `0 0 12px ${color}` : 'none',
           transition: 'all 0.1s',
@@ -62,11 +85,11 @@ export default function Lane({ laneIndex, blocks, transportTime, active, laneCou
           const pos = getPositionPercent(block.chartNote.time, transportTime);
 
           // Off-screen: not spawned yet or way past
-          if (pos < -10 || pos > 130) return null;
+          if (pos < -10 || pos > 140) return null;
 
           const isHold = block.chartNote.type === 'hold';
           const holdHeightPercent = isHold
-            ? (block.chartNote.duration / SCROLL_TIME) * 100
+            ? ((block.chartNote.duration / SCROLL_TIME) * 100) * SCALE
             : 0;
 
           // Grade-based styling
@@ -76,13 +99,16 @@ export default function Lane({ laneIndex, blocks, transportTime, active, laneCou
           const isMiss = block.grade === 'miss';
           const isHit = isPerfect || isGreat || isGood;
 
+          /** Scaled bottom-% so pos 100 → HIT_ZONE_BOTTOM% from bottom */
+          const bottomPct = 100 - pos * SCALE;
+
           if (isMiss) {
             return (
               <motion.div
                 key={block.id}
                 className="absolute left-1 right-1 rounded-lg"
                 style={{
-                  bottom: `calc(${100 - pos}%)`,
+                  bottom: `calc(${bottomPct}%)`,
                   height: isHold ? `calc(${holdHeightPercent}% + 2.5rem)` : '2.5rem',
                   backgroundColor: `${color}33`,
                 }}
@@ -103,7 +129,7 @@ export default function Lane({ laneIndex, blocks, transportTime, active, laneCou
                 key={block.id}
                 className="absolute left-1 right-1 rounded-lg"
                 style={{
-                  bottom: `calc(${100 - pos}%)`,
+                  bottom: `calc(${bottomPct}%)`,
                   height: isHold ? `calc(${holdHeightPercent}% + 2.5rem)` : '2.5rem',
                   backgroundColor: color,
                 }}
@@ -127,7 +153,7 @@ export default function Lane({ laneIndex, blocks, transportTime, active, laneCou
               key={block.id}
               className="absolute left-1 right-1 rounded-lg flex items-end"
               style={{
-                bottom: `calc(${100 - pos}%)`,
+                bottom: `calc(${bottomPct}%)`,
                 height: isHold ? `calc(${holdHeightPercent}% + 2.5rem)` : '2.5rem',
                 backgroundColor: `${color}cc`,
                 boxShadow: `0 0 8px ${color}55`,
