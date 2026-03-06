@@ -539,41 +539,31 @@ export default function StagingScreen({
   /* ── Overlay: derive MatchPlayer[] from activeEntry ── */
   const overlayPlayers = useMemo<MatchPlayer[]>(() => {
     if (!activeEntry) return [];
-    const totalCount = serverTotalCount ?? activeEntry.players.length;
-    const serverCount = serverReadyCount;
 
-    const myPlayer = activeEntry.players.find((p) => p.player.user_id === user?.id);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const myReadyFromRow = (myPlayer?.player as any)?.ready === true;
-    const myAccepted = matchFoundAcceptedLocal || myReadyFromRow;
-
-    const inferredOthersReady =
-      isMatchmade &&
-      totalCount === 2 &&
-      typeof serverCount === 'number' &&
-      Math.max(0, serverCount - (myAccepted ? 1 : 0)) >= 1;
-
-    return activeEntry.players.map(({ player, profile }) => ({
-      id: profile?.id ?? player.user_id,
-      username: profile?.username ?? 'Spelare',
-      tag: profile?.tag ?? '????',
-      skin: displaySkin(profile?.skin),
-      level: profile?.level ?? null,
+    return activeEntry.players.map(({ player, profile }) => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      accepted: isMatchmade
-        ? (
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            (player as any).ready === true ||
-            (player.user_id === user?.id
-              ? myAccepted
-              : inferredOthersReady)
-          )
-        : (
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            (player as any).ready === true || player.status === 'accepted'
-          ),
-    }));
-  }, [activeEntry, isMatchmade, user?.id, matchFoundAcceptedLocal, serverReadyCount, serverTotalCount]);
+      const readyFromRow = (player as any).ready === true;
+      const isMe = player.user_id === user?.id;
+
+      let accepted: boolean;
+      if (isMatchmade) {
+        // For matchmade: only ready===true from DB row, or local click for myself
+        accepted = readyFromRow || (isMe && matchFoundAcceptedLocal);
+      } else {
+        // For friend invite: ready or status accepted
+        accepted = readyFromRow || player.status === 'accepted';
+      }
+
+      return {
+        id: profile?.id ?? player.user_id,
+        username: profile?.username ?? 'Spelare',
+        tag: profile?.tag ?? '????',
+        skin: displaySkin(profile?.skin),
+        level: profile?.level ?? null,
+        accepted,
+      };
+    });
+  }, [activeEntry, isMatchmade, user?.id, matchFoundAcceptedLocal]);
 
   /* ── Overlay: accept handler ── */
   const handleOverlayAccept = useCallback(async () => {
@@ -717,7 +707,9 @@ export default function StagingScreen({
     const ready = players.filter((p) => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const row = p.player as any;
-      return row.ready === true || row.ready_at != null || p.player.status === 'accepted';
+      // For matchmade: ONLY ready===true counts. status==='accepted' is set at
+      // match creation for all matchmade players, so it does NOT mean they clicked accept.
+      return row.ready === true;
     }).length;
 
     mpDebug('StagingScreen', 'accept:player_row_counts', {
@@ -742,34 +734,7 @@ export default function StagingScreen({
     }
   }, [activeEntry, isMatchmade, phase, gameId]);
 
-  // Secondary: also poll ready_state RPC as fallback (may provide extra info).
-  useEffect(() => {
-    if (!activeMatchId) return;
-    if (!isMatchmade) return;
-    if (phase !== 'match-found' && phase !== 'waiting' && phase !== 'countdown') return;
-
-    let mounted = true;
-    const loadReadyState = async () => {
-      const { error, data } = await mpRef.current.readyState(activeMatchId);
-      if (!mounted || error || !data) return;
-      // Only override if RPC actually returns counts (may not exist in all backends)
-      if (data.ready_count != null && data.total_count != null) {
-        setServerReadyCount(data.ready_count);
-        setServerTotalCount(data.total_count);
-        setServerAllReady(data.all_ready ?? null);
-      }
-    };
-
-    void loadReadyState();
-    const timer = window.setInterval(() => {
-      void loadReadyState();
-    }, 900);
-
-    return () => {
-      mounted = false;
-      window.clearInterval(timer);
-    };
-  }, [activeMatchId, isMatchmade, phase]);
+  // (ready_state RPC polling removed — player row counts are the single source of truth)
 
   // Safety net: after accepting in matchmade flow, keep probing
   // server-authoritative start until backend transitions.
