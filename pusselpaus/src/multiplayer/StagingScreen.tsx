@@ -500,7 +500,8 @@ export default function StagingScreen({
       accepted:
         isMatchmade && player.user_id === user?.id
           ? matchFoundAcceptedLocal
-          : player.status === 'accepted',
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          : (((player as any).ready === true) || ((player as any).ready == null && player.status === 'accepted')),
     }));
   }, [activeEntry, isMatchmade, user?.id, matchFoundAcceptedLocal]);
 
@@ -508,13 +509,17 @@ export default function StagingScreen({
   const handleOverlayAccept = useCallback(async () => {
     if (!activeMatchId) return;
     localAcceptMatchIdRef.current = activeMatchId;
-    // Matchmade players are already accepted server-side by queue join.
+    const err = await mp.markReady(activeMatchId);
+
+    // Matchmade UI should reflect local click instantly regardless of backend timing.
     if (isMatchmade) {
       setMatchFoundAcceptedLocal(true);
       void mpRef.current.refresh();
-      return;
     }
-    await mp.acceptInvite(activeMatchId);
+    if (err && !isMatchmade) {
+      // Backward compatibility on environments without mp_mark_ready yet.
+      await mp.acceptInvite(activeMatchId);
+    }
   }, [activeMatchId, isMatchmade, mp]);
 
   /* ── Overlay: decline handler ── */
@@ -537,7 +542,12 @@ export default function StagingScreen({
 
   /* ── Auto-start when all players accept ── */
   // Derived stable primitives for the auto-start effect
-  const allPlayersAccepted = activeEntry?.players.every((p) => p.player.status === 'accepted') ?? false;
+  const allPlayersReady = activeEntry?.players.every((p) => {
+    // Legacy fallback: older backend may not have ready column yet.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const ready = (p.player as any).ready;
+    return ready === true || (ready == null && p.player.status === 'accepted');
+  }) ?? false;
   const isHost = activeEntry?.match.host_id === user?.id;
   const hasLocalAcceptForActiveMatch =
     !!activeMatchMatchId && localAcceptMatchIdRef.current === activeMatchMatchId;
@@ -549,13 +559,13 @@ export default function StagingScreen({
       phase,
       matchId: activeMatchMatchId ?? null,
       matchStatus: activeMatchStatus ?? null,
-      allPlayersAccepted,
+      allPlayersReady,
       isHost,
       isMatchmade,
       hasLocalAcceptForActiveMatch,
       startSent: startSentRef.current,
     });
-    if (!activeMatchMatchId || !allPlayersAccepted || !isHost) return;
+    if (!activeMatchMatchId || !allPlayersReady || !isHost) return;
     if (startSentRef.current) return; // Already sent — don't call again
 
     // For match-found overlay (friend invite): host starts when all accept
@@ -566,10 +576,10 @@ export default function StagingScreen({
         matchId: activeMatchMatchId,
         countdownSeconds: isMatchmade ? 3 : 5,
       });
-      void mpRef.current.startMatch(activeMatchMatchId, isMatchmade ? 3 : 5);
+      void mpRef.current.startMatchIfReady(activeMatchMatchId, isMatchmade ? 3 : 5);
     }
     // Matchmade flow should start from match-found overlay only, never directly from waiting.
-  }, [phase, activeMatchMatchId, activeMatchStatus, allPlayersAccepted, isHost, isMatchmade, hasLocalAcceptForActiveMatch, canStartMatchFoundPhase]);
+  }, [phase, activeMatchMatchId, activeMatchStatus, allPlayersReady, isHost, isMatchmade, hasLocalAcceptForActiveMatch, canStartMatchFoundPhase]);
 
   /* ── Matchmaking: join queue handler ── */
   const handleJoinQueue = useCallback(async () => {
@@ -693,7 +703,7 @@ export default function StagingScreen({
       gameId,
       matchId: activeMatchId,
     });
-    const err = await mp.startMatch(activeMatchId, 5);
+    const err = await mp.startMatchIfReady(activeMatchId, 5);
     if (err) {
       startSentRef.current = false; // Reset so user can retry
       mpDebug('StagingScreen', 'manual_start:error', {

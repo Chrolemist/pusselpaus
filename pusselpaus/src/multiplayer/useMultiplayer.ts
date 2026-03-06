@@ -18,8 +18,10 @@ import { mpDebug } from './debug';
 import {
   mpCreateMatch,
   mpAcceptInvite,
+  mpMarkReady,
   mpDeclineInvite,
   mpStartMatch,
+  mpStartIfReady,
   mpTickMatchStart,
   mpForfeitMatch,
   mpCancelMatch,
@@ -255,6 +257,15 @@ export function useMultiplayer() {
     [loadMatches],
   );
 
+  const markReady = useCallback(
+    async (matchId: string): Promise<string | null> => {
+      const { error } = await mpMarkReady(matchId);
+      await loadMatches();
+      return error;
+    },
+    [loadMatches],
+  );
+
   const startMatch = useCallback(
     async (matchId: string, countdownSeconds = 5): Promise<string | null> => {
       const target = matches.find((entry) => entry.match.id === matchId);
@@ -293,6 +304,21 @@ export function useMultiplayer() {
       mpDebug('useMultiplayer', 'tickMatchStart:result', { matchId, result });
       await loadMatches();
       return result;
+    },
+    [loadMatches],
+  );
+
+  const startMatchIfReady = useCallback(
+    async (matchId: string, countdownSeconds = 5): Promise<string | null> => {
+      const { error, data } = await mpStartIfReady(matchId, countdownSeconds);
+      mpDebug('useMultiplayer', 'startMatchIfReady:result', {
+        matchId,
+        countdownSeconds,
+        error,
+        data,
+      });
+      await loadMatches();
+      return error;
     },
     [loadMatches],
   );
@@ -367,8 +393,10 @@ export function useMultiplayer() {
     gameLabel,
     createMatch,
     acceptInvite,
+    markReady,
     declineInvite,
     startMatch,
+    startMatchIfReady,
     tickMatchStart,
     forfeitMatch,
     cancelMatch,

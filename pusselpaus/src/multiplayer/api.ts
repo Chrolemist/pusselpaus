@@ -39,6 +39,23 @@ export async function mpAcceptInvite(matchId: string): Promise<string | null> {
   return error ? error.message || 'Kunde inte acceptera' : null;
 }
 
+export interface MpReadyResult {
+  ok?: boolean;
+  all_ready?: boolean;
+  ready_count?: number;
+  total_count?: number;
+  status?: string;
+  reason?: string;
+}
+
+export async function mpMarkReady(matchId: string): Promise<{ error: string | null; data: MpReadyResult | null }> {
+  const { data, error } = await supabase.rpc('mp_mark_ready', { p_match_id: matchId });
+  if (error) {
+    return { error: error.message || 'Kunde inte markera redo', data: null };
+  }
+  return { error: null, data: (data as MpReadyResult) ?? null };
+}
+
 export async function mpDeclineInvite(matchId: string): Promise<string | null> {
   const { error } = await supabase.rpc('mp_decline_invite', { p_match_id: matchId });
   return error ? error.message || 'Kunde inte neka' : null;
@@ -65,6 +82,46 @@ export async function mpStartMatch(matchId: string, countdownSeconds = 5): Promi
     mpDebug('api', 'mp_start_match:ok', { matchId, countdownSeconds });
   }
   return error ? error.message || 'Kunde inte starta match' : null;
+}
+
+export interface MpStartIfReadyResult {
+  ok?: boolean;
+  started?: boolean;
+  status?: string;
+  reason?: string;
+  started_at?: string | null;
+  ready_count?: number;
+  total_count?: number;
+}
+
+export async function mpStartIfReady(
+  matchId: string,
+  countdownSeconds = 5,
+): Promise<{ error: string | null; data: MpStartIfReadyResult | null }> {
+  mpDebug('api', 'mp_start_if_ready:request', { matchId, countdownSeconds });
+  const { data, error } = await supabase.rpc('mp_start_if_ready', {
+    p_match_id: matchId,
+    p_countdown_seconds: countdownSeconds,
+  });
+
+  if (error) {
+    mpDebug('api', 'mp_start_if_ready:error', {
+      matchId,
+      countdownSeconds,
+      code: error.code ?? null,
+      message: error.message ?? null,
+      details: error.details ?? null,
+      hint: error.hint ?? null,
+    });
+    return { error: error.message || 'Kunde inte starta match', data: null };
+  }
+
+  mpDebug('api', 'mp_start_if_ready:ok', {
+    matchId,
+    countdownSeconds,
+    data,
+  });
+  return { error: null, data: (data as MpStartIfReadyResult) ?? null };
 }
 
 export async function mpTickMatchStart(matchId: string): Promise<string | null> {

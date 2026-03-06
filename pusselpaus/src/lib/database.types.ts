@@ -23,6 +23,7 @@ export interface Database {
           skin: string;
           is_online: boolean;
           last_seen: string;
+          updated_at: string;
           created_at: string;
         };
         Insert: {
@@ -36,6 +37,7 @@ export interface Database {
           skin?: string;
           is_online?: boolean;
           last_seen?: string;
+          updated_at?: string;
           created_at?: string;
         };
         Update: {
@@ -49,6 +51,7 @@ export interface Database {
           skin?: string;
           is_online?: boolean;
           last_seen?: string;
+          updated_at?: string;
           created_at?: string;
         };
         Relationships: [];
@@ -259,6 +262,8 @@ export interface Database {
           match_id: string;
           user_id: string;
           status: string;
+          ready: boolean;
+          ready_at: string | null;
           stake_locked: number;
           submitted: boolean;
           forfeited: boolean;
@@ -273,6 +278,8 @@ export interface Database {
           match_id: string;
           user_id: string;
           status?: string;
+          ready?: boolean;
+          ready_at?: string | null;
           stake_locked?: number;
           submitted?: boolean;
           forfeited?: boolean;
@@ -287,6 +294,8 @@ export interface Database {
           match_id?: string;
           user_id?: string;
           status?: string;
+          ready?: boolean;
+          ready_at?: string | null;
           stake_locked?: number;
           submitted?: boolean;
           forfeited?: boolean;
@@ -351,6 +360,12 @@ export interface Database {
         };
         Returns: void;
       };
+      mp_mark_ready: {
+        Args: {
+          p_match_id: string;
+        };
+        Returns: Json;
+      };
       mp_decline_invite: {
         Args: {
           p_match_id: string;
@@ -379,6 +394,19 @@ export interface Database {
           p_countdown_seconds?: number;
         };
         Returns: void;
+      };
+      mp_start_if_ready: {
+        Args: {
+          p_match_id: string;
+          p_countdown_seconds?: number;
+        };
+        Returns: Json;
+      };
+      mp_ready_state: {
+        Args: {
+          p_match_id: string;
+        };
+        Returns: Json;
       };
       mp_tick_match_start: {
         Args: {
