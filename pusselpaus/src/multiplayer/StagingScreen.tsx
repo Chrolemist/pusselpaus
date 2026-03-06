@@ -98,6 +98,8 @@ export default function StagingScreen({
   const [activeMatchId, setActiveMatchId] = useState<string | null>(null);
   /** True when the match-found overlay was triggered by a friend invite (no countdown timer) */
   const [isInviteOverlay, setIsInviteOverlay] = useState(false);
+  /** True when the current match came from random matchmaking (auto-start, no overlay) */
+  const [isMatchmade, setIsMatchmade] = useState(false);
 
   const acceptedFriends = useMemo(
     () => friends.filter((f) => f.status === 'accepted').map((f) => f.friend),
@@ -111,6 +113,7 @@ export default function StagingScreen({
         setPhase('staging');
         setActiveMatchId(null);
         setIsInviteOverlay(false);
+        setIsMatchmade(false);
         setSelectedFriends([]);
         setMessage(null);
         // Also leave matchmaking queue if active
@@ -200,7 +203,7 @@ export default function StagingScreen({
     setTimeout(() => setMessage(null), 3000);
   }, []);
 
-  /* ── Matchmaking: when matched, show match-found overlay ── */
+  /* ── Matchmaking: when matched, auto-accept & skip overlay ── */
   useEffect(() => {
     if (mm.status !== 'matched' || !mm.matchId) return;
     const matchId = mm.matchId;
@@ -212,10 +215,14 @@ export default function StagingScreen({
       config: { difficulty },
     });
     setActiveMatchId(matchId);
-    setPhase('match-found');
+    setIsMatchmade(true);
 
-    // Refresh mp data so the match appears in the list
-    void mp.refresh();
+    // Both players already opted in by queuing — auto-accept & go to waiting
+    void (async () => {
+      await mp.acceptInvite(matchId);
+      await mp.refresh();
+    })();
+    setPhase('waiting');
   }, [mm.status, mm.matchId, mm.configSeed, difficulty, gameId, mp]);
 
   /* ── Overlay: derive MatchPlayer[] from activeEntry ── */
@@ -245,17 +252,28 @@ export default function StagingScreen({
     clearActiveMatch(gameId);
     setActiveMatchId(null);
     setIsInviteOverlay(false);
+    setIsMatchmade(false);
     setPhase('staging');
   }, [activeMatchId, gameId, mp]);
 
-  /* ── Auto-start when all players accept (matchmaking) ── */
+  /* ── Auto-start when all players accept ── */
   useEffect(() => {
-    if (phase !== 'match-found' || !activeEntry) return;
-    const allAccepted = activeEntry.players.every((p) => p.player.status === 'accepted');
-    if (allAccepted && activeEntry.match.host_id === user?.id) {
-      void mp.startMatch(activeEntry.match.id, 5);
+    if (!activeEntry) return;
+    // For match-found overlay (friend invite): host starts when all accept
+    if (phase === 'match-found') {
+      const allAccepted = activeEntry.players.every((p) => p.player.status === 'accepted');
+      if (allAccepted && activeEntry.match.host_id === user?.id) {
+        void mp.startMatch(activeEntry.match.id, 5);
+      }
     }
-  }, [phase, activeEntry, user?.id, mp]);
+    // For matchmade (random queue): auto-start as soon as all accepted, shorter countdown
+    if (phase === 'waiting' && isMatchmade && activeEntry.match.status === 'waiting') {
+      const allAccepted = activeEntry.players.every((p) => p.player.status === 'accepted');
+      if (allAccepted && activeEntry.match.host_id === user?.id) {
+        void mp.startMatch(activeEntry.match.id, 3);
+      }
+    }
+  }, [phase, activeEntry, user?.id, mp, isMatchmade]);
 
   /* ── Matchmaking: join queue handler ── */
   const handleJoinQueue = useCallback(async () => {
