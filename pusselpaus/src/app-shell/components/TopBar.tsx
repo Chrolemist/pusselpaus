@@ -1,14 +1,26 @@
-/* ── TopBar – avatar, name + tag, coins, online count, logout ── */
+/* ── TopBar – mobile-first with hamburger menu ── */
 
-import { useState, useRef, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { useState, useRef, useEffect, useCallback } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { AnimatePresence, motion } from 'motion/react';
 import { useAuth } from '../../auth';
 import { useOnlineCount } from '../../hooks/useOnlineCount';
 import { useFriends } from '../../hooks/useFriends';
 import { useMultiplayer } from '../../multiplayer';
 import { levelProgress } from '../../core/xp';
 import { displaySkin } from '../../core/skin';
-import { Coins, Store, Trophy, Swords, Users, LogOut } from 'lucide-react';
+import {
+  Coins,
+  Store,
+  Trophy,
+  Swords,
+  Users,
+  LogOut,
+  Menu,
+  X,
+  PenLine,
+  BarChart3,
+} from 'lucide-react';
 import FriendsPanel from './FriendsPanel.tsx';
 import MatchInboxPanel from './MatchInboxPanel.tsx';
 
@@ -19,12 +31,14 @@ type NoticeItem = {
 };
 
 export default function TopBar() {
+  const navigate = useNavigate();
   const { profile, user, signOut, updateProfile } = useAuth();
   const onlineCount = useOnlineCount();
   const { friends, loading: friendsLoading } = useFriends();
   const mp = useMultiplayer();
   const [showFriends, setShowFriends] = useState(false);
   const [showMatches, setShowMatches] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState('');
   const [notices, setNotices] = useState<NoticeItem[]>([]);
@@ -35,6 +49,7 @@ export default function TopBar() {
 
   const incomingFriendCount = friends.filter((f) => f.status === 'pending' && !f.isSender).length;
   const incomingInviteCount = mp.grouped.incoming.length;
+  const totalBadge = incomingFriendCount + incomingInviteCount;
 
   const pushNotice = (kind: NoticeItem['kind'], message: string) => {
     const id = Date.now() + Math.floor(Math.random() * 1000);
@@ -82,6 +97,22 @@ export default function TopBar() {
     prevInviteCountRef.current = incomingInviteCount;
   }, [friendsLoading, mp.loading, incomingFriendCount, incomingInviteCount]);
 
+  /* Close menu on navigation */
+  const closeMenu = useCallback(() => setMenuOpen(false), []);
+
+  /* Close menu when clicking outside */
+  const menuRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!menuOpen) return;
+    const handleClick = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setMenuOpen(false);
+      }
+    };
+    window.addEventListener('mousedown', handleClick);
+    return () => window.removeEventListener('mousedown', handleClick);
+  }, [menuOpen]);
+
   if (!user) return null;
 
   const displayName =
@@ -117,50 +148,16 @@ export default function TopBar() {
 
   return (
     <>
-      <header className="sticky top-0 z-30 flex items-center justify-between bg-black/70 px-4 py-2 backdrop-blur-md">
-        {/* Left: avatar + name + tag */}
-        <div className="flex items-center gap-2 min-w-0">
-          <Link to="/" className="shrink-0 text-2xl">
-            {displaySkinEmoji}
-          </Link>
+      <header className="sticky top-0 z-30 flex items-center justify-between bg-black/70 px-3 py-2 backdrop-blur-md">
+        {/* Left: avatar + name */}
+        <Link to="/" className="flex items-center gap-2 min-w-0">
+          <span className="shrink-0 text-2xl">{displaySkinEmoji}</span>
+          <span className="truncate text-sm font-semibold">{displayName}</span>
+          <span className="text-text-muted text-xs shrink-0">#{displayTag}</span>
+        </Link>
 
-          {editing ? (
-            <input
-              ref={inputRef}
-              value={draft}
-              onChange={(e) => setDraft(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') saveEdit();
-                if (e.key === 'Escape') cancelEdit();
-              }}
-              onBlur={saveEdit}
-              maxLength={20}
-              className="w-28 rounded-md bg-white/10 px-2 py-0.5 text-sm font-semibold outline-none ring-1 ring-brand/50 focus:ring-brand"
-            />
-          ) : (
-            <button
-              onClick={startEdit}
-              disabled={!profile}
-              className="flex items-center gap-1 truncate text-sm font-semibold hover:text-brand-light transition group"
-              title={profile ? 'Klicka för att byta namn' : 'Profil synkas...'}
-            >
-              <span className="truncate">{displayName}</span>
-              <span className="text-text-muted text-xs">#{displayTag}</span>
-              {profile && (
-                <span className="opacity-0 group-hover:opacity-100 text-xs text-text-muted transition">✏️</span>
-              )}
-            </button>
-          )}
-
-          {!profile && (
-            <span className="rounded bg-amber-500/20 px-1.5 py-0.5 text-[10px] font-semibold text-amber-300">
-              Profil synkas...
-            </span>
-          )}
-        </div>
-
-        {/* Center: level + coins */}
-        <div className="flex items-center gap-3">
+        {/* Right: level + coins + hamburger */}
+        <div className="flex items-center gap-2">
           {/* Level badge + XP bar */}
           <div className="flex flex-col items-center gap-0.5">
             <span className="text-[11px] font-bold text-brand-light leading-none">
@@ -175,80 +172,140 @@ export default function TopBar() {
           </div>
 
           {/* Coins */}
-          <div className="flex items-center gap-1.5 rounded-full bg-yellow-500/20 px-3 py-1">
-            <Coins className="h-4 w-4 text-yellow-400" />
-            <span className="font-mono text-sm font-bold text-yellow-300">
+          <div className="flex items-center gap-1 rounded-full bg-yellow-500/20 px-2.5 py-1">
+            <Coins className="h-3.5 w-3.5 text-yellow-400" />
+            <span className="font-mono text-xs font-bold text-yellow-300">
               {displayCoins.toLocaleString('sv-SE')}
             </span>
           </div>
-        </div>
 
-        {/* Right: online count + friends + logout */}
-        <div className="flex items-center gap-3">
-          {onlineCount !== null && (
-            <div className="flex items-center gap-1 text-xs text-text-muted">
-              <span className="inline-block h-2 w-2 rounded-full bg-green-400 shadow-[0_0_6px_theme(colors.green.400)]" />
-              {onlineCount} online
-            </div>
-          )}
-
-          <Link
-            to="/shop"
-            className="text-text-muted hover:text-brand-light transition"
-            title="Skinshop"
-          >
-            <Store className="h-[18px] w-[18px]" />
-          </Link>
-
-          <Link
-            to="/friends-leaderboard"
-            className="text-text-muted hover:text-brand-light transition"
-            title="Vänligan"
-          >
-            <Trophy className="h-[18px] w-[18px]" />
-          </Link>
-
+          {/* Hamburger button */}
           <button
-            onClick={() => { setShowMatches((v) => !v); setShowFriends(false); }}
-            className="relative text-text-muted hover:text-brand-light transition"
-            title="Matcher"
+            onClick={() => setMenuOpen((v) => !v)}
+            className="relative rounded-lg p-1.5 text-text-muted hover:bg-white/10 hover:text-white transition"
+            aria-label="Meny"
           >
-            <Swords className="h-[18px] w-[18px]" />
-            {incomingInviteCount > 0 && (
-              <span className="absolute -right-2 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">
-                {incomingInviteCount > 9 ? '9+' : incomingInviteCount}
+            {menuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+            {/* Notification badge */}
+            {!menuOpen && totalBadge > 0 && (
+              <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">
+                {totalBadge > 9 ? '9+' : totalBadge}
               </span>
             )}
-          </button>
-
-          <button
-            onClick={() => { setShowFriends((v) => !v); setShowMatches(false); }}
-            className="relative text-text-muted hover:text-brand-light hover:scale-110 transition"
-            title="Vänner"
-          >
-            <Users className="h-[18px] w-[18px]" />
-            {incomingFriendCount > 0 && (
-              <span className="absolute -right-2 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">
-                {incomingFriendCount > 9 ? '9+' : incomingFriendCount}
-              </span>
-            )}
-          </button>
-
-          <button
-            onClick={signOut}
-            className="flex items-center gap-1.5 rounded-lg bg-red-500/20 px-3 py-1.5 text-xs font-bold text-red-400 transition hover:bg-red-500/40 active:scale-95"
-          >
-            <LogOut className="h-3.5 w-3.5" />
-            Logga ut
           </button>
         </div>
       </header>
+
+      {/* ── Hamburger dropdown menu ── */}
+      <AnimatePresence>
+        {menuOpen && (
+          <motion.div
+            ref={menuRef}
+            className="fixed right-0 top-[48px] z-40 w-64 max-w-[85vw] overflow-hidden rounded-bl-2xl border-l border-b border-white/10 bg-surface-card/95 shadow-2xl backdrop-blur-lg"
+            initial={{ opacity: 0, y: -8, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -8, scale: 0.95 }}
+            transition={{ duration: 0.18, ease: 'easeOut' }}
+          >
+            {/* Profile section */}
+            <div className="border-b border-white/10 px-4 py-3">
+              <div className="flex items-center gap-2">
+                <span className="text-2xl">{displaySkinEmoji}</span>
+                <div className="min-w-0 flex-1">
+                  {editing ? (
+                    <input
+                      ref={inputRef}
+                      value={draft}
+                      onChange={(e) => setDraft(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') saveEdit();
+                        if (e.key === 'Escape') cancelEdit();
+                      }}
+                      onBlur={saveEdit}
+                      maxLength={20}
+                      className="w-full rounded-md bg-white/10 px-2 py-0.5 text-sm font-semibold outline-none ring-1 ring-brand/50 focus:ring-brand"
+                    />
+                  ) : (
+                    <button
+                      onClick={startEdit}
+                      disabled={!profile}
+                      className="flex items-center gap-1 text-sm font-semibold hover:text-brand-light transition group"
+                      title="Byt namn"
+                    >
+                      <span className="truncate">{displayName}</span>
+                      <span className="text-text-muted text-xs">#{displayTag}</span>
+                      {profile && <PenLine className="h-3 w-3 text-text-muted opacity-0 group-hover:opacity-100 transition" />}
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {onlineCount !== null && (
+                <div className="mt-2 flex items-center gap-1.5 text-xs text-text-muted">
+                  <span className="inline-block h-2 w-2 rounded-full bg-green-400 shadow-[0_0_6px_theme(colors.green.400)]" />
+                  {onlineCount} online
+                </div>
+              )}
+
+              {!profile && (
+                <span className="mt-1 inline-block rounded bg-amber-500/20 px-1.5 py-0.5 text-[10px] font-semibold text-amber-300">
+                  Profil synkas...
+                </span>
+              )}
+            </div>
+
+            {/* Navigation links */}
+            <nav className="flex flex-col py-1">
+              <MenuLink icon={<Store className="h-4 w-4" />} label="Skinshop" onClick={() => { closeMenu(); navigate('/shop'); }} />
+              <MenuLink icon={<Trophy className="h-4 w-4" />} label="Vänligan" onClick={() => { closeMenu(); navigate('/friends-leaderboard'); }} />
+              <MenuLink icon={<BarChart3 className="h-4 w-4" />} label="Statistik" onClick={() => { closeMenu(); navigate('/stats'); }} />
+              <MenuLink
+                icon={<Swords className="h-4 w-4" />}
+                label="Matcher"
+                badge={incomingInviteCount}
+                onClick={() => { closeMenu(); setShowMatches(true); }}
+              />
+              <MenuLink
+                icon={<Users className="h-4 w-4" />}
+                label="Vänner"
+                badge={incomingFriendCount}
+                onClick={() => { closeMenu(); setShowFriends(true); }}
+              />
+            </nav>
+
+            {/* Logout */}
+            <div className="border-t border-white/10 px-4 py-3">
+              <button
+                onClick={() => { closeMenu(); signOut(); }}
+                className="flex w-full items-center gap-2 rounded-lg bg-red-500/15 px-3 py-2 text-sm font-semibold text-red-400 transition hover:bg-red-500/30 active:scale-[0.97]"
+              >
+                <LogOut className="h-4 w-4" />
+                Logga ut
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Backdrop overlay when menu is open */}
+      <AnimatePresence>
+        {menuOpen && (
+          <motion.div
+            className="fixed inset-0 z-[39] bg-black/40"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.15 }}
+            onClick={closeMenu}
+          />
+        )}
+      </AnimatePresence>
 
       {showFriends && <FriendsPanel onClose={() => setShowFriends(false)} />}
       {showMatches && <MatchInboxPanel onClose={() => setShowMatches(false)} />}
 
       {notices.length > 0 && (
-        <div className="pointer-events-none fixed right-4 top-16 z-50 flex flex-col gap-2">
+        <div className="pointer-events-none fixed right-4 top-14 z-50 flex flex-col gap-2">
           {notices.map((notice) => (
             <div
               key={notice.id}
@@ -276,5 +333,34 @@ export default function TopBar() {
         </div>
       )}
     </>
+  );
+}
+
+/* ── Menu item sub-component ── */
+
+function MenuLink({
+  icon,
+  label,
+  badge,
+  onClick,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  badge?: number;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className="flex items-center gap-3 px-4 py-2.5 text-sm text-text-muted hover:bg-white/5 hover:text-white transition"
+    >
+      {icon}
+      <span className="flex-1 text-left font-medium">{label}</span>
+      {badge != null && badge > 0 && (
+        <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1.5 text-[10px] font-bold text-white">
+          {badge > 9 ? '9+' : badge}
+        </span>
+      )}
+    </button>
   );
 }
