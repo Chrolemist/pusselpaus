@@ -119,14 +119,15 @@ export const LANE_COLORS = [
 /** Scroll speed: seconds visible on screen before reaching hit zone */
 export const SCROLL_TIME = 1.2;
 
-/** Minimum scroll time at max ramp – nearly impossible to react to */
-export const SCROLL_TIME_MIN = 0.35;
+/** Minimum scroll time at max ramp – 10× start speed, essentially impossible */
+export const SCROLL_TIME_MIN = 0.12;
 
 /**
  * Duration (seconds) over which the speed ramps from
- * SCROLL_TIME → SCROLL_TIME_MIN. After this the speed stays at min.
+ * SCROLL_TIME → SCROLL_TIME_MIN. Ramps aggressively so the game
+ * becomes unbeatable quickly – no infinite coin farming.
  */
-export const SPEED_RAMP_DURATION = 150;
+export const SPEED_RAMP_DURATION = 60;
 
 /**
  * Get the scroll-time for a note that should be hit at `noteTime`.
