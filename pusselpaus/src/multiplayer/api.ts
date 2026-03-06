@@ -187,6 +187,7 @@ export async function mpMarkReady(matchId: string): Promise<{ error: string | nu
     });
     return { error: error.message || 'Kunde inte markera redo', data: null };
   }
+  mpDebug('api', 'accept:mark_ready_rpc_raw', { matchId, raw: data, type: typeof data, isArray: Array.isArray(data), keys: (data && typeof data === 'object') ? Object.keys(data) : null });
   const normalized = normalizeReadyResult(data);
   mpDebug('api', 'accept:mark_ready_rpc_ok', { matchId, data: normalized });
   return { error: null, data: normalized };
@@ -290,8 +291,10 @@ export async function mpReadyState(
     p_match_id: matchId,
   });
   if (error) {
+    mpDebug('api', 'accept:ready_state_rpc_error', { matchId, message: error.message ?? null, code: error.code ?? null });
     return { error: error.message || 'Kunde inte läsa ready-state', data: null };
   }
+  mpDebug('api', 'accept:ready_state_rpc_raw', { matchId, raw: data, type: typeof data, isArray: Array.isArray(data), keys: (data && typeof data === 'object') ? Object.keys(data) : null });
   return { error: null, data: normalizeReadyStateResult(data) };
 }
 

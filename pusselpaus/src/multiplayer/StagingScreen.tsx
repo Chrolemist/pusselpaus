@@ -598,52 +598,14 @@ export default function StagingScreen({
     // Matchmade UI should reflect local click instantly regardless of backend timing.
     if (isMatchmade) {
       setMatchFoundAcceptedLocal(true);
-      void mpRef.current.refresh();
+      // Refresh loads player rows from DB — the player_row_counts effect
+      // will compute ready counts from those rows automatically.
+      await mpRef.current.refresh();
 
-      let resolvedReadyData = readyData;
-      if (
-        !resolvedReadyData ||
-        resolvedReadyData.ready_count == null ||
-        resolvedReadyData.total_count == null
-      ) {
-        const readyStateSnapshot = await mpRef.current.readyState(activeMatchId);
-        mpDebug('StagingScreen', 'accept:ready_state_fallback', {
-          gameId,
-          matchId: activeMatchId,
-          error: readyStateSnapshot.error,
-          data: readyStateSnapshot.data ?? null,
-        });
-        if (readyStateSnapshot.data) {
-          resolvedReadyData = {
-            all_ready: readyStateSnapshot.data.all_ready,
-            ready_count: readyStateSnapshot.data.ready_count,
-            total_count: readyStateSnapshot.data.total_count,
-          };
-        }
-      }
-
-      if (resolvedReadyData) {
-        setServerReadyCount(resolvedReadyData.ready_count ?? null);
-        setServerTotalCount(resolvedReadyData.total_count ?? null);
-        setServerAllReady(resolvedReadyData.all_ready ?? null);
-      }
       if (err) {
         flash('Backend saknar ready-state migration. Kör SQL-migrationen först.');
-      } else if ((resolvedReadyData?.all_ready === true) && ((resolvedReadyData?.total_count ?? 0) >= 2)) {
-        mpDebug('StagingScreen', 'accept:start_probe_request', {
-          gameId,
-          matchId: activeMatchId,
-          phase,
-          immediate: true,
-        });
-        const startErr = await mp.startMatchIfReady(activeMatchId, 3);
-        mpDebug('StagingScreen', 'accept:start_probe_result', {
-          gameId,
-          matchId: activeMatchId,
-          error: startErr,
-          immediate: true,
-        });
       }
+      // The periodic start probe effect handles starting once all are ready.
     }
     if (err && !isMatchmade) {
       flash('Kunde inte markera redo. Försök igen.');
@@ -744,7 +706,43 @@ export default function StagingScreen({
     }
   }, [phase, mm.status, mm.error]);
 
-  // Server-authoritative ready snapshot for matchmade flow.
+  // Primary: compute ready counts from player rows we already have.
+  // This is the MOST reliable source — no RPC parsing needed.
+  useEffect(() => {
+    if (!activeEntry || !isMatchmade) return;
+    if (phase !== 'match-found' && phase !== 'waiting' && phase !== 'countdown') return;
+
+    const players = activeEntry.players.filter((p) => p.player.forfeited !== true);
+    const total = players.length;
+    const ready = players.filter((p) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const row = p.player as any;
+      return row.ready === true || row.ready_at != null || p.player.status === 'accepted';
+    }).length;
+
+    mpDebug('StagingScreen', 'accept:player_row_counts', {
+      gameId,
+      matchId: activeEntry.match.id,
+      ready,
+      total,
+      players: players.map((p) => ({
+        userId: p.player.user_id,
+        status: p.player.status,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        ready: (p.player as any).ready,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        readyAt: (p.player as any).ready_at,
+      })),
+    });
+
+    if (total >= 2) {
+      setServerReadyCount(ready);
+      setServerTotalCount(total);
+      setServerAllReady(ready >= total);
+    }
+  }, [activeEntry, isMatchmade, phase, gameId]);
+
+  // Secondary: also poll ready_state RPC as fallback (may provide extra info).
   useEffect(() => {
     if (!activeMatchId) return;
     if (!isMatchmade) return;
@@ -754,9 +752,12 @@ export default function StagingScreen({
     const loadReadyState = async () => {
       const { error, data } = await mpRef.current.readyState(activeMatchId);
       if (!mounted || error || !data) return;
-      setServerReadyCount(data.ready_count ?? null);
-      setServerTotalCount(data.total_count ?? null);
-      setServerAllReady(data.all_ready ?? null);
+      // Only override if RPC actually returns counts (may not exist in all backends)
+      if (data.ready_count != null && data.total_count != null) {
+        setServerReadyCount(data.ready_count);
+        setServerTotalCount(data.total_count);
+        setServerAllReady(data.all_ready ?? null);
+      }
     };
 
     void loadReadyState();
