@@ -539,6 +539,20 @@ export default function StagingScreen({
   /* ── Overlay: derive MatchPlayer[] from activeEntry ── */
   const overlayPlayers = useMemo<MatchPlayer[]>(() => {
     if (!activeEntry) return [];
+    const totalCount = serverTotalCount ?? activeEntry.players.length;
+    const serverCount = serverReadyCount;
+
+    const myPlayer = activeEntry.players.find((p) => p.player.user_id === user?.id);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const myReadyFromRow = (myPlayer?.player as any)?.ready === true;
+    const myAccepted = matchFoundAcceptedLocal || myReadyFromRow;
+
+    const inferredOthersReady =
+      isMatchmade &&
+      totalCount === 2 &&
+      typeof serverCount === 'number' &&
+      Math.max(0, serverCount - (myAccepted ? 1 : 0)) >= 1;
+
     return activeEntry.players.map(({ player, profile }) => ({
       id: profile?.id ?? player.user_id,
       username: profile?.username ?? 'Spelare',
@@ -550,14 +564,16 @@ export default function StagingScreen({
         ? (
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             (player as any).ready === true ||
-            (player.user_id === user?.id && matchFoundAcceptedLocal)
+            (player.user_id === user?.id
+              ? myAccepted
+              : inferredOthersReady)
           )
         : (
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             (player as any).ready === true || player.status === 'accepted'
           ),
     }));
-  }, [activeEntry, isMatchmade, user?.id, matchFoundAcceptedLocal]);
+  }, [activeEntry, isMatchmade, user?.id, matchFoundAcceptedLocal, serverReadyCount, serverTotalCount]);
 
   /* ── Overlay: accept handler ── */
   const handleOverlayAccept = useCallback(async () => {
