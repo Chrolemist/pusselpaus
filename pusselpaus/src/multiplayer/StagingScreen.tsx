@@ -653,6 +653,18 @@ export default function StagingScreen({
     }
   }, [phase, mm.status, mm.error]);
 
+  // Safety net: keep pre-game state in sync even if realtime updates are delayed.
+  useEffect(() => {
+    if (!activeMatchId) return;
+    if (phase !== 'match-found' && phase !== 'waiting' && phase !== 'countdown') return;
+
+    const timer = window.setInterval(() => {
+      void mpRef.current.refresh();
+    }, 1200);
+
+    return () => window.clearInterval(timer);
+  }, [activeMatchId, phase]);
+
   /* ── Solo start ── */
   const handleSoloStart = useCallback(() => {
     clearActiveMatch(gameId);
