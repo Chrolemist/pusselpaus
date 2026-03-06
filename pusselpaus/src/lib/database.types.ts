@@ -18,6 +18,7 @@ export interface Database {
           tag: string;
           avatar_url: string | null;
           coins: number;
+          xp: number;
           level: number;
           skin: string;
           is_online: boolean;
@@ -30,6 +31,7 @@ export interface Database {
           tag?: string;
           avatar_url?: string | null;
           coins?: number;
+          xp?: number;
           level?: number;
           skin?: string;
           is_online?: boolean;
@@ -42,6 +44,7 @@ export interface Database {
           tag?: string;
           avatar_url?: string | null;
           coins?: number;
+          xp?: number;
           level?: number;
           skin?: string;
           is_online?: boolean;

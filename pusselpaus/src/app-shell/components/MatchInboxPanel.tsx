@@ -15,6 +15,7 @@ import {
   gamePath,
 } from '../../multiplayer';
 import type { MatchConfig } from '../../multiplayer';
+import LevelBadge from '../../components/LevelBadge';
 
 interface MatchInboxPanelProps {
   onClose: () => void;
@@ -90,7 +91,7 @@ export default function MatchInboxPanel({ onClose }: MatchInboxPanelProps) {
                     {gameLabel(entry.match.game_id)}
                   </p>
                   <p className="text-xs text-text-muted">
-                    Från {host ? `${host.skin ?? '🙂'} ${host.username}` : 'okänd'}
+                    Från {host ? <>{host.skin ?? '🙂'} {host.username} <LevelBadge level={host.level} /></> : 'okänd'}
                     {entry.match.stake > 0
                       ? ` · Stake ${entry.match.stake} 🪙`
                       : ' · Utan stake'}
@@ -159,7 +160,7 @@ export default function MatchInboxPanel({ onClose }: MatchInboxPanelProps) {
                     {entry.players.map(({ player, profile: prof }) => (
                       <span
                         key={player.user_id}
-                        className={`rounded-full px-2 py-0.5 text-[11px] ${
+                        className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] ${
                           player.status === 'accepted'
                             ? 'bg-green-500/20 text-green-300'
                             : player.status === 'invited'
@@ -168,6 +169,7 @@ export default function MatchInboxPanel({ onClose }: MatchInboxPanelProps) {
                         }`}
                       >
                         {prof?.skin ?? '🙂'} {prof?.username ?? '?'}
+                        <LevelBadge level={prof?.level} />
                       </span>
                     ))}
                   </div>
@@ -292,7 +294,7 @@ export default function MatchInboxPanel({ onClose }: MatchInboxPanelProps) {
                   </div>
                   <p className="text-xs text-text-muted">
                     Vinnare: {winner
-                      ? `${winner.skin ?? '🙂'} ${winner.username}`
+                      ? <>{winner.skin ?? '🙂'} {winner.username} <LevelBadge level={winner.level} /></>
                       : 'okänd'}
                     {pot > 0 ? ` · ${pot} 🪙` : ''}
                   </p>

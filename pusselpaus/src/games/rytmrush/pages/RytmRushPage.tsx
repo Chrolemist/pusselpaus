@@ -26,9 +26,9 @@ export default function RytmRushPage() {
   const rewardedRef = useRef(false);
   const syncedStatsRef = useRef(false);
   const submittedMatchRef = useRef(false);
-  const { rewardRytmRushPerformance } = useCoinRewards();
+  const { rewardRytmRushPerformance, awardXp } = useCoinRewards();
   const { syncGameResult } = useServerGameStats();
-  const { submitResult: submitMatchResult } = useMultiplayerGame('rytmrush');
+  const { submitResult: submitMatchResult, isActive: isMultiplayer } = useMultiplayerGame('rytmrush');
   const stagingResetRef = useRef<(() => void) | null>(null);
 
   /* ── StagingScreen callback ── */
@@ -95,6 +95,7 @@ export default function RytmRushPage() {
             survivedSeconds: engine.survivedSeconds,
             cleared: engine.cleared,
           });
+          void awardXp({ gameId: 'rytmrush', won: engine.cleared, multiplayer: isMultiplayer });
         }
         playWinJingle();
         confetti({ particleCount: 120, spread: 70, origin: { y: 0.6 } });
@@ -128,7 +129,7 @@ export default function RytmRushPage() {
       syncedStatsRef.current = false;
       submittedMatchRef.current = false;
     }
-  }, [engine.phase, engine.perfects, engine.greats, engine.goods, engine.misses, engine.cleared, engine.score, engine.survivedSeconds, rewardRytmRushPerformance, syncGameResult, submitMatchResult]);
+  }, [engine.phase, engine.perfects, engine.greats, engine.goods, engine.misses, engine.cleared, engine.score, engine.survivedSeconds, rewardRytmRushPerformance, awardXp, isMultiplayer, syncGameResult, submitMatchResult]);
 
   /* ── Cleanup ── */
   useEffect(() => {

@@ -4,12 +4,14 @@ import { useAuth } from '../../auth';
 import { useFriends } from '../../hooks/useFriends';
 import { supabase } from '../../lib/supabaseClient';
 import type { UserGameStat } from '../../lib/database.types';
+import LevelBadge from '../../components/LevelBadge';
 
 interface LeaderboardRow {
   id: string;
   username: string;
   tag: string;
   skin: string;
+  level: number;
   isMe: boolean;
   played: number;
   won: number;
@@ -42,6 +44,7 @@ export default function FriendsLeaderboardPage() {
         username: profile?.username ?? (user.email?.split('@')[0] ?? 'Du'),
         tag: profile?.tag ?? '0000',
         skin: profile?.skin ?? '🙂',
+        level: profile?.level ?? 1,
         isMe: true,
       });
     }
@@ -52,6 +55,7 @@ export default function FriendsLeaderboardPage() {
         username: f.username,
         tag: f.tag,
         skin: f.skin,
+        level: f.level ?? 1,
         isMe: false,
       });
     }
@@ -158,10 +162,13 @@ export default function FriendsLeaderboardPage() {
               <div className="flex items-center gap-3 min-w-0">
                 <span className="text-2xl">{r.skin}</span>
                 <div className="min-w-0">
-                  <p className="truncate font-semibold">
-                    {r.username}
-                    {r.isMe ? ' (du)' : ''}
-                  </p>
+                  <div className="flex items-center gap-1.5">
+                    <p className="truncate font-semibold">
+                      {r.username}
+                      {r.isMe ? ' (du)' : ''}
+                    </p>
+                    <LevelBadge level={r.level} />
+                  </div>
                   <p className="text-xs text-text-muted">#{r.tag}</p>
                 </div>
               </div>

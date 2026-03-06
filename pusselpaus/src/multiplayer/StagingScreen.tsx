@@ -20,6 +20,7 @@ import { motion } from 'motion/react';
 import { useAuth } from '../auth';
 import { useFriends } from '../hooks/useFriends';
 import { games } from '../game-registry';
+import LevelBadge from '../components/LevelBadge';
 import {
   useMultiplayer,
   gameLabel,
@@ -289,6 +290,7 @@ export default function StagingScreen({
                 <span className="text-[11px] text-text-muted">
                   {profile?.username ?? 'Spelare'}
                 </span>
+                <LevelBadge level={profile?.level} />
               </div>
             ))}
           </div>
@@ -426,6 +428,7 @@ export default function StagingScreen({
                     <span className="text-sm">
                       {f.username}#{f.tag}
                     </span>
+                    <LevelBadge level={f.level} />
                   </div>
                   <span className={`text-[11px] ${f.is_online ? 'text-green-300' : 'text-text-muted'}`}>
                     {f.is_online ? 'Online' : 'Offline'}
@@ -474,6 +477,7 @@ export default function StagingScreen({
                       {profile?.username ?? 'Spelare'}
                       <span className="text-text-muted">#{profile?.tag ?? '????'}</span>
                     </span>
+                    <LevelBadge level={profile?.level} />
                   </div>
                   <span
                     className={`text-xs font-semibold ${

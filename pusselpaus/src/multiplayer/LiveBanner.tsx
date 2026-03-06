@@ -12,6 +12,7 @@ import { useEffect, useState } from 'react';
 import { useLiveMatch } from './useLiveMatch';
 import { mpTickMatchStart, mpForfeitMatch } from './api';
 import { gameLabel } from './useMultiplayer';
+import LevelBadge from '../components/LevelBadge';
 
 const AFK_TIMEOUT_SECONDS = 180;
 
@@ -100,9 +101,9 @@ export default function LiveBanner({ gameId }: Props) {
           <div className="space-y-1">
             {live.acceptedPlayers.map(({ player, profile }) => (
               <div key={player.id} className="flex items-center justify-between text-xs">
-                <span className="truncate text-text-muted">
+                <span className="flex items-center gap-1 truncate text-text-muted">
                   {profile
-                    ? `${profile.skin ?? '🙂'} ${profile.username}#${profile.tag}`
+                    ? <>{profile.skin ?? '🙂'} {profile.username}#{profile.tag} <LevelBadge level={profile.level} /></>
                     : 'Spelare'}
                 </span>
                 <span

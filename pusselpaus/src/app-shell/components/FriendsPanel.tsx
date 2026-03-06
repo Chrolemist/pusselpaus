@@ -7,6 +7,7 @@ import { useFriends } from '../../hooks/useFriends';
 import { useAuth } from '../../auth';
 import { supabase } from '../../lib/supabaseClient';
 import type { Profile, UserGameStat } from '../../lib/database.types';
+import LevelBadge from '../../components/LevelBadge';
 
 interface FriendsPanelProps {
   onClose: () => void;
@@ -132,7 +133,10 @@ export default function FriendsPanel({ onClose }: FriendsPanelProps) {
                 <div className="flex items-center gap-2">
                   <span>{p.skin ?? '🙂'}</span>
                   <div>
-                    <p className="text-sm font-semibold">{p.username}</p>
+                    <div className="flex items-center gap-1.5">
+                      <p className="text-sm font-semibold">{p.username}</p>
+                      <LevelBadge level={p.level} />
+                    </div>
                     <p className="text-[11px] text-text-muted">#{p.tag}</p>
                   </div>
                 </div>
@@ -165,7 +169,10 @@ export default function FriendsPanel({ onClose }: FriendsPanelProps) {
                 <div className="flex items-center gap-2">
                   <span className="text-xl">{f.friend.skin ?? '🙂'}</span>
                   <div>
-                    <p className="text-sm font-semibold">{f.friend.username}</p>
+                    <div className="flex items-center gap-1.5">
+                      <p className="text-sm font-semibold">{f.friend.username}</p>
+                      <LevelBadge level={f.friend.level} />
+                    </div>
                     <p className="text-xs text-text-muted">Vill bli din vän</p>
                   </div>
                 </div>
@@ -197,7 +204,10 @@ export default function FriendsPanel({ onClose }: FriendsPanelProps) {
                 <div className="flex items-center gap-2">
                   <span className="text-xl">{f.friend.skin ?? '🙂'}</span>
                   <div>
-                    <p className="text-sm font-semibold">{f.friend.username}</p>
+                    <div className="flex items-center gap-1.5">
+                      <p className="text-sm font-semibold">{f.friend.username}</p>
+                      <LevelBadge level={f.friend.level} />
+                    </div>
                     <div className="flex items-center gap-1">
                       <span
                         className={`inline-block h-1.5 w-1.5 rounded-full ${f.friend.is_online ? 'bg-green-400' : 'bg-gray-500'}`}

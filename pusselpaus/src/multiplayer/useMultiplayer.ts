@@ -46,7 +46,7 @@ export interface MultiplayerMatchView {
   me: MultiplayerMatchPlayer | null;
   players: Array<{
     player: MultiplayerMatchPlayer;
-    profile: Pick<Profile, 'id' | 'username' | 'tag' | 'skin' | 'is_online'> | null;
+    profile: Pick<Profile, 'id' | 'username' | 'tag' | 'skin' | 'is_online' | 'level'> | null;
   }>;
 }
 
@@ -117,7 +117,7 @@ export function useMultiplayer() {
     const userIds = Array.from(new Set((allPlayers ?? []).map((p) => p.user_id)));
     const { data: profiles } = await supabase
       .from('profiles')
-      .select('id, username, tag, skin, is_online')
+      .select('id, username, tag, skin, is_online, level')
       .in('id', userIds);
 
     const profileMap = new Map((profiles ?? []).map((p) => [p.id, p]));
@@ -138,7 +138,7 @@ export function useMultiplayer() {
             profile:
               (profileMap.get(p.user_id) as Pick<
                 Profile,
-                'id' | 'username' | 'tag' | 'skin' | 'is_online'
+                'id' | 'username' | 'tag' | 'skin' | 'is_online' | 'level'
               > | null) ?? null,
           })),
         };

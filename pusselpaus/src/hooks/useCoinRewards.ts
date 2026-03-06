@@ -1,25 +1,30 @@
 import { useCallback } from 'react';
 import { useAuth } from '../auth';
 import { supabase } from '../lib/supabaseClient';
+import { calculateXpReward, levelFromXp, type XpRewardParams } from '../core/xp';
 
-const COIN_AWARDED_EVENT = 'pusselpaus:coins-awarded';
+export const COIN_AWARDED_EVENT = 'pusselpaus:coins-awarded';
+export const LEVEL_UP_EVENT = 'pusselpaus:level-up';
+export const XP_AWARDED_EVENT = 'pusselpaus:xp-awarded';
+
+/* ── Coin tables (rebalanced – much stingier) ── */
 
 const WIN_COINS = {
   sudoku: {
-    easy: 20,
-    medium: 35,
-    hard: 55,
-    expert: 80,
+    easy: 3,
+    medium: 5,
+    hard: 8,
+    expert: 12,
   },
   numberpath: {
-    easy: 15,
-    medium: 30,
-    hard: 50,
+    easy: 2,
+    medium: 4,
+    hard: 7,
   },
   rytmrush: {
-    easy: 20,
-    medium: 35,
-    hard: 55,
+    easy: 3,
+    medium: 5,
+    hard: 8,
   },
 } as const;
 
@@ -29,6 +34,8 @@ type DifficultyKey = 'easy' | 'medium' | 'hard' | 'expert';
 
 export function useCoinRewards() {
   const { user, refreshProfile } = useAuth();
+
+  /* ── Coins ── */
 
   const emitCoinsAwarded = useCallback((amount: number) => {
     if (amount <= 0) return;
@@ -56,10 +63,9 @@ export function useCoinRewards() {
       return 0;
     }
 
-    await refreshProfile();
     emitCoinsAwarded(amount);
     return amount;
-  }, [user, refreshProfile, emitCoinsAwarded]);
+  }, [user, emitCoinsAwarded]);
 
   const rewardWin = useCallback(async (game: GameKey, difficulty: DifficultyKey) => {
     const amount = WIN_COINS[game][difficulty as keyof (typeof WIN_COINS)[GameKey]];
@@ -74,13 +80,56 @@ export function useCoinRewards() {
     survivedSeconds: number;
     cleared: boolean;
   }) => {
-    const scoreCoins = Math.floor(params.score / 1200);
-    const accuracyCoins = Math.floor(params.hitRate * 30);
-    const survivalCoins = Math.floor(params.survivedSeconds / 12);
-    const clearBonus = params.cleared ? 40 : 0;
-    const total = Math.max(5, scoreCoins + accuracyCoins + survivalCoins + clearBonus);
+    const scoreCoins = Math.floor(params.score / 2500);
+    const accuracyCoins = Math.floor(params.hitRate * 5);
+    const survivalCoins = Math.floor(params.survivedSeconds / 30);
+    const clearBonus = params.cleared ? 8 : 0;
+    const total = Math.max(1, scoreCoins + accuracyCoins + survivalCoins + clearBonus);
     return addCoins(total);
   }, [addCoins]);
 
-  return { rewardWin, rewardRytmRushPerformance } as const;
+  /* ── XP ── */
+
+  const awardXp = useCallback(async (params: XpRewardParams) => {
+    if (!user) return { xp: 0, leveledUp: false, newLevel: 1 };
+
+    const xpGain = calculateXpReward(params);
+
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('xp, level')
+      .eq('id', user.id)
+      .single();
+
+    if (!profile) return { xp: xpGain, leveledUp: false, newLevel: 1 };
+
+    const oldXp = profile.xp ?? 0;
+    const newXp = oldXp + xpGain;
+    const oldLevel = profile.level ?? 1;
+    const newLevel = levelFromXp(newXp);
+
+    const { error } = await supabase
+      .from('profiles')
+      .update({ xp: newXp, level: newLevel })
+      .eq('id', user.id);
+
+    if (error) {
+      console.error('[XP] Could not award XP:', error);
+      return { xp: xpGain, leveledUp: false, newLevel: oldLevel };
+    }
+
+    // Emit XP event
+    window.dispatchEvent(new CustomEvent(XP_AWARDED_EVENT, { detail: { xp: xpGain } }));
+
+    // Emit level-up event
+    const leveledUp = newLevel > oldLevel;
+    if (leveledUp) {
+      window.dispatchEvent(new CustomEvent(LEVEL_UP_EVENT, { detail: { oldLevel, newLevel } }));
+    }
+
+    await refreshProfile();
+    return { xp: xpGain, leveledUp, newLevel };
+  }, [user, refreshProfile]);
+
+  return { rewardWin, rewardRytmRushPerformance, awardXp } as const;
 }

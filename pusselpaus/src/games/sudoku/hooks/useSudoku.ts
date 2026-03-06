@@ -33,9 +33,9 @@ export interface SudokuState {
 export function useSudoku() {
   const [state, setState] = useState<SudokuState | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const { rewardWin } = useCoinRewards();
+  const { rewardWin, awardXp } = useCoinRewards();
   const { syncGameResult } = useServerGameStats();
-  const { submitResult: submitMatchResult } = useMultiplayerGame('sudoku');
+  const { submitResult: submitMatchResult, isActive: isMultiplayer } = useMultiplayerGame('sudoku');
 
   const stopTimer = useCallback(() => {
     if (timerRef.current) {
@@ -118,6 +118,7 @@ export function useSudoku() {
           clearGame();
           recordWin(prev.difficulty, prev.elapsed);
           void rewardWin('sudoku', prev.difficulty);
+          void awardXp({ gameId: 'sudoku', won: true, difficulty: prev.difficulty, multiplayer: isMultiplayer });
           void submitMatchResult({
             elapsedSeconds: prev.elapsed,
           });
@@ -131,7 +132,7 @@ export function useSudoku() {
         return { ...prev, board, conflicts, solved };
       });
     },
-    [stopTimer, rewardWin, submitMatchResult, syncGameResult],
+    [stopTimer, rewardWin, awardXp, isMultiplayer, submitMatchResult, syncGameResult],
   );
 
   const erase = useCallback(() => {

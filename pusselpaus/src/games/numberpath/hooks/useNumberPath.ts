@@ -33,9 +33,9 @@ export function useNumberPath() {
   const [hintCell, setHintCell] = useState<number | null>(null);
   const [hintsUsed, setHintsUsed] = useState(0);
   const timerRef = useRef<ReturnType<typeof setInterval>>(undefined);
-  const { rewardWin } = useCoinRewards();
+  const { rewardWin, awardXp } = useCoinRewards();
   const { syncGameResult } = useServerGameStats();
-  const { submitResult: submitMatchResult } = useMultiplayerGame('numberpath');
+  const { submitResult: submitMatchResult, isActive: isMultiplayer } = useMultiplayerGame('numberpath');
 
   /* ── timer ── */
   useEffect(() => {
@@ -161,6 +161,7 @@ export function useNumberPath() {
         setPhase('won');
         recordWin(puzzle.difficulty, elapsed);
         void rewardWin('numberpath', puzzle.difficulty);
+        void awardXp({ gameId: 'numberpath', won: true, difficulty: puzzle.difficulty, multiplayer: isMultiplayer });
         void submitMatchResult({
           elapsedSeconds: elapsed,
         });
@@ -177,7 +178,7 @@ export function useNumberPath() {
 
       return true;
     },
-    [puzzle, phase, pathCells, pathIndexMap, elapsed, rewardWin, submitMatchResult, syncGameResult],
+    [puzzle, phase, pathCells, pathIndexMap, elapsed, rewardWin, awardXp, isMultiplayer, submitMatchResult, syncGameResult],
   );
 
   const undoTo = useCallback(

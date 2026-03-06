@@ -11,7 +11,7 @@ type LiveOutcome = 'won' | 'lost' | null;
 
 export interface LivePlayer {
   player: MultiplayerMatchPlayer;
-  profile: Pick<Profile, 'id' | 'username' | 'tag' | 'skin' | 'is_online'> | null;
+  profile: Pick<Profile, 'id' | 'username' | 'tag' | 'skin' | 'is_online' | 'level'> | null;
 }
 
 export function useLiveMatch(gameId: string) {
@@ -77,13 +77,13 @@ export function useLiveMatch(gameId: string) {
     const userIds = Array.from(new Set((playerRows ?? []).map((p) => p.user_id)));
     const { data: profiles } = await supabase
       .from('profiles')
-      .select('id, username, tag, skin, is_online')
+      .select('id, username, tag, skin, is_online, level')
       .in('id', userIds);
 
     const profileMap = new Map((profiles ?? []).map((p) => [p.id, p]));
     const merged: LivePlayer[] = (playerRows ?? []).map((p) => ({
       player: p,
-      profile: (profileMap.get(p.user_id) as Pick<Profile, 'id' | 'username' | 'tag' | 'skin' | 'is_online'> | null) ?? null,
+      profile: (profileMap.get(p.user_id) as Pick<Profile, 'id' | 'username' | 'tag' | 'skin' | 'is_online' | 'level'> | null) ?? null,
     }));
 
     setMatch(effectiveMatch);

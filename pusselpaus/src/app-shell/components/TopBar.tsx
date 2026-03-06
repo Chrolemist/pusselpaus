@@ -6,6 +6,7 @@ import { useAuth } from '../../auth';
 import { useOnlineCount } from '../../hooks/useOnlineCount';
 import { useFriends } from '../../hooks/useFriends';
 import { useMultiplayer } from '../../multiplayer';
+import { levelProgress } from '../../core/xp';
 import FriendsPanel from './FriendsPanel.tsx';
 import MatchInboxPanel from './MatchInboxPanel.tsx';
 
@@ -89,6 +90,8 @@ export default function TopBar() {
   const displayTag = profile?.tag ?? '0000';
   const displaySkin = profile?.skin ?? '🙂';
   const displayCoins = profile?.coins ?? 0;
+  const displayLevel = profile?.level ?? 1;
+  const xpProgress = levelProgress(profile?.xp ?? 0);
 
   const startEdit = () => {
     if (!profile) return;
@@ -154,12 +157,28 @@ export default function TopBar() {
           )}
         </div>
 
-        {/* Center: coins */}
-        <div className="flex items-center gap-1 rounded-full bg-yellow-500/20 px-3 py-1">
-          <span className="text-sm">🪙</span>
-          <span className="font-mono text-sm font-bold text-yellow-300">
-            {displayCoins.toLocaleString('sv-SE')}
-          </span>
+        {/* Center: level + coins */}
+        <div className="flex items-center gap-3">
+          {/* Level badge + XP bar */}
+          <div className="flex flex-col items-center gap-0.5">
+            <span className="text-[11px] font-bold text-brand-light leading-none">
+              Lv {displayLevel}
+            </span>
+            <div className="h-1 w-10 rounded-full bg-white/10 overflow-hidden">
+              <div
+                className="h-full rounded-full bg-brand transition-all duration-500"
+                style={{ width: `${Math.round(xpProgress * 100)}%` }}
+              />
+            </div>
+          </div>
+
+          {/* Coins */}
+          <div className="flex items-center gap-1 rounded-full bg-yellow-500/20 px-3 py-1">
+            <span className="text-sm">🪙</span>
+            <span className="font-mono text-sm font-bold text-yellow-300">
+              {displayCoins.toLocaleString('sv-SE')}
+            </span>
+          </div>
         </div>
 
         {/* Right: online count + friends + logout */}
