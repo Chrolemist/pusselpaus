@@ -1,6 +1,6 @@
 /* ── useMultiplayer – lobby-level multiplayer state ──
  *
- *  Used by MultiplayerPage and TopBar.
+ *  Used by MatchInboxPanel, StagingScreen and TopBar.
  *  Loads all matches the user is part of, groups them, and exposes actions.
  *
  *  Game-specific labels/paths/difficulties come from game-registry –

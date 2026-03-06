@@ -72,10 +72,10 @@ export default function LiveBanner({ gameId }: Props) {
           ⚔️ Multiplayer live · {label}
         </p>
         <Link
-          to="/multiplayer"
+          to="/"
           className="text-[11px] text-text-muted underline underline-offset-2 hover:text-brand-light"
         >
-          Öppna match
+          Lobby
         </Link>
       </div>
 

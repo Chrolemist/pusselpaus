@@ -1,12 +1,13 @@
 /* ── TopBar – avatar, name + tag, coins, online count, logout ── */
 
 import { useState, useRef, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../../auth';
 import { useOnlineCount } from '../../hooks/useOnlineCount';
 import { useFriends } from '../../hooks/useFriends';
 import { useMultiplayer } from '../../multiplayer';
 import FriendsPanel from './FriendsPanel.tsx';
+import MatchInboxPanel from './MatchInboxPanel.tsx';
 
 type NoticeItem = {
   id: number;
@@ -15,12 +16,12 @@ type NoticeItem = {
 };
 
 export default function TopBar() {
-  const navigate = useNavigate();
   const { profile, user, signOut, updateProfile } = useAuth();
   const onlineCount = useOnlineCount();
   const { friends, loading: friendsLoading } = useFriends();
   const mp = useMultiplayer();
   const [showFriends, setShowFriends] = useState(false);
+  const [showMatches, setShowMatches] = useState(false);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState('');
   const [notices, setNotices] = useState<NoticeItem[]>([]);
@@ -186,10 +187,10 @@ export default function TopBar() {
             🏆
           </Link>
 
-          <Link
-            to="/multiplayer"
+          <button
+            onClick={() => { setShowMatches((v) => !v); setShowFriends(false); }}
             className="relative text-sm text-text-muted hover:text-brand-light transition"
-            title="Multiplayer"
+            title="Matcher"
           >
             ⚔️
             {incomingInviteCount > 0 && (
@@ -197,10 +198,10 @@ export default function TopBar() {
                 {incomingInviteCount > 9 ? '9+' : incomingInviteCount}
               </span>
             )}
-          </Link>
+          </button>
 
           <button
-            onClick={() => setShowFriends((v) => !v)}
+            onClick={() => { setShowFriends((v) => !v); setShowMatches(false); }}
             className="relative text-lg hover:scale-110 transition"
             title="Vänner"
           >
@@ -222,6 +223,7 @@ export default function TopBar() {
       </header>
 
       {showFriends && <FriendsPanel onClose={() => setShowFriends(false)} />}
+      {showMatches && <MatchInboxPanel onClose={() => setShowMatches(false)} />}
 
       {notices.length > 0 && (
         <div className="pointer-events-none fixed right-4 top-16 z-50 flex flex-col gap-2">
@@ -241,7 +243,7 @@ export default function TopBar() {
                 </button>
               ) : (
                 <button
-                  onClick={() => navigate('/multiplayer')}
+                  onClick={() => setShowMatches(true)}
                   className="rounded-md bg-accent/20 px-2 py-1 text-xs font-semibold text-accent hover:bg-accent/40"
                 >
                   Joina

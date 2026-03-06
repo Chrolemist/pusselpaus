@@ -210,10 +210,10 @@ export default function FriendsPanel({ onClose }: FriendsPanelProps) {
                 </div>
                 <div className="flex items-center gap-2">
                   <Link
-                    to="/multiplayer"
+                    to="/"
                     onClick={onClose}
                     className="rounded-md bg-accent/20 px-2 py-1 text-[11px] font-semibold text-accent hover:bg-accent/40"
-                    title="Utmana i multiplayer"
+                    title="Utmana via spelet"
                   >
                     ⚔️
                   </Link>
