@@ -308,13 +308,11 @@ export default function StagingScreen({
     // and force-clean them (tries RPCs, falls back to direct table updates).
     // This handles the edge case where a matchmade match is stuck in
     // 'waiting' with both players 'accepted' and no RPC can un-stuck it.
-    if (user?.id) {
-      const cleaned = await mpForceCleanupActiveMatches(user.id);
-      if (cleaned > 0) {
-        // Also clear all game localStorage entries
-        for (const g of games) clearActiveMatch(g.id);
-        await mp.refresh();
-      }
+    const cleaned = await mpForceCleanupActiveMatches();
+    if (cleaned > 0) {
+      // Also clear all game localStorage entries
+      for (const g of games) clearActiveMatch(g.id);
+      await mp.refresh();
     }
 
     await mm.join(difficulty);

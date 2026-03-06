@@ -15,49 +15,15 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 /* ── Hoisted mocks ── */
 
-const { mockRpc, mockFrom, mockSelect, mockEq, mockIn, mockUpdate, mockReturns } = vi.hoisted(() => ({
+const { mockRpc } = vi.hoisted(() => ({
   mockRpc: vi.fn(),
-  mockFrom: vi.fn(),
-  mockSelect: vi.fn(),
-  mockEq: vi.fn(),
-  mockIn: vi.fn(),
-  mockUpdate: vi.fn(),
-  mockReturns: vi.fn(),
 }));
 
-vi.mock('../lib/supabaseClient', () => {
-  // Build chainable mock for .from().select().eq().in().returns()
-  const chainable = () => ({
-    select: mockSelect.mockReturnValue({
-      eq: mockEq.mockReturnValue({
-        returns: mockReturns,
-        in: mockIn.mockReturnValue({
-          returns: mockReturns,
-        }),
-      }),
-      in: mockIn.mockReturnValue({
-        returns: mockReturns,
-        in: mockIn,
-      }),
-    }),
-    update: mockUpdate.mockReturnValue({
-      eq: mockEq.mockReturnValue({
-        eq: mockEq.mockReturnValue({
-          in: mockIn,
-        }),
-        in: mockIn,
-      }),
-    }),
-  });
-  mockFrom.mockImplementation(chainable);
-
-  return {
-    supabase: {
-      rpc: mockRpc,
-      from: mockFrom,
-    },
-  };
-});
+vi.mock('../lib/supabaseClient', () => ({
+  supabase: {
+    rpc: mockRpc,
+  },
+}));
 
 import {
   mpForfeitMatch,
@@ -193,12 +159,12 @@ describe('Scenario 1: normal matchmaking flow', () => {
  *    - mp_decline_invite → 400
  *    - mp_forfeit_match  → 400
  *
- *  The nuclear cleanup must use direct table updates to un-stuck.
+ *  The nuclear cleanup calls the server-side mp_force_cleanup() RPC
+ *  which uses SECURITY DEFINER to bypass RLS and clean the match.
  * ═══════════════════════════════════════════════════════════════════════ */
 
 describe('Scenario 2: stuck match blocks queue — nuclear cleanup', () => {
   const STUCK_MATCH = 'stuck-match-999';
-  const USER_ID = 'user-aaa';
 
   it('all three RPCs fail for a matchmade match stuck in waiting', async () => {
     // This is the EXACT scenario that was causing the bug.
@@ -225,54 +191,20 @@ describe('Scenario 2: stuck match blocks queue — nuclear cleanup', () => {
     expect(forfeitErr).toBeTruthy();
   });
 
-  it('mpForceCleanupActiveMatches falls back to direct table update', async () => {
-    // Setup: user has a stuck match-player row
-    // Step 1: query match_players → find the stuck match
-    mockFrom.mockImplementation((table: string) => {
-      if (table === 'multiplayer_match_players') {
-        return {
-          select: () => ({
-            eq: () => Promise.resolve({
-              data: [{ match_id: STUCK_MATCH, status: 'accepted' }],
-              error: null,
-            }),
-          }),
-          update: () => ({
-            eq: () => ({
-              eq: () => Promise.resolve({ error: null }),
-            }),
-          }),
-        };
-      }
-      if (table === 'multiplayer_matches') {
-        return {
-          select: () => ({
-            in: () => ({
-              in: () => Promise.resolve({
-                data: [{ id: STUCK_MATCH, status: 'waiting', host_id: 'someone-else' }],
-                error: null,
-              }),
-            }),
-          }),
-          update: () => ({
-            eq: () => ({
-              in: () => Promise.resolve({ error: null }),
-            }),
-          }),
-        };
-      }
-      return {};
-    });
+  it('mpForceCleanupActiveMatches calls server-side mp_force_cleanup RPC', async () => {
+    // The server-side function uses SECURITY DEFINER to bypass RLS
+    mockRpc.mockResolvedValue({ data: 1, error: null });
 
-    // All RPCs fail
-    mockRpc.mockResolvedValue({ error: { message: 'Not allowed' } });
-
-    const cleaned = await mpForceCleanupActiveMatches(USER_ID);
+    const cleaned = await mpForceCleanupActiveMatches();
     expect(cleaned).toBe(1);
+    expect(mockRpc).toHaveBeenCalledWith('mp_force_cleanup');
+  });
 
-    // Verify direct table update was attempted (supabase.from was called)
-    expect(mockFrom).toHaveBeenCalledWith('multiplayer_match_players');
-    expect(mockFrom).toHaveBeenCalledWith('multiplayer_matches');
+  it('mpForceCleanupActiveMatches returns 0 on RPC error', async () => {
+    mockRpc.mockResolvedValue({ data: null, error: { message: 'DB error' } });
+
+    const cleaned = await mpForceCleanupActiveMatches();
+    expect(cleaned).toBe(0);
   });
 
   it('after cleanup, matchmake_join succeeds', async () => {
@@ -377,49 +309,13 @@ describe('Scenario 4: auto-start never fired — match stuck in waiting', () => 
     // → This is why we need mpForceCleanupActiveMatches()
   });
 
-  it('mpForceCleanupActiveMatches handles the server-side stuck match', async () => {
-    // Mock: user has match_player row → accepted
-    mockFrom.mockImplementation((table: string) => {
-      if (table === 'multiplayer_match_players') {
-        return {
-          select: () => ({
-            eq: () => Promise.resolve({
-              data: [{ match_id: 'orphaned-match', status: 'accepted' }],
-              error: null,
-            }),
-          }),
-          update: () => ({
-            eq: () => ({
-              eq: () => Promise.resolve({ error: null }),
-            }),
-          }),
-        };
-      }
-      if (table === 'multiplayer_matches') {
-        return {
-          select: () => ({
-            in: () => ({
-              in: () => Promise.resolve({
-                data: [{ id: 'orphaned-match', status: 'waiting', host_id: 'other-user' }],
-                error: null,
-              }),
-            }),
-          }),
-          update: () => ({
-            eq: () => ({
-              in: () => Promise.resolve({ error: null }),
-            }),
-          }),
-        };
-      }
-      return {};
-    });
+  it('mpForceCleanupActiveMatches calls server-side RPC to clean the stuck match', async () => {
+    // The server-side mp_force_cleanup() uses SECURITY DEFINER to bypass RLS
+    mockRpc.mockResolvedValue({ data: 1, error: null });
 
-    // All RPCs fail (the realistic scenario)
-    mockRpc.mockResolvedValue({ error: { message: 'Not allowed' } });
-
-    const cleaned = await mpForceCleanupActiveMatches('user-stuck');
+    const cleaned = await mpForceCleanupActiveMatches();
     expect(cleaned).toBe(1);
+    expect(mockRpc).toHaveBeenCalledWith('mp_force_cleanup');
   });
 });
 
@@ -481,52 +377,13 @@ describe('Scenario 6: cross-game blocking', () => {
     expect(result.error).toBe('User already has an active multiplayer match');
   });
 
-  it('nuclear cleanup finds matches across ALL games', async () => {
-    // Setup: user has a stuck match from sudoku
-    mockFrom.mockImplementation((table: string) => {
-      if (table === 'multiplayer_match_players') {
-        return {
-          select: () => ({
-            eq: () => Promise.resolve({
-              data: [
-                { match_id: 'sudoku-stuck', status: 'accepted' },
-                { match_id: 'old-completed', status: 'accepted' },
-              ],
-              error: null,
-            }),
-          }),
-          update: () => ({
-            eq: () => ({
-              eq: () => Promise.resolve({ error: null }),
-            }),
-          }),
-        };
-      }
-      if (table === 'multiplayer_matches') {
-        return {
-          select: () => ({
-            in: () => ({
-              in: () => Promise.resolve({
-                // Only the waiting one is returned (status filter)
-                data: [{ id: 'sudoku-stuck', status: 'waiting', host_id: 'me' }],
-                error: null,
-              }),
-            }),
-          }),
-          update: () => ({
-            eq: () => ({
-              in: () => Promise.resolve({ error: null }),
-            }),
-          }),
-        };
-      }
-      return {};
-    });
+  it('nuclear cleanup finds matches across ALL games via server RPC', async () => {
+    // The server-side function cleans ALL active matches for the user,
+    // regardless of which game they belong to.
+    mockRpc.mockResolvedValue({ data: 2, error: null });
 
-    // cancel RPC succeeds for this one (user is host)
-    mockRpc.mockResolvedValueOnce({ error: null });
-
-    const cleaned = await mpForceCleanupActiveMatches('me');
-    expect(cleaned).toBe(1);
+    const cleaned = await mpForceCleanupActiveMatches();
+    expect(cleaned).toBe(2);
+    expect(mockRpc).toHaveBeenCalledWith('mp_force_cleanup');
   });
 });

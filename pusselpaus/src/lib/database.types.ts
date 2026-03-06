@@ -398,6 +398,10 @@ export interface Database {
         };
         Returns: void;
       };
+      mp_force_cleanup: {
+        Args: Record<string, never>;
+        Returns: number;
+      };
     };
     Enums: Record<string, never>;
     CompositeTypes: Record<string, never>;

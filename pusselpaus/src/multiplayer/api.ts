@@ -126,8 +126,8 @@ export async function mpTryResolveTimeout(
 
 /* ── nuclear cleanup ──
  *
- *  Finds ALL active matches for the current user and force-cleans them.
- *  Tries RPCs first; if ALL fail, falls back to direct table updates.
+ *  Calls the server-side mp_force_cleanup() Postgres function which
+ *  runs with SECURITY DEFINER to bypass RLS.
  *
  *  This handles the edge case where a matchmade match is stuck in
  *  'waiting' with both players 'accepted' — no standard RPC can
@@ -136,76 +136,18 @@ export async function mpTryResolveTimeout(
  *    - mp_decline_invite → player status is 'accepted', not 'invited'
  *    - mp_forfeit_match  → match not in_progress
  *
- *  The direct table update bypasses all of that.
+ *  The server function bypasses all of that by using SECURITY DEFINER.
  */
 
-export async function mpForceCleanupActiveMatches(userId: string): Promise<number> {
-  // 1. Find all match-player rows where I'm still active
-  const { data: myPlayers, error: playersErr } = await supabase
-    .from('multiplayer_match_players')
-    .select('match_id, status')
-    .eq('user_id', userId);
-
-  if (playersErr || !myPlayers?.length) return 0;
-
-  const activeMatchIds = myPlayers
-    .filter((p) => p.status === 'accepted' || p.status === 'invited')
-    .map((p) => p.match_id);
-
-  if (activeMatchIds.length === 0) return 0;
-
-  // 2. Find which of those matches are still live (not completed/cancelled)
-  const { data: matchRows } = await supabase
-    .from('multiplayer_matches')
-    .select('id, status, host_id')
-    .in('id', activeMatchIds)
-    .in('status', ['waiting', 'starting', 'in_progress']);
-
-  if (!matchRows?.length) return 0;
-
-  let cleaned = 0;
-
-  for (const match of matchRows) {
-    // Try RPCs first (cancel → decline → forfeit)
-    let success = false;
-
-    if (match.host_id === userId) {
-      const e = await mpCancelMatch(match.id);
-      if (!e) { success = true; }
-    }
-    if (!success) {
-      const e = await mpDeclineInvite(match.id);
-      if (!e) { success = true; }
-    }
-    if (!success) {
-      const e = await mpForfeitMatch(match.id);
-      if (!e) { success = true; }
-    }
-
-    // Nuclear fallback: direct table updates
-    if (!success) {
-      console.warn('[mp] RPCs failed for match', match.id, '— using direct table update');
-
-      // Mark my player row as forfeited/declined
-      await supabase
-        .from('multiplayer_match_players')
-        .update({ status: 'declined', forfeited: true })
-        .eq('match_id', match.id)
-        .eq('user_id', userId);
-
-      // If we're the host or all players have declined, cancel the match
-      await supabase
-        .from('multiplayer_matches')
-        .update({ status: 'cancelled' })
-        .eq('id', match.id)
-        .in('status', ['waiting', 'starting']);
-
-      success = true;
-    }
-
-    if (success) cleaned++;
+export async function mpForceCleanupActiveMatches(): Promise<number> {
+  const { data, error } = await supabase.rpc('mp_force_cleanup');
+  if (error) {
+    console.error('[mp] Force cleanup RPC failed:', error);
+    return 0;
   }
-
-  console.log(`[mp] Force cleanup: cleaned ${cleaned}/${matchRows.length} matches`);
+  const cleaned = typeof data === 'number' ? data : 0;
+  if (cleaned > 0) {
+    console.log(`[mp] Force cleanup: cleaned ${cleaned} matches`);
+  }
   return cleaned;
 }
