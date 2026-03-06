@@ -257,7 +257,9 @@ export function useMultiplayer() {
 
   const markReady = useCallback(
     async (matchId: string): Promise<string | null> => {
+      mpDebug('useMultiplayer', 'accept:mark_ready_call', { matchId });
       const { error } = await mpMarkReady(matchId);
+      mpDebug('useMultiplayer', 'accept:mark_ready_done', { matchId, error });
       await loadMatches();
       return error;
     },

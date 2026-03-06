@@ -49,10 +49,18 @@ export interface MpReadyResult {
 }
 
 export async function mpMarkReady(matchId: string): Promise<{ error: string | null; data: MpReadyResult | null }> {
+  mpDebug('api', 'accept:mark_ready_rpc_request', { matchId });
   const { data, error } = await supabase.rpc('mp_mark_ready', { p_match_id: matchId });
   if (error) {
+    mpDebug('api', 'accept:mark_ready_rpc_error', {
+      matchId,
+      message: error.message ?? null,
+      code: error.code ?? null,
+      details: error.details ?? null,
+    });
     return { error: error.message || 'Kunde inte markera redo', data: null };
   }
+  mpDebug('api', 'accept:mark_ready_rpc_ok', { matchId, data: (data as MpReadyResult) ?? null });
   return { error: null, data: (data as MpReadyResult) ?? null };
 }
 

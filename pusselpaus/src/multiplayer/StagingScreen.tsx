@@ -546,8 +546,19 @@ export default function StagingScreen({
   /* ── Overlay: accept handler ── */
   const handleOverlayAccept = useCallback(async () => {
     if (!activeMatchId) return;
+    mpDebug('StagingScreen', 'accept:click', {
+      gameId,
+      matchId: activeMatchId,
+      isMatchmade,
+    });
     localAcceptMatchIdRef.current = activeMatchId;
     const err = await mp.markReady(activeMatchId);
+    mpDebug('StagingScreen', 'accept:mark_ready_result', {
+      gameId,
+      matchId: activeMatchId,
+      isMatchmade,
+      error: err,
+    });
 
     // Matchmade UI should reflect local click instantly regardless of backend timing.
     if (isMatchmade) {
@@ -560,7 +571,7 @@ export default function StagingScreen({
     if (err && !isMatchmade) {
       flash('Kunde inte markera redo. Försök igen.');
     }
-  }, [activeMatchId, isMatchmade, mp, flash]);
+  }, [activeMatchId, isMatchmade, mp, flash, gameId]);
 
   /* ── Overlay: decline handler ── */
   const handleOverlayDecline = useCallback(async () => {
