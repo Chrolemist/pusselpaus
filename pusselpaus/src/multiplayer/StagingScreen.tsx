@@ -14,7 +14,7 @@
  *    </StagingScreen>
  */
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'motion/react';
 import { ArrowLeft, Users, Search, Clock, X, Check } from 'lucide-react';
@@ -28,6 +28,7 @@ import {
 } from './useMultiplayer';
 import { useMatchmaking } from './useMatchmaking';
 import { setActiveMatchPayload, clearActiveMatch, getActiveMatchPayload } from './activeMatch';
+import { mpForfeitMatch } from './api';
 import MatchFoundOverlay from './MatchFoundOverlay';
 import type { MatchPlayer } from './MatchFoundOverlay';
 import type { MatchConfig } from './types';
@@ -145,6 +146,8 @@ export default function StagingScreen({
       }
 
       setActiveMatchId(existing.matchId);
+      // Restore matchmade flag from persisted payload
+      if (existing.matchmade) setIsMatchmade(true);
 
       // Show match-found overlay if flagged (friend invite just accepted)
       if (existing.showOverlay && status === 'waiting') {
@@ -237,15 +240,15 @@ export default function StagingScreen({
       setAt: new Date().toISOString(),
       configSeed: mm.configSeed ?? undefined,
       config: { difficulty },
+      matchmade: true,
     });
     setActiveMatchId(matchId);
     setIsMatchmade(true);
 
-    // Both players already opted in by queuing — auto-accept & go to waiting
-    void (async () => {
-      await mp.acceptInvite(matchId);
-      await mp.refresh();
-    })();
+    // Both players already opted in by queuing — matchmake_join sets them as
+    // accepted on the server. We just need to refresh lobby data so
+    // activeEntry appears and the auto-start effect can fire.
+    void mp.refresh();
     setPhase('waiting');
   }, [mm.status, mm.matchId, mm.configSeed, difficulty, gameId, mp]);
 
@@ -390,6 +393,79 @@ export default function StagingScreen({
     setSelectedFriends((prev) =>
       prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
     );
+
+  /* ── Refs for auto-forfeit (need current values in event listeners) ── */
+  const activeMatchIdRef = useRef(activeMatchId);
+  const isMatchmadeRef = useRef(isMatchmade);
+  const phaseRef = useRef(phase);
+  useEffect(() => { activeMatchIdRef.current = activeMatchId; }, [activeMatchId]);
+  useEffect(() => { isMatchmadeRef.current = isMatchmade; }, [isMatchmade]);
+  useEffect(() => { phaseRef.current = phase; }, [phase]);
+
+  /**
+   * Forfeit + clean, called synchronously from event handlers.
+   * Uses sendBeacon so it works even during beforeunload/unload.
+   */
+  const forfeitNow = useCallback(() => {
+    const matchId = activeMatchIdRef.current;
+    if (!matchId) return;
+    const p = phaseRef.current;
+    if (p !== 'waiting' && p !== 'countdown' && p !== 'playing') return;
+
+    // Fire-and-forget forfeit via the API
+    void mpForfeitMatch(matchId);
+    clearActiveMatch(gameId);
+  }, [gameId]);
+
+  /* ── Auto-forfeit on component unmount (navigation away) ── */
+  useEffect(() => {
+    return () => {
+      const matchId = activeMatchIdRef.current;
+      const p = phaseRef.current;
+      if (!matchId) return;
+      if (p !== 'waiting' && p !== 'countdown' && p !== 'playing') return;
+
+      // Random match: always forfeit on unmount
+      // Friend match: also forfeit on unmount (navigated away = done)
+      void mpForfeitMatch(matchId);
+      clearActiveMatch(gameId);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gameId]);
+
+  /* ── Auto-forfeit on tab close / refresh (beforeunload) ── */
+  useEffect(() => {
+    const onBeforeUnload = () => {
+      forfeitNow();
+    };
+    window.addEventListener('beforeunload', onBeforeUnload);
+    return () => window.removeEventListener('beforeunload', onBeforeUnload);
+  }, [forfeitNow]);
+
+  /* ── Auto-forfeit on tab hidden (mobile tab switch / app minimize) ──
+   *  Random matches: forfeit after 5s hidden
+   *  Friend matches: forfeit after 30s hidden (more forgiving)
+   */
+  useEffect(() => {
+    let hiddenTimer: ReturnType<typeof setTimeout> | null = null;
+
+    const onVisibility = () => {
+      if (document.hidden) {
+        const delay = isMatchmadeRef.current ? 5_000 : 30_000;
+        hiddenTimer = setTimeout(() => {
+          forfeitNow();
+        }, delay);
+      } else {
+        if (hiddenTimer) { clearTimeout(hiddenTimer); hiddenTimer = null; }
+      }
+    };
+
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisibility);
+      if (hiddenTimer) clearTimeout(hiddenTimer);
+    };
+  }, [forfeitNow]);
 
   /* ── If phase is 'playing', render the actual game ── */
   if (phase === 'playing') {
