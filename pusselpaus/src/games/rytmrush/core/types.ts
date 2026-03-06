@@ -117,7 +117,7 @@ export const LANE_COLORS = [
 ];
 
 /** Scroll speed: seconds visible on screen before reaching hit zone */
-export const SCROLL_TIME = 2.0;
+export const SCROLL_TIME = 1.2;
 
 /**
  * How far up (in %) the hit-zone sits from the bottom of the lane.

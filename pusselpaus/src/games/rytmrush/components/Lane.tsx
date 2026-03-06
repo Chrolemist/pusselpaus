@@ -30,6 +30,33 @@ function getPositionPercent(noteTime: number, transportTime: number): number {
   return (elapsed / SCROLL_TIME) * 100;
 }
 
+/* ── Deterministic per-block wave parameters ── */
+const WAVE_SEEDS = [
+  { amp: 18, freq: 2.6, phase: 0 },
+  { amp: 14, freq: 3.2, phase: 1.8 },
+  { amp: 20, freq: 2.0, phase: 3.5 },
+  { amp: 12, freq: 3.8, phase: 0.9 },
+  { amp: 16, freq: 2.4, phase: 5.1 },
+  { amp: 22, freq: 1.7, phase: 2.4 },
+  { amp: 10, freq: 4.0, phase: 4.2 },
+  { amp: 19, freq: 2.9, phase: 1.1 },
+] as const;
+
+/**
+ * Wavy horizontal offset (px) for a block.
+ * Uses a sine wave that dampens to 0 when the block is near
+ * the hit zone (pos ≥ 80) so it doesn't interfere with accuracy.
+ * Every ~3rd block is straight (no wave) for variety.
+ */
+function getWaveOffsetX(blockIndex: number, pos: number): number {
+  // Every 3rd block is straight
+  if (blockIndex % 3 === 0) return 0;
+  const seed = WAVE_SEEDS[blockIndex % WAVE_SEEDS.length];
+  // Dampen near hit zone: full wave until pos 60, fades to 0 at pos 95
+  const dampen = pos > 60 ? Math.max(0, 1 - (pos - 60) / 35) : 1;
+  return Math.sin(pos * 0.06 * seed.freq + seed.phase) * seed.amp * dampen;
+}
+
 export default function Lane({ laneIndex, blocks, transportTime, active, laneCount, onPointerDown, onPointerUp }: LaneProps) {
   const color = LANE_COLORS[laneIndex];
   const laneWidth = `${100 / laneCount}%`;
@@ -102,6 +129,10 @@ export default function Lane({ laneIndex, blocks, transportTime, active, laneCou
           /** Scaled bottom-% so pos 100 → HIT_ZONE_BOTTOM% from bottom */
           const bottomPct = 100 - pos * SCALE;
 
+          // Wavy x-offset for unjudged blocks
+          const blockIdx = blocks.indexOf(block);
+          const waveX = getWaveOffsetX(blockIdx, pos);
+
           if (isMiss) {
             return (
               <motion.div
@@ -147,7 +178,7 @@ export default function Lane({ laneIndex, blocks, transportTime, active, laneCou
             );
           }
 
-          // Unjudged block – still scrolling
+          // Unjudged block – still scrolling with wavy motion
           return (
             <motion.div
               key={block.id}
@@ -157,6 +188,7 @@ export default function Lane({ laneIndex, blocks, transportTime, active, laneCou
                 height: isHold ? `calc(${holdHeightPercent}% + 2.5rem)` : '2.5rem',
                 backgroundColor: `${color}cc`,
                 boxShadow: `0 0 8px ${color}55`,
+                transform: `translateX(${waveX}px)`,
               }}
               initial={{ opacity: 0, scale: 0.8 }}
               animate={{ opacity: 1, scale: 1 }}
