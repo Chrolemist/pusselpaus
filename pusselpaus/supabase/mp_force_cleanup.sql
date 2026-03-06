@@ -23,16 +23,17 @@ BEGIN
   -- Hitta alla matcher där användaren har en aktiv player-rad
   -- och matchen inte är finished/cancelled
   FOR v_match IN
-    SELECT m.id, m.status, m.host_id
+    SELECT m.id, m.status
     FROM multiplayer_match_players mp
     JOIN multiplayer_matches m ON m.id = mp.match_id
     WHERE mp.user_id = v_user_id
       AND mp.status IN ('accepted', 'invited')
       AND m.status IN ('waiting', 'starting', 'in_progress')
   LOOP
-    -- Markera min player-rad som forfeited
+    -- Markera min player-rad som declined + forfeited
+    -- (CHECK constraint tillåter bara: invited, accepted, declined)
     UPDATE multiplayer_match_players
-    SET status = 'forfeited', forfeited = true
+    SET status = 'declined', forfeited = true
     WHERE match_id = v_match.id
       AND user_id = v_user_id;
 
@@ -45,9 +46,7 @@ BEGIN
     END IF;
 
     -- Om matchen är in_progress markeras den som completed
-    -- (motståndaren vinner automatiskt via trigger/resolve)
     IF v_match.status = 'in_progress' THEN
-      -- Markera matchen så att resolve-logiken kan avgöra vinnare
       UPDATE multiplayer_matches
       SET status = 'completed'
       WHERE id = v_match.id

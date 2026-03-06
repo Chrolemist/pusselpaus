@@ -174,15 +174,25 @@ export default function StagingScreen({
     [mp.matches, activeMatchId],
   );
 
-  useEffect(() => {
-    if (!activeEntry) return;
+  // Stable refs to avoid re-running the countdown effect on every realtime reload
+  const mpRef = useRef(mp);
+  useEffect(() => { mpRef.current = mp; }, [mp]);
+  const onStartRef = useRef(onStart);
+  useEffect(() => { onStartRef.current = onStart; }, [onStart]);
 
-    const status = activeEntry.match.status;
-    const mePlayer = activeEntry.players.find((p) => p.player.user_id === user?.id);
-    const iForfeited = mePlayer?.player.forfeited === true;
+  // Derived stable values for the effect
+  const activeMatchStatus = activeEntry?.match.status;
+  const activeMatchStartedAt = activeEntry?.match.started_at;
+  const activeMatchMatchId = activeEntry?.match.id;
+  const activeMatchConfigSeed = activeEntry?.match.config_seed;
+  const activeMatchConfig = activeEntry?.match.config;
+  const meForfeited = activeEntry?.players.find((p) => p.player.user_id === user?.id)?.player.forfeited === true;
+
+  useEffect(() => {
+    if (!activeMatchStatus || !activeMatchMatchId) return;
 
     // Match ended or I forfeited — clean up and go back to staging
-    if (status === 'completed' || status === 'cancelled' || iForfeited) {
+    if (activeMatchStatus === 'completed' || activeMatchStatus === 'cancelled' || meForfeited) {
       clearActiveMatch(gameId);
       setActiveMatchId(null);
       setIsMatchmade(false);
@@ -190,19 +200,21 @@ export default function StagingScreen({
       return;
     }
 
-    if (status === 'starting') {
+    if (activeMatchStatus === 'starting') {
       // Start the countdown
-      const startedAt = activeEntry.match.started_at
-        ? new Date(activeEntry.match.started_at).getTime()
+      const startedAt = activeMatchStartedAt
+        ? new Date(activeMatchStartedAt).getTime()
         : null;
 
       if (startedAt) {
+        let tickSent = false;
         const tick = () => {
           const remaining = Math.max(0, Math.ceil((startedAt - Date.now()) / 1000));
           setCountdownValue(remaining);
-          if (remaining <= 0) {
-            // Tick the match to in_progress
-            void mp.tickMatchStart(activeEntry.match.id);
+          if (remaining <= 0 && !tickSent) {
+            tickSent = true;
+            // Tick the match to in_progress — only once!
+            void mpRef.current.tickMatchStart(activeMatchMatchId);
           }
         };
         tick();
@@ -212,17 +224,17 @@ export default function StagingScreen({
       }
     }
 
-    if (status === 'in_progress') {
+    if (activeMatchStatus === 'in_progress') {
       setPhase('playing');
-      onStart({
+      onStartRef.current({
         multiplayer: true,
         difficulty,
-        seed: activeEntry.match.config_seed ?? undefined,
-        config: (activeEntry.match.config as Record<string, unknown> | null) ?? undefined,
-        matchId: activeEntry.match.id,
+        seed: activeMatchConfigSeed ?? undefined,
+        config: (activeMatchConfig as Record<string, unknown> | null) ?? undefined,
+        matchId: activeMatchMatchId,
       });
     }
-  }, [activeEntry?.match.status, activeEntry?.match.started_at, activeEntry, difficulty, mp, onStart, user?.id, gameId]);
+  }, [activeMatchStatus, activeMatchStartedAt, activeMatchMatchId, activeMatchConfigSeed, activeMatchConfig, meForfeited, difficulty, gameId]);
 
   /* ── Flash message ── */
   const flash = useCallback((msg: string) => {

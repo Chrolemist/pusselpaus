@@ -7,7 +7,7 @@
  *  no hardcoded game lists here.
  */
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useAuth } from '../auth';
 import { supabase } from '../lib/supabaseClient';
 import type { MultiplayerMatch, MultiplayerMatchPlayer, Profile } from '../lib/database.types';
@@ -155,13 +155,19 @@ export function useMultiplayer() {
     return () => window.clearTimeout(timer);
   }, [loadMatches]);
 
-  /* ── realtime ── */
+  /* ── realtime (debounced to prevent request storms) ── */
+  const reloadTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const debouncedReload = useCallback(() => {
+    if (reloadTimerRef.current) clearTimeout(reloadTimerRef.current);
+    reloadTimerRef.current = setTimeout(() => void loadMatches(), 300);
+  }, [loadMatches]);
+
   useEffect(() => {
     if (!user) return;
     const channel = supabase
       .channel(`mp-live-${user.id}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'multiplayer_matches' }, () => void loadMatches())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'multiplayer_match_players' }, () => void loadMatches())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'multiplayer_matches' }, debouncedReload)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'multiplayer_match_players' }, debouncedReload)
       .subscribe();
     return () => void supabase.removeChannel(channel);
   }, [user, loadMatches]);
