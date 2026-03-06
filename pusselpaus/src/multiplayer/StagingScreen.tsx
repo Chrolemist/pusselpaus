@@ -223,10 +223,18 @@ export default function StagingScreen({
   const startSentRef = useRef(false);
   // Guard: prevent countdown tick RPC from firing repeatedly for same match
   const tickStartSentForMatchRef = useRef<string | null>(null);
+  // Guard: prevent countdown interval recreation spam for same match
+  const countdownTimerRef = useRef<number | null>(null);
+  const countdownRunningForMatchRef = useRef<string | null>(null);
   // Reset startSent when match changes (new match or match cleared)
   useEffect(() => {
     startSentRef.current = false;
     tickStartSentForMatchRef.current = null;
+    if (countdownTimerRef.current) {
+      window.clearInterval(countdownTimerRef.current);
+      countdownTimerRef.current = null;
+    }
+    countdownRunningForMatchRef.current = null;
   }, [activeMatchId]);
 
   // Derived stable values for the effect
@@ -284,6 +292,18 @@ export default function StagingScreen({
       });
 
       if (startedAt) {
+        // Already running for this match — don't recreate timer on rerenders
+        if (countdownRunningForMatchRef.current === activeMatchMatchId && countdownTimerRef.current) {
+          return;
+        }
+
+        // Match changed while timer exists: clear old timer before starting a new one
+        if (countdownTimerRef.current) {
+          window.clearInterval(countdownTimerRef.current);
+          countdownTimerRef.current = null;
+        }
+
+        countdownRunningForMatchRef.current = activeMatchMatchId;
         const tick = () => {
           const remaining = Math.max(0, Math.ceil((startedAt - Date.now()) / 1000));
           setCountdownValue(remaining);
@@ -306,13 +326,18 @@ export default function StagingScreen({
           }
         };
         tick();
-        const timer = window.setInterval(tick, 500);
+        countdownTimerRef.current = window.setInterval(tick, 500);
         setPhase('countdown');
-        return () => window.clearInterval(timer);
+        return;
       }
     }
 
     if (activeMatchStatus === 'in_progress') {
+      if (countdownTimerRef.current) {
+        window.clearInterval(countdownTimerRef.current);
+        countdownTimerRef.current = null;
+      }
+      countdownRunningForMatchRef.current = null;
       mpDebug('StagingScreen', 'status_effect:in_progress_onStart', {
         gameId,
         matchId: activeMatchMatchId,
@@ -327,6 +352,16 @@ export default function StagingScreen({
       });
     }
   }, [activeMatchStatus, activeMatchStartedAt, activeMatchMatchId, activeMatchConfigSeed, activeMatchConfig, meForfeited, difficulty, gameId]);
+
+  useEffect(() => {
+    return () => {
+      if (countdownTimerRef.current) {
+        window.clearInterval(countdownTimerRef.current);
+        countdownTimerRef.current = null;
+      }
+      countdownRunningForMatchRef.current = null;
+    };
+  }, []);
 
   /* ── Flash message ── */
   const flash = useCallback((msg: string) => {

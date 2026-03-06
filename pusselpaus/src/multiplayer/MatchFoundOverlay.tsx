@@ -80,6 +80,8 @@ export default function MatchFoundOverlay({
   const [hasAccepted, setHasAccepted] = useState(false);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const prevAcceptCount = useRef(0);
+  const onDeclineRef = useRef(onDecline);
+  useEffect(() => { onDeclineRef.current = onDecline; }, [onDecline]);
 
   /* ── Play match-found sound when overlay opens ── */
   useEffect(() => {
@@ -119,7 +121,7 @@ export default function MatchFoundOverlay({
         if (timerRef.current) clearInterval(timerRef.current);
         setSecondsLeft(0);
         mpDebug('MatchFoundOverlay', 'countdown:expired_decline');
-        onDecline();
+        onDeclineRef.current();
         return;
       }
       if (seconds <= 5) {
@@ -133,7 +135,7 @@ export default function MatchFoundOverlay({
       mpDebug('MatchFoundOverlay', 'countdown:cleanup_interval');
       if (timerRef.current) clearInterval(timerRef.current);
     };
-  }, [visible, timeLimit, onDecline, noTimeout]);
+  }, [visible, timeLimit, noTimeout]);
 
   /* ── Accept blip when new players accept ── */
   useEffect(() => {
