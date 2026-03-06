@@ -258,6 +258,9 @@ export default function StagingScreen({
   const activeMatchHostId = activeEntry?.match.host_id;
   const isHostForActiveMatch = activeMatchHostId === user?.id;
   const meForfeited = activeEntry?.players.find((p) => p.player.user_id === user?.id)?.player.forfeited === true;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const meReadyFromServer = (activeEntry?.players.find((p) => p.player.user_id === user?.id)?.player as any)?.ready === true;
+  const meReadyForActiveMatch = matchFoundAcceptedLocal || meReadyFromServer;
 
   useEffect(() => {
     if (!activeMatchMatchId) return;
@@ -319,7 +322,7 @@ export default function StagingScreen({
     if (activeMatchStatus === 'starting') {
       if (gameStartedForMatchRef.current === activeMatchMatchId) return;
 
-      if (isMatchmade && !matchFoundAcceptedLocal) {
+      if (isMatchmade && !meReadyForActiveMatch) {
         setPhase('match-found');
         return;
       }
@@ -384,7 +387,7 @@ export default function StagingScreen({
     }
 
     if (activeMatchStatus === 'in_progress') {
-      if (isMatchmade && !matchFoundAcceptedLocal) {
+      if (isMatchmade && !meReadyForActiveMatch) {
         setPhase('match-found');
         return;
       }
@@ -404,7 +407,7 @@ export default function StagingScreen({
       });
       startGameOnce(activeMatchMatchId, 'in_progress');
     }
-  }, [activeMatchStatus, activeMatchStartedAt, activeMatchMatchId, activeMatchHostId, isHostForActiveMatch, meForfeited, gameId, isMatchmade, matchFoundAcceptedLocal, startGameOnce]);
+  }, [activeMatchStatus, activeMatchStartedAt, activeMatchMatchId, activeMatchHostId, isHostForActiveMatch, meForfeited, gameId, isMatchmade, meReadyForActiveMatch, startGameOnce]);
 
   useEffect(() => {
     return () => {
@@ -517,7 +520,8 @@ export default function StagingScreen({
       level: profile?.level ?? null,
       accepted:
         isMatchmade && player.user_id === user?.id
-          ? matchFoundAcceptedLocal
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          ? (matchFoundAcceptedLocal || (player as any).ready === true)
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           : (isMatchmade
               ? (player as any).ready === true
@@ -575,7 +579,7 @@ export default function StagingScreen({
   const isHost = activeEntry?.match.host_id === user?.id;
   const hasLocalAcceptForActiveMatch =
     !!activeMatchMatchId && localAcceptMatchIdRef.current === activeMatchMatchId;
-  const canStartMatchFoundPhase = hasLocalAcceptForActiveMatch && (!isMatchmade || matchFoundAcceptedLocal);
+  const canStartMatchFoundPhase = hasLocalAcceptForActiveMatch && (!isMatchmade || meReadyForActiveMatch);
 
   useEffect(() => {
     mpDebug('StagingScreen', 'auto_start:evaluate', {
@@ -587,6 +591,7 @@ export default function StagingScreen({
       isHost,
       isMatchmade,
       hasLocalAcceptForActiveMatch,
+      meReadyForActiveMatch,
       startSent: startSentRef.current,
     });
     if (!activeMatchMatchId || !allPlayersReady || !isHost) return;
@@ -603,7 +608,7 @@ export default function StagingScreen({
       void mpRef.current.startMatchIfReady(activeMatchMatchId, isMatchmade ? 3 : 5);
     }
     // Matchmade flow should start from match-found overlay only, never directly from waiting.
-  }, [phase, activeMatchMatchId, activeMatchStatus, allPlayersReady, isHost, isMatchmade, hasLocalAcceptForActiveMatch, canStartMatchFoundPhase]);
+  }, [phase, activeMatchMatchId, activeMatchStatus, allPlayersReady, isHost, isMatchmade, hasLocalAcceptForActiveMatch, meReadyForActiveMatch, canStartMatchFoundPhase]);
 
   /* ── Matchmaking: join queue handler ── */
   const handleJoinQueue = useCallback(async () => {
