@@ -28,7 +28,7 @@ import {
 } from './useMultiplayer';
 import { useMatchmaking } from './useMatchmaking';
 import { setActiveMatchPayload, clearActiveMatch, getActiveMatchPayload } from './activeMatch';
-import { mpForfeitMatch, mpCancelMatch, mpDeclineInvite } from './api';
+import { mpForfeitMatch, mpCancelMatch, mpDeclineInvite, mpForceCleanupActiveMatches } from './api';
 import MatchFoundOverlay from './MatchFoundOverlay';
 import type { MatchPlayer } from './MatchFoundOverlay';
 import type { MatchConfig } from './types';
@@ -304,33 +304,17 @@ export default function StagingScreen({
 
   /* ── Matchmaking: join queue handler ── */
   const handleJoinQueue = useCallback(async () => {
-    // First, clean up any stale active matches that would block joining.
-    // Try the right API per status, with fallbacks for edge cases
-    // (e.g. matchmade match stuck in 'waiting' where forfeit doesn't work).
-    const blocking = mp.matches.filter(
-      (m) =>
-        m.me?.status === 'accepted' &&
-        ['waiting', 'starting', 'in_progress'].includes(m.match.status),
-    );
-    for (const m of blocking) {
-      const id = m.match.id;
-      const status = m.match.status;
-      const isHost = m.match.host_id === user?.id;
-
-      if (status === 'in_progress' || status === 'starting') {
-        await mpForfeitMatch(id);
-      } else if (status === 'waiting') {
-        // Try cancel first (works if host), then decline, then forfeit as last resort
-        const err1 = isHost ? await mpCancelMatch(id) : await mpDeclineInvite(id);
-        if (err1) {
-          const err2 = isHost ? await mpDeclineInvite(id) : await mpCancelMatch(id);
-          if (err2) await mpForfeitMatch(id);
-        }
+    // Nuclear cleanup: find ALL active matches in the DB for this user
+    // and force-clean them (tries RPCs, falls back to direct table updates).
+    // This handles the edge case where a matchmade match is stuck in
+    // 'waiting' with both players 'accepted' and no RPC can un-stuck it.
+    if (user?.id) {
+      const cleaned = await mpForceCleanupActiveMatches(user.id);
+      if (cleaned > 0) {
+        // Also clear all game localStorage entries
+        for (const g of games) clearActiveMatch(g.id);
+        await mp.refresh();
       }
-      clearActiveMatch(m.match.game_id);
-    }
-    if (blocking.length > 0) {
-      await mp.refresh();
     }
 
     await mm.join(difficulty);
