@@ -121,8 +121,6 @@ function pickRpcRow(value: unknown): Record<string, unknown> | null {
   }
   if (typeof value === 'object') {
     const row = value as Record<string, unknown>;
-    if (hasRpcHints(row)) return row;
-
     const nested = row.data ?? row.result ?? row.payload;
     if (nested !== undefined) {
       const nestedRow = pickRpcRow(nested);
@@ -133,6 +131,8 @@ function pickRpcRow(value: unknown): Record<string, unknown> | null {
         };
       }
     }
+
+    if (hasRpcHints(row)) return row;
 
     const objectEntries = Object.entries(row).filter(([, entryValue]) => (
       entryValue !== null && typeof entryValue === 'object'
