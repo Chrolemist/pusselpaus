@@ -80,11 +80,11 @@ export function useCoinRewards() {
     survivedSeconds: number;
     cleared: boolean;
   }) => {
-    const scoreCoins = Math.floor(params.score / 2500);
-    const accuracyCoins = Math.floor(params.hitRate * 5);
-    const survivalCoins = Math.floor(params.survivedSeconds / 30);
-    const clearBonus = params.cleared ? 8 : 0;
-    const total = Math.max(1, scoreCoins + accuracyCoins + survivalCoins + clearBonus);
+    const scoreCoins = Math.floor(params.score / 5000);
+    const accuracyCoins = Math.floor(params.hitRate * 3);
+    const survivalCoins = Math.floor(params.survivedSeconds / 60);
+    const clearBonus = params.cleared ? 4 : 0;
+    const total = Math.min(20, Math.max(1, scoreCoins + accuracyCoins + survivalCoins + clearBonus));
     return addCoins(total);
   }, [addCoins]);
 

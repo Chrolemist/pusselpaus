@@ -263,9 +263,12 @@ function ResultsView({ engine, onBack }: ResultsViewProps) {
       ? (engine.perfects + engine.greats + engine.goods) / total
       : 0;
   const won = engine.cleared;
-  const performanceCoins = Math.max(
-    5,
-    Math.floor(engine.score / 1200) + Math.floor(hitRate * 30) + Math.floor(engine.survivedSeconds / 12) + (won ? 40 : 0),
+  const performanceCoins = Math.min(
+    20,
+    Math.max(
+      1,
+      Math.floor(engine.score / 5000) + Math.floor(hitRate * 3) + Math.floor(engine.survivedSeconds / 60) + (won ? 4 : 0),
+    ),
   );
 
   return (
