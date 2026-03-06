@@ -275,6 +275,29 @@ export default function StagingScreen({
     });
   }, [gameId, activeMatchMatchId, activeMatchStatus, activeMatchStartedAt, meForfeited, activeEntry]);
 
+  const startGameOnce = useCallback(
+    (matchId: string, source: 'in_progress' | 'started_at_local') => {
+      if (gameStartedForMatchRef.current === matchId) return;
+      gameStartedForMatchRef.current = matchId;
+
+      mpDebug('StagingScreen', 'game_start:trigger', {
+        gameId,
+        matchId,
+        source,
+      });
+
+      setPhase('playing');
+      onStartRef.current({
+        multiplayer: true,
+        difficulty,
+        seed: activeMatchConfigSeed ?? undefined,
+        config: (activeMatchConfig as Record<string, unknown> | null) ?? undefined,
+        matchId,
+      });
+    },
+    [gameId, difficulty, activeMatchConfigSeed, activeMatchConfig],
+  );
+
   useEffect(() => {
     if (!activeMatchStatus || !activeMatchMatchId) return;
 
@@ -294,6 +317,8 @@ export default function StagingScreen({
     }
 
     if (activeMatchStatus === 'starting') {
+      if (gameStartedForMatchRef.current === activeMatchMatchId) return;
+
       if (isMatchmade && !matchFoundAcceptedLocal) {
         setPhase('match-found');
         return;
@@ -324,7 +349,8 @@ export default function StagingScreen({
 
         countdownRunningForMatchRef.current = activeMatchMatchId;
         const tick = () => {
-          const remaining = Math.max(0, Math.ceil((startedAt - Date.now()) / 1000));
+          const remainingMs = startedAt - Date.now();
+          const remaining = Math.max(0, Math.ceil(remainingMs / 1000));
           setCountdownValue(remaining);
           if (remaining <= 3) {
             mpDebug('StagingScreen', 'countdown:tick', {
@@ -335,6 +361,19 @@ export default function StagingScreen({
               isHost: isHostForActiveMatch,
             });
           }
+
+          // Non-host clients start exactly at server started_at to avoid
+          // waiting for delayed realtime status flip to in_progress.
+          if (remainingMs <= 0 && !isHostForActiveMatch) {
+            if (countdownTimerRef.current) {
+              window.clearInterval(countdownTimerRef.current);
+              countdownTimerRef.current = null;
+            }
+            countdownRunningForMatchRef.current = null;
+            startGameOnce(activeMatchMatchId, 'started_at_local');
+            return;
+          }
+
           if (
             remaining <= 0 &&
             isHostForActiveMatch &&
@@ -350,7 +389,7 @@ export default function StagingScreen({
           }
         };
         tick();
-        countdownTimerRef.current = window.setInterval(tick, 500);
+        countdownTimerRef.current = window.setInterval(tick, 100);
         setPhase('countdown');
         return;
       }
@@ -371,22 +410,13 @@ export default function StagingScreen({
       if (gameStartedForMatchRef.current === activeMatchMatchId) {
         return;
       }
-      gameStartedForMatchRef.current = activeMatchMatchId;
-
       mpDebug('StagingScreen', 'status_effect:in_progress_onStart', {
         gameId,
         matchId: activeMatchMatchId,
       });
-      setPhase('playing');
-      onStartRef.current({
-        multiplayer: true,
-        difficulty,
-        seed: activeMatchConfigSeed ?? undefined,
-        config: (activeMatchConfig as Record<string, unknown> | null) ?? undefined,
-        matchId: activeMatchMatchId,
-      });
+      startGameOnce(activeMatchMatchId, 'in_progress');
     }
-  }, [activeMatchStatus, activeMatchStartedAt, activeMatchMatchId, activeMatchConfigSeed, activeMatchConfig, activeMatchHostId, isHostForActiveMatch, meForfeited, difficulty, gameId, isMatchmade, matchFoundAcceptedLocal]);
+  }, [activeMatchStatus, activeMatchStartedAt, activeMatchMatchId, activeMatchHostId, isHostForActiveMatch, meForfeited, gameId, isMatchmade, matchFoundAcceptedLocal, startGameOnce]);
 
   useEffect(() => {
     return () => {
