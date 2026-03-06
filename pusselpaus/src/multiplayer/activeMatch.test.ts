@@ -78,3 +78,51 @@ describe('clearActiveMatch', () => {
     expect(getActiveMatchPayload('numberpath')).not.toBeNull();
   });
 });
+
+describe('matchmade flag', () => {
+  it('stores and retrieves matchmade: true', () => {
+    setActiveMatchPayload('sudoku', {
+      matchId: 'mm-1',
+      setAt: 'now',
+      matchmade: true,
+    });
+    const result = getActiveMatchPayload('sudoku');
+    expect(result?.matchmade).toBe(true);
+  });
+
+  it('matchmade defaults to undefined for friend invites', () => {
+    setActiveMatchPayload('sudoku', {
+      matchId: 'fi-1',
+      setAt: 'now',
+    });
+    const result = getActiveMatchPayload('sudoku');
+    expect(result?.matchmade).toBeUndefined();
+  });
+
+  it('showOverlay is preserved alongside other fields', () => {
+    setActiveMatchPayload('sudoku', {
+      matchId: 'overlay-1',
+      setAt: 'now',
+      showOverlay: true,
+      configSeed: 42,
+      config: { difficulty: 'hard' },
+    });
+    const result = getActiveMatchPayload('sudoku');
+    expect(result?.showOverlay).toBe(true);
+    expect(result?.configSeed).toBe(42);
+    expect(result?.config).toEqual({ difficulty: 'hard' });
+  });
+
+  it('can update payload in-place (e.g. clear showOverlay after acceptance)', () => {
+    setActiveMatchPayload('sudoku', {
+      matchId: 'update-1',
+      setAt: 'now',
+      showOverlay: true,
+    });
+    const current = getActiveMatchPayload('sudoku')!;
+    setActiveMatchPayload('sudoku', { ...current, showOverlay: undefined });
+    const updated = getActiveMatchPayload('sudoku');
+    expect(updated?.matchId).toBe('update-1');
+    expect(updated?.showOverlay).toBeUndefined();
+  });
+});
