@@ -304,14 +304,37 @@ export default function StagingScreen({
 
   /* ── Matchmaking: join queue handler ── */
   const handleJoinQueue = useCallback(async () => {
+    // First, clean up any stale active matches that would block joining
+    const blocking = mp.matches.filter(
+      (m) =>
+        m.me?.status === 'accepted' &&
+        ['waiting', 'starting', 'in_progress'].includes(m.match.status),
+    );
+    for (const m of blocking) {
+      await mpForfeitMatch(m.match.id);
+      clearActiveMatch(m.match.game_id);
+    }
+    if (blocking.length > 0) {
+      await mp.refresh();
+    }
+
     await mm.join(difficulty);
-  }, [mm, difficulty]);
+  }, [mm, difficulty, mp]);
 
   /* ── Matchmaking: leave queue handler ── */
   const handleLeaveQueue = useCallback(async () => {
     await mm.leave();
     setPhase('staging');
   }, [mm]);
+
+  /* ── Sync phase back to staging if queue join fails ── */
+  useEffect(() => {
+    if (phase === 'queuing' && mm.status === 'idle' && mm.error) {
+      // Queue join failed (e.g. server rejected) — go back to staging after a brief delay
+      const timer = setTimeout(() => setPhase('staging'), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [phase, mm.status, mm.error]);
 
   /* ── Solo start ── */
   const handleSoloStart = useCallback(() => {

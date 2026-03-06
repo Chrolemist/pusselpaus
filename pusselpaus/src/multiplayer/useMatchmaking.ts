@@ -49,15 +49,23 @@ export function useMatchmaking(gameId: string): MatchmakingState {
   const mountedRef = useRef(true);
   const difficultyRef = useRef<string | null>(null);
 
-  // Cleanup on unmount
+  // Track status for unmount cleanup
+  const statusRef = useRef(status);
+  useEffect(() => { statusRef.current = status; }, [status]);
+
+  // Cleanup on unmount — leave the queue if still queuing
   useEffect(() => {
     mountedRef.current = true;
     return () => {
       mountedRef.current = false;
       if (pollRef.current) clearInterval(pollRef.current);
       if (timerRef.current) clearInterval(timerRef.current);
+      // If still queuing when unmounting, leave the queue so no orphaned match is created
+      if (statusRef.current === 'queuing') {
+        void matchmakeLeave(gameId);
+      }
     };
-  }, []);
+  }, [gameId]);
 
   const handleResult = useCallback((result: MatchmakeResult) => {
     if (!mountedRef.current) return;

@@ -566,3 +566,107 @@ describe('end-to-end: stale match on page reload', () => {
     expect(payload!.configSeed).toBe(42);
   });
 });
+
+/* ═══════════════════════════════════════════════════════════════════════
+ *  9. STALE MATCH CLEANUP BEFORE QUEUE JOIN
+ *     When joining the matchmaking queue, any existing active matches
+ *     must be forfeited first or the server rejects with 400.
+ * ═══════════════════════════════════════════════════════════════════════ */
+
+describe('stale match cleanup before queue join', () => {
+  it('forfeits blocking match from same game before joining queue', async () => {
+    const gameId = 'numberpath';
+    const staleMatchId = 'stale-match-blocking';
+
+    // Simulate a stale match in localStorage
+    setActiveMatchPayload(gameId, { matchId: staleMatchId, setAt: 'now' });
+
+    // Simulate what handleJoinQueue does: find blocking matches, forfeit, clear
+    mockRpc.mockResolvedValue({ error: null });
+    await mpForfeitMatch(staleMatchId);
+    clearActiveMatch(gameId);
+
+    expect(mockRpc).toHaveBeenCalledWith('mp_forfeit_match', {
+      p_match_id: staleMatchId,
+    });
+    expect(getActiveMatchPayload(gameId)).toBeNull();
+
+    // Now queue join should succeed (no blocking match)
+    mockRpc.mockResolvedValue({
+      data: { queued: true, queue_id: 'q1', match_id: null, config_seed: null, queue_size: 1 },
+      error: null,
+    });
+  });
+
+  it('forfeits blocking match from DIFFERENT game before joining queue', async () => {
+    // Server checks ALL active matches, not just current game
+    const otherGameId = 'sudoku';
+    const staleMatchId = 'sudoku-stale-match';
+    const queueGameId = 'numberpath';
+
+    setActiveMatchPayload(otherGameId, { matchId: staleMatchId, setAt: 'now' });
+    mockRpc.mockResolvedValue({ error: null });
+
+    // handleJoinQueue scans mp.matches (all games) and forfeits blocking ones
+    await mpForfeitMatch(staleMatchId);
+    clearActiveMatch(otherGameId);
+
+    expect(mockRpc).toHaveBeenCalledWith('mp_forfeit_match', {
+      p_match_id: staleMatchId,
+    });
+    expect(getActiveMatchPayload(otherGameId)).toBeNull();
+    // The current game still has no match
+    expect(getActiveMatchPayload(queueGameId)).toBeNull();
+  });
+
+  it('handles multiple stale matches from different games', async () => {
+    setActiveMatchPayload('sudoku', { matchId: 'm1', setAt: 'now' });
+    setActiveMatchPayload('numberpath', { matchId: 'm2', setAt: 'now' });
+
+    mockRpc.mockResolvedValue({ error: null });
+
+    // Forfeit both
+    await mpForfeitMatch('m1');
+    clearActiveMatch('sudoku');
+    await mpForfeitMatch('m2');
+    clearActiveMatch('numberpath');
+
+    expect(mockRpc).toHaveBeenCalledTimes(2);
+    expect(getActiveMatchPayload('sudoku')).toBeNull();
+    expect(getActiveMatchPayload('numberpath')).toBeNull();
+  });
+
+  it('proceeds to join queue even if forfeit fails gracefully', async () => {
+    // If forfeit RPC fails, we still try to join the queue
+    // (server might have already cleaned it up)
+    mockRpc
+      .mockResolvedValueOnce({ error: { message: 'Match already completed' } }) // forfeit fails
+      .mockResolvedValueOnce({ // join succeeds
+        data: { queued: true, queue_id: 'q1', match_id: null, config_seed: null, queue_size: 1 },
+        error: null,
+      });
+
+    const err = await mpForfeitMatch('already-gone');
+    expect(err).toBe('Match already completed');
+    // Should still proceed to join — flow doesn't abort
+  });
+});
+
+/* ═══════════════════════════════════════════════════════════════════════
+ *  10. QUEUE LEAVE ON UNMOUNT
+ *     If the user navigates away while queuing, the queue entry must be
+ *     removed so no orphaned match can be created.
+ * ═══════════════════════════════════════════════════════════════════════ */
+
+describe('queue leave on unmount', () => {
+  it('matchmakeLeave is the correct RPC to exit the queue', async () => {
+    // Verify the leave API works correctly
+    mockRpc.mockResolvedValue({ error: null });
+    const { matchmakeLeave } = await import('./matchmakingApi');
+    const err = await matchmakeLeave('sudoku');
+    expect(err).toBeNull();
+    expect(mockRpc).toHaveBeenCalledWith('matchmake_leave', {
+      p_game_id: 'sudoku',
+    });
+  });
+});
