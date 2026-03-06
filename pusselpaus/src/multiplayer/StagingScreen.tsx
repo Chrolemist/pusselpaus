@@ -260,8 +260,6 @@ export default function StagingScreen({
   const activeMatchHostId = activeEntry?.match.host_id;
   const isHostForActiveMatch = activeMatchHostId === user?.id;
   const activeNonForfeitedPlayers = activeEntry?.players.filter((p) => p.player.forfeited !== true) ?? [];
-  const activeHasMinPlayers = activeNonForfeitedPlayers.length >= 2;
-  const activeAllReadyServer = activeHasMinPlayers && activeNonForfeitedPlayers.every((p) => p.player.ready === true);
   const meForfeited = activeEntry?.players.find((p) => p.player.user_id === user?.id)?.player.forfeited === true;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const meReadyFromServer = (activeEntry?.players.find((p) => p.player.user_id === user?.id)?.player as any)?.ready === true;
