@@ -8,7 +8,6 @@ import { useHeartbeat } from './hooks/useHeartbeat';
 import { games } from './game-registry';
 
 const DevMatchTestPage = lazy(() => import('./dev/DevMatchTestPage'));
-const TestSyncPage = lazy(() => import('./dev/TestSyncPage'));
 
 function AppRoutes() {
   const { user, loading, isGuest } = useAuth();
@@ -51,8 +50,6 @@ function AppRoutes() {
               />
             );
           })}
-        <Route path="/test" element={<TestSyncPage />} />
-        <Route path="/test-sync" element={<TestSyncPage />} />
         {/* Dev tools (only accessible via direct URL) */}
         <Route path="/dev/match-test" element={<DevMatchTestPage />} />
       </Routes>
