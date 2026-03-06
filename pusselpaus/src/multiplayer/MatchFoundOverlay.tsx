@@ -114,6 +114,15 @@ export default function MatchFoundOverlay({
       return;
     }
 
+    if (players.length < 2) {
+      mpDebug('MatchFoundOverlay', 'countdown:waiting_for_players', {
+        players: players.length,
+        required: 2,
+      });
+      setSecondsLeft(timeLimit);
+      return;
+    }
+
     let seconds = timeLimit;
     mpDebug('MatchFoundOverlay', 'countdown:start', { seconds, timeLimit });
 
@@ -138,7 +147,7 @@ export default function MatchFoundOverlay({
       mpDebug('MatchFoundOverlay', 'countdown:cleanup_interval');
       if (timerRef.current) clearInterval(timerRef.current);
     };
-  }, [visible, timeLimit, noTimeout, enableSounds]);
+  }, [visible, timeLimit, noTimeout, enableSounds, players.length]);
 
   /* ── Accept blip when new players accept ── */
   useEffect(() => {

@@ -259,6 +259,9 @@ export default function StagingScreen({
   const activeMatchConfig = activeEntry?.match.config;
   const activeMatchHostId = activeEntry?.match.host_id;
   const isHostForActiveMatch = activeMatchHostId === user?.id;
+  const activeNonForfeitedPlayers = activeEntry?.players.filter((p) => p.player.forfeited !== true) ?? [];
+  const activeHasMinPlayers = activeNonForfeitedPlayers.length >= 2;
+  const activeAllReadyServer = activeHasMinPlayers && activeNonForfeitedPlayers.every((p) => p.player.ready === true);
   const meForfeited = activeEntry?.players.find((p) => p.player.user_id === user?.id)?.player.forfeited === true;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const meReadyFromServer = (activeEntry?.players.find((p) => p.player.user_id === user?.id)?.player as any)?.ready === true;
@@ -324,7 +327,7 @@ export default function StagingScreen({
     if (activeMatchStatus === 'starting') {
       if (gameStartedForMatchRef.current === activeMatchMatchId) return;
 
-      if (isMatchmade && !meReadyForActiveMatch) {
+      if (isMatchmade && (!meReadyForActiveMatch || !activeAllReadyServer)) {
         setPhase('match-found');
         return;
       }
@@ -402,7 +405,7 @@ export default function StagingScreen({
     }
 
     if (activeMatchStatus === 'in_progress') {
-      if (isMatchmade && !meReadyForActiveMatch) {
+      if (isMatchmade && (!meReadyForActiveMatch || !activeAllReadyServer)) {
         setPhase('match-found');
         return;
       }
@@ -422,7 +425,7 @@ export default function StagingScreen({
       });
       startGameOnce(activeMatchMatchId, 'in_progress');
     }
-  }, [activeMatchStatus, activeMatchStartedAt, activeMatchMatchId, activeMatchHostId, isHostForActiveMatch, meForfeited, gameId, isMatchmade, meReadyForActiveMatch, startGameOnce]);
+  }, [activeMatchStatus, activeMatchStartedAt, activeMatchMatchId, activeMatchHostId, isHostForActiveMatch, activeAllReadyServer, meForfeited, gameId, isMatchmade, meReadyForActiveMatch, startGameOnce]);
 
   useEffect(() => {
     return () => {
@@ -485,6 +488,8 @@ export default function StagingScreen({
       if (entry.match.game_id !== gameId) return false;
       const status = entry.match.status;
       if (status !== 'waiting' && status !== 'starting' && status !== 'in_progress') return false;
+      const nonForfeitedPlayers = entry.players.filter((p) => p.player.forfeited !== true);
+      if (nonForfeitedPlayers.length < 2) return false;
       return entry.me?.status === 'accepted';
     });
 
@@ -577,7 +582,6 @@ export default function StagingScreen({
 
   /* ── Auto-start when all players accept ── */
   // Derived stable primitives for the auto-start effect
-  const activeNonForfeitedPlayers = activeEntry?.players.filter((p) => p.player.forfeited !== true) ?? [];
   const allPlayersReady =
     activeNonForfeitedPlayers.length >= 2 &&
     activeNonForfeitedPlayers.every((p) => {
@@ -907,7 +911,7 @@ export default function StagingScreen({
         myId={user?.id ?? ''}
         onAccept={handleOverlayAccept}
         onDecline={handleOverlayDecline}
-        noTimeout={isInviteOverlay || isMatchmade}
+        noTimeout={isInviteOverlay}
         enableSounds={!isMatchmade}
       />
     );
