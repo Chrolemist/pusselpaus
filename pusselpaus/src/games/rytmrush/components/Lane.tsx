@@ -2,7 +2,7 @@
 
 import { motion, AnimatePresence } from 'motion/react';
 import type { BlockState } from '../core/types';
-import { SCROLL_TIME, LANE_COLORS, HIT_ZONE_BOTTOM } from '../core/types';
+import { LANE_COLORS, HIT_ZONE_BOTTOM, getScrollTime } from '../core/types';
 
 interface LaneProps {
   laneIndex: number;
@@ -24,10 +24,12 @@ const SCALE = (100 - HIT_ZONE_BOTTOM) / 100;
 /**
  * Block position: 0 = top (spawn), 100 = hit zone.
  * Values > 100 mean the block has passed the hit zone.
+ * Uses per-note scroll speed so later notes travel faster.
  */
 function getPositionPercent(noteTime: number, transportTime: number): number {
-  const elapsed = transportTime - (noteTime - SCROLL_TIME);
-  return (elapsed / SCROLL_TIME) * 100;
+  const st = getScrollTime(noteTime);
+  const elapsed = transportTime - (noteTime - st);
+  return (elapsed / st) * 100;
 }
 
 /* ── Deterministic per-block wave parameters ── */
@@ -114,9 +116,10 @@ export default function Lane({ laneIndex, blocks, transportTime, active, laneCou
           // Off-screen: not spawned yet or way past
           if (pos < -10 || pos > 140) return null;
 
+          const noteScrollTime = getScrollTime(block.chartNote.time);
           const isHold = block.chartNote.type === 'hold';
           const holdHeightPercent = isHold
-            ? ((block.chartNote.duration / SCROLL_TIME) * 100) * SCALE
+            ? ((block.chartNote.duration / noteScrollTime) * 100) * SCALE
             : 0;
 
           // Grade-based styling

@@ -119,6 +119,24 @@ export const LANE_COLORS = [
 /** Scroll speed: seconds visible on screen before reaching hit zone */
 export const SCROLL_TIME = 1.2;
 
+/** Minimum scroll time at max ramp – nearly impossible to react to */
+export const SCROLL_TIME_MIN = 0.35;
+
+/**
+ * Duration (seconds) over which the speed ramps from
+ * SCROLL_TIME → SCROLL_TIME_MIN. After this the speed stays at min.
+ */
+export const SPEED_RAMP_DURATION = 150;
+
+/**
+ * Get the scroll-time for a note that should be hit at `noteTime`.
+ * Linearly ramps from SCROLL_TIME → SCROLL_TIME_MIN over SPEED_RAMP_DURATION.
+ */
+export function getScrollTime(noteTime: number): number {
+  const t = Math.min(noteTime / SPEED_RAMP_DURATION, 1);
+  return SCROLL_TIME + (SCROLL_TIME_MIN - SCROLL_TIME) * t;
+}
+
 /**
  * How far up (in %) the hit-zone sits from the bottom of the lane.
  * 25 → the hit line is 25 % from the bottom.

@@ -17,6 +17,9 @@ export {
   LANE_LABELS,
   LANE_COLORS,
   SCROLL_TIME,
+  SCROLL_TIME_MIN,
+  SPEED_RAMP_DURATION,
+  getScrollTime,
   HIT_ZONE_BOTTOM,
   emptyStats,
 } from './types';
