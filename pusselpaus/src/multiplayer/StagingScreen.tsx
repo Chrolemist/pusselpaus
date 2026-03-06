@@ -664,6 +664,32 @@ export default function StagingScreen({
     }
   }, [phase, mm.status, mm.error]);
 
+  // Host-side safety net: after accepting in matchmade flow, keep probing
+  // server-authoritative start until backend reports all-ready and transitions.
+  useEffect(() => {
+    if (!activeMatchId) return;
+    if (!isMatchmade) return;
+    if (phase !== 'match-found') return;
+    if (!meReadyForActiveMatch) return;
+    if (!isHostForActiveMatch) return;
+    if (activeMatchStatus === 'starting' || activeMatchStatus === 'in_progress') return;
+
+    const timer = window.setInterval(async () => {
+      mpDebug('StagingScreen', 'accept:start_probe_request', {
+        gameId,
+        matchId: activeMatchId,
+      });
+      const err = await mpRef.current.startMatchIfReady(activeMatchId, 3);
+      mpDebug('StagingScreen', 'accept:start_probe_result', {
+        gameId,
+        matchId: activeMatchId,
+        error: err,
+      });
+    }, 1200);
+
+    return () => window.clearInterval(timer);
+  }, [activeMatchId, activeMatchStatus, gameId, isHostForActiveMatch, isMatchmade, meReadyForActiveMatch, phase]);
+
   // Safety net: keep pre-game state in sync even if realtime updates are delayed.
   useEffect(() => {
     if (!activeMatchId) return;
