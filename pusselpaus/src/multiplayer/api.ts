@@ -132,6 +132,30 @@ export async function mpSubmitResult(
 
   if (error) {
     console.error('[mp] submit failed:', error);
+
+    // Fallback for known backend drift:
+    // mp_submit_result function references profiles.updated_at in some deployments.
+    // If that column is missing, keep live multiplayer sync working by updating
+    // the player's row directly.
+    if (error.code === '42703' && (error.message ?? '').includes('updated_at')) {
+      const { error: fallbackError } = await supabase
+        .from('multiplayer_match_players')
+        .update({
+          submitted: true,
+          elapsed_seconds: params.elapsedSeconds ?? null,
+          score: params.score ?? null,
+          survived_seconds: params.survivedSeconds ?? null,
+          submitted_at: new Date().toISOString(),
+        })
+        .eq('match_id', payload.matchId)
+        .eq('user_id', userId);
+
+      if (fallbackError) {
+        console.error('[mp] submit fallback failed:', fallbackError);
+      } else {
+        console.warn('[mp] submit fallback used due to missing profiles.updated_at');
+      }
+    }
   }
 }
 
