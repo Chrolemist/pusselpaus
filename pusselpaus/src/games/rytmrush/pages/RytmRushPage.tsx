@@ -1,7 +1,6 @@
 /* ── RytmRush – main game page ── */
 
 import { useEffect, useRef, useCallback } from 'react';
-import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import confetti from 'canvas-confetti';
 import Lane from '../components/Lane';
@@ -13,11 +12,10 @@ import {
   LANE_LABELS,
   LANE_COLORS,
 } from '../core';
-import type { Difficulty, Song } from '../core';
 import { playWinJingle } from '../audio/rhythmAudio';
 import { useCoinRewards } from '../../../hooks/useCoinRewards';
 import { useServerGameStats } from '../../../hooks/useServerGameStats';
-import { useMultiplayerGame, LiveBanner as MultiplayerLiveBanner, getActiveMatchPayload } from '../../../multiplayer';
+import { useMultiplayerGame, LiveBanner as MultiplayerLiveBanner, StagingScreen, type StagingResult } from '../../../multiplayer';
 
 /* ── Page component ── */
 
@@ -31,13 +29,15 @@ export default function RytmRushPage() {
   const { rewardRytmRushPerformance } = useCoinRewards();
   const { syncGameResult } = useServerGameStats();
   const { submitResult: submitMatchResult } = useMultiplayerGame('rytmrush');
+  const stagingResetRef = useRef<(() => void) | null>(null);
 
-  useEffect(() => {
-    if (engine.phase !== 'menu') return;
-    const active = getActiveMatchPayload('rytmrush');
-    if (!active) return;
-    engine.startSong(SONGS[0], 'easy');
-  }, [engine]);
+  /* ── StagingScreen callback ── */
+  const handleStart = useCallback(
+    (_result: StagingResult) => {
+      engine.startSong(SONGS[0], 'easy');
+    },
+    [engine],
+  );
 
   /* ── Keyboard handling ── */
   const onKeyDown = useCallback(
@@ -136,14 +136,15 @@ export default function RytmRushPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  /* ── Menu: song + difficulty picker ── */
-  if (engine.phase === 'menu') {
-    return <MenuView onStart={engine.startSong} />;
-  }
-
-  /* ── Countdown ── */
-  if (engine.phase === 'countdown') {
-    return (
+  /* ── Game content (rendered inside StagingScreen) ── */
+  return (
+    <StagingScreen
+      gameId="rytmrush"
+      onStart={handleStart}
+      resetRef={stagingResetRef}
+    >
+    {/* ── Countdown ── */}
+    {engine.phase === 'countdown' ? (
       <div className="flex min-h-dvh flex-col items-center justify-center bg-black">
         <motion.p
           key={engine.countdownValue}
@@ -159,25 +160,18 @@ export default function RytmRushPage() {
           <p className="mt-4 text-text-muted">{engine.song.title}</p>
         )}
       </div>
-    );
-  }
-
-  /* ── Results screen ── */
-  if (engine.phase === 'results') {
-    return (
+    ) : engine.phase === 'results' ? (
+      /* ── Results screen ── */
       <ResultsView
         engine={engine}
         onBack={() => {
           engine.saveResult();
           engine.setPhase('menu');
+          stagingResetRef.current?.();
         }}
       />
-    );
-  }
-
-  /* ── Playing: game board ── */
-
-  return (
+    ) : engine.phase === 'playing' ? (
+      /* ── Playing: game board ── */
     <div
       ref={containerRef}
       className="relative flex h-dvh w-full select-none flex-col bg-black"
@@ -258,56 +252,16 @@ export default function RytmRushPage() {
         ))}
       </div>
     </div>
+    ) : (
+      <div className="flex min-h-full items-center justify-center text-text-muted">Laddar…</div>
+    )}
+    </StagingScreen>
   );
 }
 
 /* ────────────────────────────────────
    Sub-components
    ──────────────────────────────────── */
-
-interface MenuViewProps {
-  onStart: (song: Song, diff: Difficulty) => void;
-}
-
-function MenuView({ onStart }: MenuViewProps) {
-  const song = SONGS[0];
-
-  return (
-    <div className="flex min-h-dvh flex-col items-center justify-center gap-6 px-4 py-10">
-      <Link to="/" className="text-sm text-text-muted hover:text-brand-light">
-        ← Lobby
-      </Link>
-
-      <h2 className="text-3xl font-bold">🎵 RytmRush</h2>
-      <p className="max-w-xs text-center text-sm text-text-muted">
-        En lång överlevnadsbana som blir svårare hela tiden.
-        Missa för mycket och rundan är över. Coins baseras på prestation.
-      </p>
-
-      <div className="w-full max-w-sm rounded-xl bg-surface-card p-5 shadow ring-1 ring-white/10">
-        <div className="mb-3">
-          <p className="text-lg font-semibold">{song.title}</p>
-          <p className="text-xs text-text-muted">
-            {song.artist} · {song.bpm} BPM · progressiv svårighet
-          </p>
-        </div>
-        <button
-          onClick={() => onStart(song, 'easy')}
-          className="w-full rounded-lg bg-brand/20 px-3 py-2 text-sm font-semibold text-brand-light transition hover:bg-brand/40 active:scale-95"
-        >
-          Starta bana
-        </button>
-      </div>
-
-      <Link
-        to="/rytmrush/stats"
-        className="text-sm text-text-muted hover:text-brand-light"
-      >
-        📊 Statistik
-      </Link>
-    </div>
-  );
-}
 
 interface ResultsViewProps {
   engine: ReturnType<typeof useRhythmEngine>;

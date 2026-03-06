@@ -1,6 +1,6 @@
 /* ── Sifferstigen – main game page ── */
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import confetti from 'canvas-confetti';
@@ -8,7 +8,7 @@ import PathGrid from '../components/PathGrid';
 import { useNumberPath } from '../hooks/useNumberPath';
 import type { Difficulty } from '../core/types';
 import { DIFFICULTY_LABELS, GRID_LABELS } from '../core/types';
-import { LiveBanner as MultiplayerLiveBanner, getActiveMatchPayload } from '../../../multiplayer';
+import { LiveBanner as MultiplayerLiveBanner, StagingScreen, type StagingResult } from '../../../multiplayer';
 
 /* ── helpers ── */
 
@@ -23,23 +23,7 @@ function fmt(seconds: number): string {
 export default function NumberPathPage() {
   const game = useNumberPath();
   const confettiFired = useRef(false);
-  const initializedRef = useRef(false);
-
-  useEffect(() => {
-    if (initializedRef.current) return;
-    initializedRef.current = true;
-
-    const active = getActiveMatchPayload('numberpath');
-    if (!active) return;
-
-    const rawDifficulty = active.config?.difficulty;
-    const matchDifficulty: Difficulty =
-      rawDifficulty === 'easy' || rawDifficulty === 'medium' || rawDifficulty === 'hard'
-        ? rawDifficulty
-        : 'medium';
-
-    void game.newGame(matchDifficulty, active.configSeed);
-  }, [game]);
+  const stagingResetRef = useRef<(() => void) | null>(null);
 
   /* fire confetti on win */
   useEffect(() => {
@@ -53,49 +37,28 @@ export default function NumberPathPage() {
     if (game.phase !== 'won') confettiFired.current = false;
   }, [game.phase]);
 
-  /* ── Difficulty picker view ── */
-  if (game.phase === 'idle' || game.phase === 'picking') {
-    return (
-      <div className="flex min-h-full flex-col items-center justify-center gap-6 px-4 py-10">
-        <Link to="/" className="text-sm text-text-muted hover:text-brand-light">
-          ← Lobby
-        </Link>
-
-        <h2 className="text-3xl font-bold">🚶 Sifferstigen</h2>
-        <p className="max-w-xs text-center text-sm text-text-muted">
-          Dra en sammanhängande stig genom alla rutor – från 1 till sista
-          siffran. Varje ruta måste fyllas!
-        </p>
-
-        {game.hasSaved && (
-          <button
-            onClick={game.resumeGame}
-            className="w-full max-w-xs rounded-xl bg-brand px-5 py-3 text-lg font-semibold shadow-lg transition active:scale-[0.97]"
-          >
-            ▶️ Fortsätt sparad
-          </button>
-        )}
-
-        <div className="grid w-full max-w-xs gap-3">
-          {(['easy', 'medium', 'hard'] as Difficulty[]).map((d) => (
-            <button
-              key={d}
-              onClick={() => game.newGame(d)}
-              className="flex items-center justify-between rounded-xl bg-surface-card px-5 py-4 text-lg font-semibold shadow ring-1 ring-white/10 transition hover:ring-brand/60 active:scale-[0.97]"
-            >
-              <span>{DIFFICULTY_LABELS[d]}</span>
-              <span className="text-sm text-text-muted">{GRID_LABELS[d]}</span>
-            </button>
-          ))}
-        </div>
-      </div>
-    );
-  }
+  /* ── StagingScreen callback ── */
+  const handleStart = useCallback(
+    (result: StagingResult) => {
+      const diff = (result.difficulty ?? 'medium') as Difficulty;
+      void game.newGame(diff, result.seed);
+    },
+    [game],
+  );
 
   /* ── Game view ── */
   const progress = game.total > 0 ? (game.currentStep / game.total) * 100 : 0;
 
   return (
+    <StagingScreen
+      gameId="numberpath"
+      onStart={handleStart}
+      defaultDifficulty="medium"
+      hasSavedGame={game.hasSaved}
+      onResume={game.resumeGame}
+      resetRef={stagingResetRef}
+    >
+    {game.puzzle ? (
     <div className="flex min-h-full flex-col items-center gap-4 px-4 py-6">
       {/* Header */}
       <div className="flex w-full max-w-sm items-center justify-between">
@@ -183,7 +146,7 @@ export default function NumberPathPage() {
             🗑 Rensa
           </button>
           <button
-            onClick={() => game.setPhase('picking')}
+            onClick={() => stagingResetRef.current?.()}
             className="rounded-xl bg-surface-card px-4 py-2.5 text-sm font-medium shadow ring-1 ring-white/10 transition hover:ring-brand/60 active:scale-95"
           >
             🆕 Nytt
@@ -215,7 +178,7 @@ export default function NumberPathPage() {
                 Spela igen
               </button>
               <button
-                onClick={() => game.setPhase('picking')}
+                onClick={() => stagingResetRef.current?.()}
                 className="rounded-xl bg-surface-card px-5 py-2.5 font-semibold shadow ring-1 ring-white/10 transition hover:ring-brand/60 active:scale-95"
               >
                 Byt nivå
@@ -231,5 +194,9 @@ export default function NumberPathPage() {
         )}
       </AnimatePresence>
     </div>
+    ) : (
+      <div className="flex min-h-full items-center justify-center text-text-muted">Laddar…</div>
+    )}
+    </StagingScreen>
   );
 }

@@ -1,16 +1,16 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { driver, type Driver } from 'driver.js';
 import 'driver.js/dist/driver.css';
 import confetti from 'canvas-confetti';
 import type { Board, Difficulty } from '../core/types';
 import { row, col, box } from '../core/types';
+import { loadGame } from '../core/storage';
 import { useSudoku } from '../hooks/useSudoku';
 import SudokuBoard from '../components/SudokuBoard';
 import Numpad from '../components/Numpad';
 import Timer from '../components/Timer';
-import DifficultyPicker from '../components/DifficultyPicker';
-import { LiveBanner as MultiplayerLiveBanner, getActiveMatchPayload } from '../../../multiplayer';
+import { LiveBanner as MultiplayerLiveBanner, StagingScreen, type StagingResult } from '../../../multiplayer';
 
 interface TutorialTarget {
   index: number;
@@ -93,13 +93,11 @@ export default function SudokuPage() {
     togglePause,
   } = useSudoku();
 
-  const [difficulty, setDifficulty] = useState<Difficulty>('easy');
   const [tutorialTarget, setTutorialTarget] = useState<TutorialTarget | null>(null);
   const [tutorialPhase, setTutorialPhase] = useState<'idle' | 'select-cell' | 'input-number' | 'done'>('idle');
   const [tutorialFeedback, setTutorialFeedback] = useState<string | null>(null);
   const tutorialDriverRef = useRef<Driver | null>(null);
   const confettiFired = useRef(false);
-  const initializedRef = useRef(false);
 
   /* fire confetti on win */
   useEffect(() => {
@@ -110,26 +108,6 @@ export default function SudokuPage() {
     }
     if (state && !state.solved) confettiFired.current = false;
   }, [state?.solved]);
-
-  useEffect(() => {
-    if (initializedRef.current) return;
-    initializedRef.current = true;
-
-    const active = getActiveMatchPayload('sudoku');
-    if (!active) {
-      resumeGame();
-      return;
-    }
-
-    const rawDifficulty = active.config?.difficulty;
-    const matchDifficulty: Difficulty =
-      rawDifficulty === 'easy' || rawDifficulty === 'medium' || rawDifficulty === 'hard' || rawDifficulty === 'expert'
-        ? rawDifficulty
-        : 'medium';
-
-    newGame(matchDifficulty, active.configSeed);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   useEffect(() => {
     return () => {
@@ -271,46 +249,26 @@ export default function SudokuPage() {
     inputNumber(num);
   }
 
-  if (!state) {
-    return (
-      <div className="flex min-h-full flex-col items-center justify-center gap-6 px-4">
-        <Link
-          to="/"
-          className="self-start text-sm text-text-muted hover:text-brand-light"
-        >
-          ← Tillbaka
-        </Link>
-
-        <h2 className="text-3xl font-bold">🔢 Sudoku</h2>
-        <p className="max-w-xs text-center text-sm text-text-muted">
-          Välj svårighetsgrad och starta ett nytt spel.
-        </p>
-
-        <DifficultyPicker current={difficulty} onSelect={setDifficulty} />
-
-        <button
-          onClick={() => newGame(difficulty)}
-          className="mt-4 rounded-xl bg-brand px-8 py-3 text-lg font-bold text-white shadow-lg transition active:scale-95"
-        >
-          Nytt spel
-        </button>
-
-        <p className="text-xs text-text-muted text-center max-w-xs">
-          Interaktiv guide körs på det riktiga brädet efter att du startat ett spel.
-        </p>
-
-        <Link
-          to="/sudoku/stats"
-          className="mt-2 text-sm text-text-muted underline underline-offset-4 hover:text-brand-light"
-        >
-          📊 Sudoku-statistik
-        </Link>
-      </div>
-    );
-  }
+  /* ── StagingScreen callback ── */
+  const handleStart = useCallback(
+    (result: StagingResult) => {
+      const diff = (result.difficulty ?? 'medium') as Difficulty;
+      newGame(diff, result.seed);
+    },
+    [newGame],
+  );
 
   return (
-    <div className="flex min-h-full flex-col items-center gap-4 px-4 py-4">
+    <StagingScreen
+      gameId="sudoku"
+      onStart={handleStart}
+      defaultDifficulty="medium"
+      hasSavedGame={!!loadGame()}
+      onResume={resumeGame}
+    >
+      {/* ── Game view (only rendered after StagingScreen calls onStart) ── */}
+      {state ? (
+        <div className="flex min-h-full flex-col items-center gap-4 px-4 py-4">
       <div className="flex w-full max-w-[min(90vw,400px)] items-center justify-between">
         <Link
           to="/"
@@ -410,5 +368,9 @@ export default function SudokuPage() {
         </div>
       )}
     </div>
+      ) : (
+        <div className="flex min-h-full items-center justify-center text-text-muted">Laddar…</div>
+      )}
+    </StagingScreen>
   );
 }

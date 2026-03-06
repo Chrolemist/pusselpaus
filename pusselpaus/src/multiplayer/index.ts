@@ -34,3 +34,5 @@ export type { MultiplayerGameState } from './useMultiplayerGame';
 
 // UI
 export { default as LiveBanner } from './LiveBanner';
+export { default as StagingScreen } from './StagingScreen';
+export type { StagingResult } from './StagingScreen';
