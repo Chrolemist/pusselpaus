@@ -252,6 +252,8 @@ export default function StagingScreen({
   const activeMatchMatchId = activeEntry?.match.id;
   const activeMatchConfigSeed = activeEntry?.match.config_seed;
   const activeMatchConfig = activeEntry?.match.config;
+  const activeMatchHostId = activeEntry?.match.host_id;
+  const isHostForActiveMatch = activeMatchHostId === user?.id;
   const meForfeited = activeEntry?.players.find((p) => p.player.user_id === user?.id)?.player.forfeited === true;
 
   useEffect(() => {
@@ -322,9 +324,14 @@ export default function StagingScreen({
               matchId: activeMatchMatchId,
               remaining,
               tickSentForMatch: tickStartSentForMatchRef.current,
+              isHost: isHostForActiveMatch,
             });
           }
-          if (remaining <= 0 && tickStartSentForMatchRef.current !== activeMatchMatchId) {
+          if (
+            remaining <= 0 &&
+            isHostForActiveMatch &&
+            tickStartSentForMatchRef.current !== activeMatchMatchId
+          ) {
             tickStartSentForMatchRef.current = activeMatchMatchId;
             // Tick the match to in_progress — only once!
             mpDebug('StagingScreen', 'countdown:tick_match_start', {
@@ -366,7 +373,7 @@ export default function StagingScreen({
         matchId: activeMatchMatchId,
       });
     }
-  }, [activeMatchStatus, activeMatchStartedAt, activeMatchMatchId, activeMatchConfigSeed, activeMatchConfig, meForfeited, difficulty, gameId]);
+  }, [activeMatchStatus, activeMatchStartedAt, activeMatchMatchId, activeMatchConfigSeed, activeMatchConfig, activeMatchHostId, isHostForActiveMatch, meForfeited, difficulty, gameId]);
 
   useEffect(() => {
     return () => {
@@ -490,15 +497,7 @@ export default function StagingScreen({
       });
       void mpRef.current.startMatch(activeMatchMatchId, isMatchmade ? 3 : 5);
     }
-    // For matchmade (random queue): auto-start as soon as all accepted, shorter countdown
-    if (phase === 'waiting' && isMatchmade && activeMatchStatus === 'waiting') {
-      startSentRef.current = true;
-      mpDebug('StagingScreen', 'auto_start:trigger_matchmade', {
-        gameId,
-        matchId: activeMatchMatchId,
-      });
-      void mpRef.current.startMatch(activeMatchMatchId, 3);
-    }
+    // Matchmade flow should start from match-found overlay only, never directly from waiting.
   }, [phase, activeMatchMatchId, activeMatchStatus, allPlayersAccepted, isHost, isMatchmade, canStartMatchFoundPhase]);
 
   /* ── Matchmaking: join queue handler ── */

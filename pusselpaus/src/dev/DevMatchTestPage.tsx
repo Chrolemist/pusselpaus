@@ -55,6 +55,8 @@ export default function DevMatchTestPage() {
   const [playerCount, setPlayerCount] = useState(2);
   const [scenario, setScenario] = useState<Scenario>('accept');
   const [inviteMode, setInviteMode] = useState(false);
+  const [realtimeStorm, setRealtimeStorm] = useState(false);
+  const [stormTick, setStormTick] = useState(0);
   const [overlayVisible, setOverlayVisible] = useState(false);
   const [players, setPlayers] = useState<MatchPlayer[]>([]);
   const [phase, setPhase] = useState<'idle' | 'overlay' | 'countdown' | 'playing' | 'declined'>('idle');
@@ -83,6 +85,18 @@ export default function DevMatchTestPage() {
     }));
   }, [playerCount, inviteMode]);
 
+  /* ── Local stress: simulate frequent realtime rerenders ── */
+  useEffect(() => {
+    if (!realtimeStorm) return;
+    if (phase !== 'overlay' && phase !== 'countdown') return;
+
+    const interval = setInterval(() => {
+      setStormTick((v) => v + 1);
+    }, 250);
+
+    return () => clearInterval(interval);
+  }, [realtimeStorm, phase]);
+
   /* ── Start a simulation ── */
   const startSimulation = useCallback(() => {
     // Clear previous timers
@@ -94,9 +108,18 @@ export default function DevMatchTestPage() {
     setPhase('overlay');
     setOverlayVisible(true);
     setLog([]);
+    setStormTick(0);
     addLog(`Scenario: ${scenario}, ${playerCount} spelare${inviteMode ? ' (väninbjudan)' : ''}`);
     addLog(inviteMode ? 'Inbjudan accepterad! Overlay visas.' : 'Match hittad! Overlay visas.');
   }, [buildPlayers, scenario, playerCount, inviteMode, addLog]);
+
+  /* ── Quick preset: 2-player strict matchmaking test ── */
+  const applyTwoPlayerPreset = useCallback(() => {
+    setInviteMode(false);
+    setPlayerCount(2);
+    setScenario('slow-accept');
+    addLog('Preset aktiv: 2 spelare matchmaking (host + klient)');
+  }, [addLog]);
 
   /* ── Simulate opponent behavior based on scenario ── */
   useEffect(() => {
@@ -205,6 +228,25 @@ export default function DevMatchTestPage() {
     simulationTimers.current = [];
   }, [addLog]);
 
+  const forceOpponentAcceptNow = useCallback(() => {
+    const opponent = players.find((p) => p.id !== 'me');
+    if (!opponent) return;
+    setPlayers((prev) =>
+      prev.map((p) => (p.id === opponent.id ? { ...p, accepted: true } : p)),
+    );
+    addLog(`${opponent.username} accepterade manuellt (dev)`);
+  }, [players, addLog]);
+
+  const forceOpponentDeclineNow = useCallback(() => {
+    const opponent = players.find((p) => p.id !== 'me');
+    if (!opponent) return;
+    addLog(`${opponent.username} nekade manuellt (dev)`);
+    setOverlayVisible(false);
+    setPhase('declined');
+    simulationTimers.current.forEach(clearTimeout);
+    simulationTimers.current = [];
+  }, [players, addLog]);
+
   /* ── Reset ── */
   const handleReset = useCallback(() => {
     simulationTimers.current.forEach(clearTimeout);
@@ -302,6 +344,39 @@ export default function DevMatchTestPage() {
         {phase === 'idle' && (
           <div className="space-y-5">
             <h2 className="text-lg font-bold">🎮 Match Found</h2>
+
+            <div className="rounded-xl bg-surface-card p-3 ring-1 ring-white/10">
+              <p className="text-xs text-text-muted">
+                Rekommenderat testflöde: 2 spelare (host + klient), båda accepterar, countdown,
+                start. Använd preset + realtime-storm för att hitta loopar utan deploy.
+              </p>
+              <div className="mt-2 flex gap-2">
+                <button
+                  onClick={applyTwoPlayerPreset}
+                  className="rounded-lg bg-brand/15 px-3 py-2 text-xs font-semibold text-brand-light ring-1 ring-brand/40"
+                >
+                  Preset: 2 spelare matchmaking
+                </button>
+                <button
+                  onClick={() => {
+                    const next = !realtimeStorm;
+                    setRealtimeStorm(next);
+                    addLog(
+                      next
+                        ? 'Realtime-storm aktiv (simulerar täta live-uppdateringar)'
+                        : 'Realtime-storm avstängd',
+                    );
+                  }}
+                  className={`rounded-lg px-3 py-2 text-xs font-semibold ring-1 transition ${
+                    realtimeStorm
+                      ? 'bg-amber-500/20 text-amber-300 ring-amber-500/40'
+                      : 'bg-surface-card text-text-muted ring-white/10 hover:ring-amber-500/40'
+                  }`}
+                >
+                  {realtimeStorm ? 'Realtime-storm: PÅ' : 'Realtime-storm: AV'}
+                </button>
+              </div>
+            </div>
 
             {/* Mode toggle: Matchmaking vs Friend invite */}
             <div>
@@ -500,6 +575,27 @@ export default function DevMatchTestPage() {
                 </button>
               )}
             </div>
+
+            {(phase === 'overlay' || phase === 'countdown') && players.length === 2 && (
+              <div className="mb-2 flex gap-2">
+                <button
+                  onClick={forceOpponentAcceptNow}
+                  className="rounded-lg bg-green-500/15 px-3 py-1.5 text-xs font-semibold text-green-300 ring-1 ring-green-500/30"
+                >
+                  Simulera spelare B accepterar
+                </button>
+                <button
+                  onClick={forceOpponentDeclineNow}
+                  className="rounded-lg bg-red-500/15 px-3 py-1.5 text-xs font-semibold text-red-300 ring-1 ring-red-500/30"
+                >
+                  Simulera spelare B nekar
+                </button>
+                {realtimeStorm && (
+                  <span className="self-center text-[11px] text-amber-300">stormTick: {stormTick}</span>
+                )}
+              </div>
+            )}
+
             <div className="max-h-48 overflow-y-auto rounded-xl bg-black/30 p-3 font-mono text-[11px] leading-relaxed text-text-muted ring-1 ring-white/5">
               {log.map((entry, i) => (
                 <div key={i} className={i === 0 ? 'text-brand-light' : ''}>
