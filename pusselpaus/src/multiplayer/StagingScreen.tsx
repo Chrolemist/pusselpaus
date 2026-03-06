@@ -28,7 +28,7 @@ import {
 } from './useMultiplayer';
 import { useMatchmaking } from './useMatchmaking';
 import { setActiveMatchPayload, clearActiveMatch, getActiveMatchPayload } from './activeMatch';
-import { mpForfeitMatch } from './api';
+import { mpForfeitMatch, mpCancelMatch, mpDeclineInvite } from './api';
 import MatchFoundOverlay from './MatchFoundOverlay';
 import type { MatchPlayer } from './MatchFoundOverlay';
 import type { MatchConfig } from './types';
@@ -304,14 +304,29 @@ export default function StagingScreen({
 
   /* ── Matchmaking: join queue handler ── */
   const handleJoinQueue = useCallback(async () => {
-    // First, clean up any stale active matches that would block joining
+    // First, clean up any stale active matches that would block joining.
+    // Try the right API per status, with fallbacks for edge cases
+    // (e.g. matchmade match stuck in 'waiting' where forfeit doesn't work).
     const blocking = mp.matches.filter(
       (m) =>
         m.me?.status === 'accepted' &&
         ['waiting', 'starting', 'in_progress'].includes(m.match.status),
     );
     for (const m of blocking) {
-      await mpForfeitMatch(m.match.id);
+      const id = m.match.id;
+      const status = m.match.status;
+      const isHost = m.match.host_id === user?.id;
+
+      if (status === 'in_progress' || status === 'starting') {
+        await mpForfeitMatch(id);
+      } else if (status === 'waiting') {
+        // Try cancel first (works if host), then decline, then forfeit as last resort
+        const err1 = isHost ? await mpCancelMatch(id) : await mpDeclineInvite(id);
+        if (err1) {
+          const err2 = isHost ? await mpDeclineInvite(id) : await mpCancelMatch(id);
+          if (err2) await mpForfeitMatch(id);
+        }
+      }
       clearActiveMatch(m.match.game_id);
     }
     if (blocking.length > 0) {
@@ -319,7 +334,7 @@ export default function StagingScreen({
     }
 
     await mm.join(difficulty);
-  }, [mm, difficulty, mp]);
+  }, [mm, difficulty, mp, user?.id]);
 
   /* ── Matchmaking: leave queue handler ── */
   const handleLeaveQueue = useCallback(async () => {
@@ -426,8 +441,10 @@ export default function StagingScreen({
   useEffect(() => { phaseRef.current = phase; }, [phase]);
 
   /**
-   * Forfeit + clean, called synchronously from event handlers.
-   * Uses sendBeacon so it works even during beforeunload/unload.
+   * Leave / forfeit + clean, called from event handlers.
+   * Tries the right API per phase, with fallbacks:
+   *  - waiting → cancel → decline → forfeit
+   *  - starting/playing → forfeit
    */
   const forfeitNow = useCallback(() => {
     const matchId = activeMatchIdRef.current;
@@ -435,8 +452,18 @@ export default function StagingScreen({
     const p = phaseRef.current;
     if (p !== 'waiting' && p !== 'countdown' && p !== 'playing') return;
 
-    // Fire-and-forget forfeit via the API
-    void mpForfeitMatch(matchId);
+    if (p === 'waiting') {
+      // Try all three in order until one succeeds
+      void (async () => {
+        const e1 = await mpCancelMatch(matchId);
+        if (e1) {
+          const e2 = await mpDeclineInvite(matchId);
+          if (e2) await mpForfeitMatch(matchId);
+        }
+      })();
+    } else {
+      void mpForfeitMatch(matchId);
+    }
     clearActiveMatch(gameId);
   }, [gameId]);
 
@@ -448,9 +475,18 @@ export default function StagingScreen({
       if (!matchId) return;
       if (p !== 'waiting' && p !== 'countdown' && p !== 'playing') return;
 
-      // Random match: always forfeit on unmount
-      // Friend match: also forfeit on unmount (navigated away = done)
-      void mpForfeitMatch(matchId);
+      // Try all three APIs in order — one should work regardless of match state
+      if (p === 'waiting') {
+        void (async () => {
+          const e1 = await mpCancelMatch(matchId);
+          if (e1) {
+            const e2 = await mpDeclineInvite(matchId);
+            if (e2) await mpForfeitMatch(matchId);
+          }
+        })();
+      } else {
+        void mpForfeitMatch(matchId);
+      }
       clearActiveMatch(gameId);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
