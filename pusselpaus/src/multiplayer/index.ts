@@ -17,7 +17,6 @@ export {
   mpCreateMatch,
   mpAcceptInvite,
   mpDeclineInvite,
-  mpStartMatch,
   mpTickMatchStart,
   mpForfeitMatch,
   mpCancelMatch,

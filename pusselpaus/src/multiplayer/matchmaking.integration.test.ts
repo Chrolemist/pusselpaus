@@ -29,7 +29,7 @@ import {
   mpForfeitMatch,
   mpCancelMatch,
   mpDeclineInvite,
-  mpStartMatch,
+  mpStartIfReady,
   mpForceCleanupActiveMatches,
 } from './api';
 import { matchmakeJoin, matchmakePoll } from './matchmakingApi';
@@ -142,8 +142,8 @@ describe('Scenario 1: normal matchmaking flow', () => {
 
   it('host auto-starts with 3s countdown (not 5s)', async () => {
     mockRpc.mockResolvedValue({ error: null });
-    await mpStartMatch(MATCH_ID, 3);
-    expect(mockRpc).toHaveBeenCalledWith('mp_start_match', {
+    await mpStartIfReady(MATCH_ID, 3);
+    expect(mockRpc).toHaveBeenCalledWith('mp_start_if_ready', {
       p_match_id: MATCH_ID,
       p_countdown_seconds: 3,
     });
@@ -169,7 +169,7 @@ describe('Scenario 2: stuck match blocks queue — nuclear cleanup', () => {
   it('all three RPCs fail for a matchmade match stuck in waiting', async () => {
     // This is the EXACT scenario that was causing the bug.
     // matchmake_join created a match → both players accepted → waiting
-    // But no one called mp_start_match, so it stayed in 'waiting'.
+    // But no one called mp_start_if_ready, so it stayed in 'waiting'.
     // Now the user tries to join a new queue.
 
     mockRpc.mockResolvedValue({

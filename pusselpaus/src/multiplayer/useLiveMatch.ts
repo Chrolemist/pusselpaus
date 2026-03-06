@@ -5,7 +5,6 @@ import { useAuth } from '../auth';
 import { supabase } from '../lib/supabaseClient';
 import type { MultiplayerMatch, MultiplayerMatchPlayer, Profile } from '../lib/database.types';
 import { getActiveMatchPayload } from './activeMatch';
-import { mpTryResolveTimeout } from './api';
 
 type LiveOutcome = 'won' | 'lost' | null;
 
@@ -53,20 +52,7 @@ export function useLiveMatch(gameId: string) {
       return;
     }
 
-    let effectiveMatch = matchRow;
-
-    // Auto-resolve AFK timeouts
-    if (matchRow.status === 'in_progress') {
-      const resolveState = await mpTryResolveTimeout(matchId);
-      if (resolveState?.startsWith('resolved')) {
-        const { data: refreshed } = await supabase
-          .from('multiplayer_matches')
-          .select('*')
-          .eq('id', matchId)
-          .maybeSingle<MultiplayerMatch>();
-        if (refreshed) effectiveMatch = refreshed;
-      }
-    }
+    const effectiveMatch = matchRow;
 
     const { data: playerRows } = await supabase
       .from('multiplayer_match_players')

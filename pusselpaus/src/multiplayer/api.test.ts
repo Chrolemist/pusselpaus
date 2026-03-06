@@ -37,7 +37,7 @@ import {
   mpCreateMatch,
   mpAcceptInvite,
   mpDeclineInvite,
-  mpStartMatch,
+  mpStartIfReady,
   mpTickMatchStart,
   mpForfeitMatch,
   mpCancelMatch,
@@ -90,11 +90,11 @@ describe('mpDeclineInvite', () => {
   });
 });
 
-describe('mpStartMatch', () => {
+describe('mpStartIfReady', () => {
   it('passes countdown seconds', async () => {
     mockRpc.mockResolvedValue({ error: null });
-    await mpStartMatch('match-1', 10);
-    expect(mockRpc).toHaveBeenCalledWith('mp_start_match', {
+    await mpStartIfReady('match-1', 10);
+    expect(mockRpc).toHaveBeenCalledWith('mp_start_if_ready', {
       p_match_id: 'match-1',
       p_countdown_seconds: 10,
     });
@@ -102,8 +102,8 @@ describe('mpStartMatch', () => {
 
   it('defaults countdown to 5', async () => {
     mockRpc.mockResolvedValue({ error: null });
-    await mpStartMatch('match-1');
-    expect(mockRpc).toHaveBeenCalledWith('mp_start_match', {
+    await mpStartIfReady('match-1');
+    expect(mockRpc).toHaveBeenCalledWith('mp_start_if_ready', {
       p_match_id: 'match-1',
       p_countdown_seconds: 5,
     });

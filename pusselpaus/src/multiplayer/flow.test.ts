@@ -22,7 +22,7 @@ vi.mock('../lib/supabaseClient', () => ({
 
 import {
   mpAcceptInvite,
-  mpStartMatch,
+  mpStartIfReady,
   mpForfeitMatch,
   mpCancelMatch,
   mpSubmitResult,
@@ -109,8 +109,8 @@ describe('matchmaking (random queue) flow', () => {
 
     // Simulate the auto-start logic:
     // if (isMatchmade && allAccepted && isHost) → startMatch(matchId, 3)
-    await mpStartMatch('match-queue', 3);
-    expect(mockRpc).toHaveBeenCalledWith('mp_start_match', {
+    await mpStartIfReady('match-queue', 3);
+    expect(mockRpc).toHaveBeenCalledWith('mp_start_if_ready', {
       p_match_id: 'match-queue',
       p_countdown_seconds: 3,
     });
@@ -147,8 +147,8 @@ describe('friend invite flow', () => {
 
   it('friend invite match starts with 5s countdown', async () => {
     mockRpc.mockResolvedValue({ error: null });
-    await mpStartMatch('match-friend', 5);
-    expect(mockRpc).toHaveBeenCalledWith('mp_start_match', {
+    await mpStartIfReady('match-friend', 5);
+    expect(mockRpc).toHaveBeenCalledWith('mp_start_if_ready', {
       p_match_id: 'match-friend',
       p_countdown_seconds: 5,
     });
@@ -383,11 +383,11 @@ describe('API error handling', () => {
     expect(err).toBe('Player already accepted');
   });
 
-  it('mpStartMatch returns error when match not in waiting state', async () => {
+  it('mpStartIfReady returns error when match not in waiting state', async () => {
     mockRpc.mockResolvedValue({
       error: { message: 'Match is not in waiting status' },
     });
-    const err = await mpStartMatch('wrong-status-match', 3);
+    const { error: err } = await mpStartIfReady('wrong-status-match', 3);
     expect(err).toBe('Match is not in waiting status');
   });
 
@@ -413,9 +413,9 @@ describe('API error handling', () => {
     expect(err).toBe('Kunde inte acceptera');
   });
 
-  it('mpStartMatch returns fallback message when error has no message', async () => {
+  it('mpStartIfReady returns fallback message when error has no message', async () => {
     mockRpc.mockResolvedValue({ error: {} });
-    const err = await mpStartMatch('match-x');
+    const { error: err } = await mpStartIfReady('match-x');
     expect(err).toBe('Kunde inte starta match');
   });
 
@@ -453,9 +453,9 @@ describe('end-to-end: random matchmaking → play → submit', () => {
     expect(mockRpc).not.toHaveBeenCalled();
 
     // 4. Auto-start fires (host starts match with 3s countdown)
-    await mpStartMatch(matchId, 3);
+    await mpStartIfReady(matchId, 3);
     expect(mockRpc).toHaveBeenCalledTimes(1);
-    expect(mockRpc).toHaveBeenCalledWith('mp_start_match', {
+    expect(mockRpc).toHaveBeenCalledWith('mp_start_if_ready', {
       p_match_id: matchId,
       p_countdown_seconds: 3,
     });
@@ -502,8 +502,8 @@ describe('end-to-end: friend invite → accept → play', () => {
 
     // 4. Host starts with 5s countdown
     mockRpc.mockResolvedValue({ error: null });
-    await mpStartMatch(matchId, 5);
-    expect(mockRpc).toHaveBeenCalledWith('mp_start_match', {
+    await mpStartIfReady(matchId, 5);
+    expect(mockRpc).toHaveBeenCalledWith('mp_start_if_ready', {
       p_match_id: matchId,
       p_countdown_seconds: 5,
     });

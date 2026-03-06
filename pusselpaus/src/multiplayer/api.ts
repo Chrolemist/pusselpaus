@@ -63,27 +63,6 @@ export async function mpDeclineInvite(matchId: string): Promise<string | null> {
 
 /* ── start / tick ── */
 
-export async function mpStartMatch(matchId: string, countdownSeconds = 5): Promise<string | null> {
-  mpDebug('api', 'mp_start_match:request', { matchId, countdownSeconds });
-  const { error } = await supabase.rpc('mp_start_match', {
-    p_match_id: matchId,
-    p_countdown_seconds: countdownSeconds,
-  });
-  if (error) {
-    mpDebug('api', 'mp_start_match:error', {
-      matchId,
-      countdownSeconds,
-      code: error.code ?? null,
-      message: error.message ?? null,
-      details: error.details ?? null,
-      hint: error.hint ?? null,
-    });
-  } else {
-    mpDebug('api', 'mp_start_match:ok', { matchId, countdownSeconds });
-  }
-  return error ? error.message || 'Kunde inte starta match' : null;
-}
-
 export interface MpStartIfReadyResult {
   ok?: boolean;
   started?: boolean;

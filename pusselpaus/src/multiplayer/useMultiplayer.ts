@@ -20,7 +20,6 @@ import {
   mpAcceptInvite,
   mpMarkReady,
   mpDeclineInvite,
-  mpStartMatch,
   mpStartIfReady,
   mpTickMatchStart,
   mpForfeitMatch,
@@ -266,37 +265,6 @@ export function useMultiplayer() {
     [loadMatches],
   );
 
-  const startMatch = useCallback(
-    async (matchId: string, countdownSeconds = 5): Promise<string | null> => {
-      const target = matches.find((entry) => entry.match.id === matchId);
-      const status = target?.match.status ?? null;
-      const blocked = hasBlockingMatch(matchId);
-      mpDebug('useMultiplayer', 'startMatch:called', {
-        matchId,
-        countdownSeconds,
-        blocked,
-        status,
-      });
-      if (status && status !== 'waiting') {
-        mpDebug('useMultiplayer', 'startMatch:ignored_not_waiting', { matchId, status });
-        return 'Matchen har redan startat eller är inte i vänteläge';
-      }
-      if (blocked) {
-        mpDebug('useMultiplayer', 'startMatch:blocked', { matchId });
-        return 'Du har redan en annan aktiv multiplayer-match';
-      }
-      const err = await mpStartMatch(matchId, countdownSeconds);
-      mpDebug('useMultiplayer', 'startMatch:result', {
-        matchId,
-        countdownSeconds,
-        error: err,
-      });
-      if (!err) await loadMatches();
-      return err;
-    },
-    [loadMatches, hasBlockingMatch, matches],
-  );
-
   const tickMatchStart = useCallback(
     async (matchId: string): Promise<string | null> => {
       mpDebug('useMultiplayer', 'tickMatchStart:called', { matchId });
@@ -413,7 +381,6 @@ export function useMultiplayer() {
     acceptInvite,
     markReady,
     declineInvite,
-    startMatch,
     startMatchIfReady,
     tickMatchStart,
     forfeitMatch,

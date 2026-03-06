@@ -224,7 +224,7 @@ export default function StagingScreen({
   const onStartRef = useRef(onStart);
   useEffect(() => { onStartRef.current = onStart; }, [onStart]);
 
-  // Guard: prevent auto-start from calling mp.startMatch multiple times
+  // Guard: prevent auto-start from calling startMatchIfReady multiple times
   const startSentRef = useRef(false);
   // Guard: local accept click required before auto-start
   const localAcceptMatchIdRef = useRef<string | null>(null);
@@ -533,14 +533,8 @@ export default function StagingScreen({
       tag: profile?.tag ?? '????',
       skin: displaySkin(profile?.skin),
       level: profile?.level ?? null,
-      accepted:
-        isMatchmade && player.user_id === user?.id
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          ? (matchFoundAcceptedLocal || (player as any).ready === true)
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          : (isMatchmade
-              ? (player as any).ready === true
-              : (((player as any).ready === true) || ((player as any).ready == null && player.status === 'accepted'))),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      accepted: (player as any).ready === true || (isMatchmade && player.user_id === user?.id && matchFoundAcceptedLocal),
     }));
   }, [activeEntry, isMatchmade, user?.id, matchFoundAcceptedLocal]);
 
@@ -559,8 +553,7 @@ export default function StagingScreen({
       }
     }
     if (err && !isMatchmade) {
-      // Backward compatibility on environments without mp_mark_ready yet.
-      await mp.acceptInvite(activeMatchId);
+      flash('Kunde inte markera redo. Försök igen.');
     }
   }, [activeMatchId, isMatchmade, mp, flash]);
 
@@ -584,13 +577,13 @@ export default function StagingScreen({
 
   /* ── Auto-start when all players accept ── */
   // Derived stable primitives for the auto-start effect
-  const allPlayersReady = activeEntry?.players.every((p) => {
-    // Legacy fallback: older backend may not have ready column yet.
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const ready = (p.player as any).ready;
-    if (isMatchmade) return ready === true;
-    return ready === true || (ready == null && p.player.status === 'accepted');
-  }) ?? false;
+  const activeNonForfeitedPlayers = activeEntry?.players.filter((p) => p.player.forfeited !== true) ?? [];
+  const allPlayersReady =
+    activeNonForfeitedPlayers.length >= 2 &&
+    activeNonForfeitedPlayers.every((p) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      return (p.player as any).ready === true;
+    });
   const isHost = activeEntry?.match.host_id === user?.id;
   const hasLocalAcceptForActiveMatch =
     !!activeMatchMatchId && localAcceptMatchIdRef.current === activeMatchMatchId;
@@ -1301,7 +1294,7 @@ export default function StagingScreen({
               <div className="mt-4 flex gap-2">
                 <motion.button
                   onClick={handleMultiplayerStart}
-                  disabled={!activeEntry.players.every((p) => p.player.status === 'accepted')}
+                  disabled={!allPlayersReady}
                   className="relative flex-1 overflow-hidden rounded-xl px-4 py-3 text-sm font-bold text-white shadow disabled:opacity-50"
                   style={{ background: 'linear-gradient(135deg, #6366f1 0%, #818cf8 50%, #6366f1 100%)' }}
                   whileHover={{ scale: 1.04, boxShadow: '0 0 24px rgba(99,102,241,0.45)' }}
