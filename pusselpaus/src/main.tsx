@@ -4,6 +4,37 @@ import './index.css'
 import App from './App'
 
 const CHUNK_RELOAD_GUARD = 'pusselpaus:chunk-reload-once';
+const BUILD_KEY = 'pusselpaus:client-build';
+const BUILD_SYNC_GUARD = 'pusselpaus:build-sync-once';
+
+async function forceClientResync() {
+  if ('serviceWorker' in navigator) {
+    const registrations = await navigator.serviceWorker.getRegistrations();
+    await Promise.all(registrations.map((registration) => registration.unregister()));
+  }
+
+  if ('caches' in window) {
+    const keys = await caches.keys();
+    await Promise.all(keys.map((key) => caches.delete(key)));
+  }
+
+  window.location.reload();
+}
+
+function handleBuildDrift() {
+  const previousBuild = localStorage.getItem(BUILD_KEY);
+  const syncGuard = sessionStorage.getItem(BUILD_SYNC_GUARD);
+
+  if (previousBuild && previousBuild !== __APP_BUILD__ && syncGuard !== __APP_BUILD__) {
+    sessionStorage.setItem(BUILD_SYNC_GUARD, __APP_BUILD__);
+    void forceClientResync();
+    return;
+  }
+
+  localStorage.setItem(BUILD_KEY, __APP_BUILD__);
+}
+
+handleBuildDrift();
 
 function tryRecoverChunkError() {
   const alreadyTried = sessionStorage.getItem(CHUNK_RELOAD_GUARD) === '1';
