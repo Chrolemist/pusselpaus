@@ -42,10 +42,44 @@ export async function mpAcceptInvite(matchId: string): Promise<string | null> {
 export interface MpReadyResult {
   ok?: boolean;
   all_ready?: boolean;
+  allReady?: boolean;
   ready_count?: number;
+  readyCount?: number;
   total_count?: number;
+  totalCount?: number;
   status?: string;
   reason?: string;
+}
+
+function toNumber(value: unknown): number | undefined {
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (typeof value === 'string') {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  return undefined;
+}
+
+function toBoolean(value: unknown): boolean | undefined {
+  if (typeof value === 'boolean') return value;
+  if (typeof value === 'string') {
+    if (value.toLowerCase() === 'true') return true;
+    if (value.toLowerCase() === 'false') return false;
+  }
+  return undefined;
+}
+
+function normalizeReadyResult(value: unknown): MpReadyResult | null {
+  if (!value || typeof value !== 'object') return null;
+  const row = value as Record<string, unknown>;
+  return {
+    ok: toBoolean(row.ok),
+    all_ready: toBoolean(row.all_ready) ?? toBoolean(row.allReady),
+    ready_count: toNumber(row.ready_count) ?? toNumber(row.readyCount),
+    total_count: toNumber(row.total_count) ?? toNumber(row.totalCount),
+    status: typeof row.status === 'string' ? row.status : undefined,
+    reason: typeof row.reason === 'string' ? row.reason : undefined,
+  };
 }
 
 export async function mpMarkReady(matchId: string): Promise<{ error: string | null; data: MpReadyResult | null }> {
@@ -60,8 +94,9 @@ export async function mpMarkReady(matchId: string): Promise<{ error: string | nu
     });
     return { error: error.message || 'Kunde inte markera redo', data: null };
   }
-  mpDebug('api', 'accept:mark_ready_rpc_ok', { matchId, data: (data as MpReadyResult) ?? null });
-  return { error: null, data: (data as MpReadyResult) ?? null };
+  const normalized = normalizeReadyResult(data);
+  mpDebug('api', 'accept:mark_ready_rpc_ok', { matchId, data: normalized });
+  return { error: null, data: normalized };
 }
 
 export async function mpDeclineInvite(matchId: string): Promise<string | null> {
@@ -79,6 +114,20 @@ export interface MpStartIfReadyResult {
   started_at?: string | null;
   ready_count?: number;
   total_count?: number;
+}
+
+function normalizeStartIfReadyResult(value: unknown): MpStartIfReadyResult | null {
+  if (!value || typeof value !== 'object') return null;
+  const row = value as Record<string, unknown>;
+  return {
+    ok: toBoolean(row.ok),
+    started: toBoolean(row.started),
+    status: typeof row.status === 'string' ? row.status : undefined,
+    reason: typeof row.reason === 'string' ? row.reason : undefined,
+    started_at: typeof row.started_at === 'string' ? row.started_at : null,
+    ready_count: toNumber(row.ready_count) ?? toNumber(row.readyCount),
+    total_count: toNumber(row.total_count) ?? toNumber(row.totalCount),
+  };
 }
 
 export async function mpStartIfReady(
@@ -108,7 +157,43 @@ export async function mpStartIfReady(
     countdownSeconds,
     data,
   });
-  return { error: null, data: (data as MpStartIfReadyResult) ?? null };
+  return { error: null, data: normalizeStartIfReadyResult(data) };
+}
+
+export interface MpReadyStateResult {
+  ok?: boolean;
+  status?: string;
+  all_ready?: boolean;
+  ready_count?: number;
+  total_count?: number;
+  me_ready?: boolean;
+  started_at?: string | null;
+}
+
+function normalizeReadyStateResult(value: unknown): MpReadyStateResult | null {
+  if (!value || typeof value !== 'object') return null;
+  const row = value as Record<string, unknown>;
+  return {
+    ok: toBoolean(row.ok),
+    status: typeof row.status === 'string' ? row.status : undefined,
+    all_ready: toBoolean(row.all_ready) ?? toBoolean(row.allReady),
+    ready_count: toNumber(row.ready_count) ?? toNumber(row.readyCount),
+    total_count: toNumber(row.total_count) ?? toNumber(row.totalCount),
+    me_ready: toBoolean(row.me_ready) ?? toBoolean(row.meReady),
+    started_at: typeof row.started_at === 'string' ? row.started_at : null,
+  };
+}
+
+export async function mpReadyState(
+  matchId: string,
+): Promise<{ error: string | null; data: MpReadyStateResult | null }> {
+  const { data, error } = await supabase.rpc('mp_ready_state', {
+    p_match_id: matchId,
+  });
+  if (error) {
+    return { error: error.message || 'Kunde inte läsa ready-state', data: null };
+  }
+  return { error: null, data: normalizeReadyStateResult(data) };
 }
 
 export async function mpTickMatchStart(matchId: string): Promise<string | null> {

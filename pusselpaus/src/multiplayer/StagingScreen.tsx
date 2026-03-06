@@ -104,6 +104,9 @@ export default function StagingScreen({
   const [isMatchmade, setIsMatchmade] = useState(false);
   /** Local ready/accept click for the match-found overlay (used for matchmade flow UX) */
   const [matchFoundAcceptedLocal, setMatchFoundAcceptedLocal] = useState(false);
+  const [serverReadyCount, setServerReadyCount] = useState<number | null>(null);
+  const [serverTotalCount, setServerTotalCount] = useState<number | null>(null);
+  const [serverAllReady, setServerAllReady] = useState<boolean | null>(null);
 
   useEffect(() => {
     mpDebug('StagingScreen', 'phase:changed', {
@@ -129,6 +132,9 @@ export default function StagingScreen({
         setIsInviteOverlay(false);
         setIsMatchmade(false);
         setMatchFoundAcceptedLocal(false);
+        setServerReadyCount(null);
+        setServerTotalCount(null);
+        setServerAllReady(null);
         setSelectedFriends([]);
         setMessage(null);
         // Also leave matchmaking queue if active
@@ -243,6 +249,9 @@ export default function StagingScreen({
     tickStartSentForMatchRef.current = null;
     gameStartedForMatchRef.current = null;
     setMatchFoundAcceptedLocal(false);
+    setServerReadyCount(null);
+    setServerTotalCount(null);
+    setServerAllReady(null);
     if (countdownTimerRef.current) {
       window.clearInterval(countdownTimerRef.current);
       countdownTimerRef.current = null;
@@ -325,7 +334,7 @@ export default function StagingScreen({
     if (activeMatchStatus === 'starting') {
       if (gameStartedForMatchRef.current === activeMatchMatchId) return;
 
-      if (isMatchmade && !meReadyForActiveMatch) {
+      if (isMatchmade && (!meReadyForActiveMatch || serverAllReady !== true || (serverTotalCount ?? 0) < 2)) {
         setPhase('match-found');
         return;
       }
@@ -403,7 +412,7 @@ export default function StagingScreen({
     }
 
     if (activeMatchStatus === 'in_progress') {
-      if (isMatchmade && !meReadyForActiveMatch) {
+      if (isMatchmade && (!meReadyForActiveMatch || serverAllReady !== true || (serverTotalCount ?? 0) < 2)) {
         setPhase('match-found');
         return;
       }
@@ -423,7 +432,7 @@ export default function StagingScreen({
       });
       startGameOnce(activeMatchMatchId, 'in_progress');
     }
-  }, [activeMatchStatus, activeMatchStartedAt, activeMatchMatchId, activeMatchHostId, isHostForActiveMatch, meForfeited, gameId, isMatchmade, meReadyForActiveMatch, startGameOnce]);
+  }, [activeMatchStatus, activeMatchStartedAt, activeMatchMatchId, activeMatchHostId, isHostForActiveMatch, meForfeited, gameId, isMatchmade, meReadyForActiveMatch, serverAllReady, serverTotalCount, startGameOnce]);
 
   useEffect(() => {
     return () => {
@@ -574,6 +583,11 @@ export default function StagingScreen({
     if (isMatchmade) {
       setMatchFoundAcceptedLocal(true);
       void mpRef.current.refresh();
+      if (readyData) {
+        setServerReadyCount(readyData.ready_count ?? null);
+        setServerTotalCount(readyData.total_count ?? null);
+        setServerAllReady(readyData.all_ready ?? null);
+      }
       if (err) {
         flash('Backend saknar ready-state migration. Kör SQL-migrationen först.');
       } else if ((readyData?.all_ready === true) && ((readyData?.total_count ?? 0) >= 2)) {
@@ -611,6 +625,9 @@ export default function StagingScreen({
     setIsInviteOverlay(false);
     setIsMatchmade(false);
     setMatchFoundAcceptedLocal(false);
+    setServerReadyCount(null);
+    setServerTotalCount(null);
+    setServerAllReady(null);
     setPhase('staging');
     await mp.refresh();
   }, [activeMatchId, gameId, isMatchmade, mp]);
@@ -687,6 +704,32 @@ export default function StagingScreen({
       return () => clearTimeout(timer);
     }
   }, [phase, mm.status, mm.error]);
+
+  // Server-authoritative ready snapshot for matchmade flow.
+  useEffect(() => {
+    if (!activeMatchId) return;
+    if (!isMatchmade) return;
+    if (phase !== 'match-found' && phase !== 'waiting' && phase !== 'countdown') return;
+
+    let mounted = true;
+    const loadReadyState = async () => {
+      const { error, data } = await mpRef.current.readyState(activeMatchId);
+      if (!mounted || error || !data) return;
+      setServerReadyCount(data.ready_count ?? null);
+      setServerTotalCount(data.total_count ?? null);
+      setServerAllReady(data.all_ready ?? null);
+    };
+
+    void loadReadyState();
+    const timer = window.setInterval(() => {
+      void loadReadyState();
+    }, 900);
+
+    return () => {
+      mounted = false;
+      window.clearInterval(timer);
+    };
+  }, [activeMatchId, isMatchmade, phase]);
 
   // Safety net: after accepting in matchmade flow, keep probing
   // server-authoritative start until backend transitions.
@@ -965,6 +1008,8 @@ export default function StagingScreen({
         players={overlayPlayers}
         timeLimit={15}
         deadlineAt={acceptDeadlineAt}
+        acceptedCountOverride={isMatchmade ? serverReadyCount : null}
+        totalCountOverride={isMatchmade ? serverTotalCount : null}
         myId={user?.id ?? ''}
         onAccept={handleOverlayAccept}
         onDecline={handleOverlayDecline}

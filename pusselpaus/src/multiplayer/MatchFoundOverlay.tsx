@@ -61,6 +61,10 @@ export interface MatchFoundOverlayProps {
   enableSounds?: boolean;
   /** Absolute server-based deadline for accept countdown (ISO timestamp) */
   deadlineAt?: string | null;
+  /** Optional server-authoritative accepted count */
+  acceptedCountOverride?: number | null;
+  /** Optional server-authoritative total count */
+  totalCountOverride?: number | null;
 }
 
 /* ── Constants ── */
@@ -81,6 +85,8 @@ export default function MatchFoundOverlay({
   noTimeout = false,
   enableSounds = true,
   deadlineAt = null,
+  acceptedCountOverride = null,
+  totalCountOverride = null,
 }: MatchFoundOverlayProps) {
   const [secondsLeft, setSecondsLeft] = useState(timeLimit);
   const [hasAccepted, setHasAccepted] = useState(false);
@@ -220,6 +226,8 @@ export default function MatchFoundOverlay({
   const dashOffset = RING_CIRCUMFERENCE * (1 - progress);
   const allAccepted = players.length > 0 && players.every((p) => p.accepted);
   const meAccepted = hasAccepted || players.find((p) => p.id === myId)?.accepted;
+  const acceptedCount = acceptedCountOverride ?? players.filter((p) => p.accepted).length;
+  const totalCount = totalCountOverride ?? players.length;
 
   /* ── Urgency color for countdown ring ── */
   const ringColor =
@@ -411,7 +419,7 @@ export default function MatchFoundOverlay({
 
             {/* ── Accept counter ── */}
             <p className="text-xs text-text-muted">
-              {players.filter((p) => p.accepted).length} / {players.length} redo
+              {acceptedCount} / {totalCount} redo
             </p>
 
             {/* ── Action buttons ── */}

@@ -21,6 +21,7 @@ import {
   mpMarkReady,
   mpDeclineInvite,
   mpStartIfReady,
+  mpReadyState,
   mpTickMatchStart,
   mpForfeitMatch,
   mpCancelMatch,
@@ -310,6 +311,13 @@ export function useMultiplayer() {
     [loadMatches],
   );
 
+  const readyState = useCallback(
+    async (matchId: string) => {
+      return mpReadyState(matchId);
+    },
+    [],
+  );
+
   const forfeitMatch = useCallback(
     async (matchId: string): Promise<string | null> => {
       const err = await mpForfeitMatch(matchId);
@@ -383,6 +391,7 @@ export function useMultiplayer() {
     markReady,
     declineInvite,
     startMatchIfReady,
+    readyState,
     tickMatchStart,
     forfeitMatch,
     cancelMatch,
