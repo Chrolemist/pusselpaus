@@ -59,6 +59,8 @@ export interface MatchFoundOverlayProps {
   noTimeout?: boolean;
   /** Enable overlay sounds (match found / accept / countdown tick) */
   enableSounds?: boolean;
+  /** Absolute server-based deadline for accept countdown (ISO timestamp) */
+  deadlineAt?: string | null;
 }
 
 /* ── Constants ── */
@@ -78,11 +80,14 @@ export default function MatchFoundOverlay({
   visible,
   noTimeout = false,
   enableSounds = true,
+  deadlineAt = null,
 }: MatchFoundOverlayProps) {
   const [secondsLeft, setSecondsLeft] = useState(timeLimit);
   const [hasAccepted, setHasAccepted] = useState(false);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const prevAcceptCount = useRef(0);
+  const prevSecondsRef = useRef<number | null>(null);
+  const declinedRef = useRef(false);
   const onDeclineRef = useRef(onDecline);
   useEffect(() => { onDeclineRef.current = onDecline; }, [onDecline]);
 
@@ -105,6 +110,8 @@ export default function MatchFoundOverlay({
         mpDebug('MatchFoundOverlay', 'countdown:reset_on_close');
         setHasAccepted(false);
         setSecondsLeft(timeLimit);
+        prevSecondsRef.current = null;
+        declinedRef.current = false;
       };
     }
 
@@ -123,31 +130,54 @@ export default function MatchFoundOverlay({
       return;
     }
 
-    let seconds = timeLimit;
-    mpDebug('MatchFoundOverlay', 'countdown:start', { seconds, timeLimit });
+    const deadlineMs = deadlineAt ? new Date(deadlineAt).getTime() : Number.NaN;
+    const hasServerDeadline = Number.isFinite(deadlineMs);
+    const initialSeconds = hasServerDeadline
+      ? Math.max(0, Math.ceil((deadlineMs - Date.now()) / 1000))
+      : timeLimit;
+
+    mpDebug('MatchFoundOverlay', 'countdown:start', {
+      seconds: initialSeconds,
+      timeLimit,
+      deadlineAt,
+      hasServerDeadline,
+    });
+
+    setSecondsLeft(initialSeconds);
+    prevSecondsRef.current = null;
 
     timerRef.current = setInterval(() => {
-      seconds -= 1;
-      mpDebug('MatchFoundOverlay', 'countdown:tick', { seconds });
+      const seconds = hasServerDeadline
+        ? Math.max(0, Math.ceil((deadlineMs - Date.now()) / 1000))
+        : Math.max(0, (prevSecondsRef.current ?? timeLimit) - 1);
+
+      if (prevSecondsRef.current !== seconds) {
+        mpDebug('MatchFoundOverlay', 'countdown:tick', { seconds, deadlineAt, hasServerDeadline });
+        if (seconds <= 5 && seconds > 0) {
+          mpDebug('MatchFoundOverlay', 'countdown:play_tick_sound', { seconds });
+          if (enableSounds) void playCountdownTick();
+        }
+      }
+
+      prevSecondsRef.current = seconds;
+      setSecondsLeft(seconds);
+
       if (seconds <= 0) {
         if (timerRef.current) clearInterval(timerRef.current);
-        setSecondsLeft(0);
-        mpDebug('MatchFoundOverlay', 'countdown:expired_decline');
-        onDeclineRef.current();
+        if (!declinedRef.current) {
+          declinedRef.current = true;
+          mpDebug('MatchFoundOverlay', 'countdown:expired_decline');
+          onDeclineRef.current();
+        }
         return;
       }
-      if (seconds <= 5) {
-        mpDebug('MatchFoundOverlay', 'countdown:play_tick_sound', { seconds });
-        if (enableSounds) void playCountdownTick();
-      }
-      setSecondsLeft(seconds);
-    }, 1000);
+    }, hasServerDeadline ? 250 : 1000);
 
     return () => {
       mpDebug('MatchFoundOverlay', 'countdown:cleanup_interval');
       if (timerRef.current) clearInterval(timerRef.current);
     };
-  }, [visible, timeLimit, noTimeout, enableSounds, players.length]);
+  }, [visible, timeLimit, noTimeout, enableSounds, players.length, deadlineAt]);
 
   /* ── Accept blip when new players accept ── */
   useEffect(() => {

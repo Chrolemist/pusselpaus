@@ -903,11 +903,16 @@ export default function StagingScreen({
 
   /* ── Match-found overlay (matchmaking ready-up) ── */
   if (phase === 'match-found') {
+    const acceptDeadlineAt = activeEntry?.match.created_at
+      ? new Date(new Date(activeEntry.match.created_at).getTime() + 15_000).toISOString()
+      : null;
+
     return (
       <MatchFoundOverlay
         visible
         players={overlayPlayers}
         timeLimit={15}
+        deadlineAt={acceptDeadlineAt}
         myId={user?.id ?? ''}
         onAccept={handleOverlayAccept}
         onDecline={handleOverlayDecline}

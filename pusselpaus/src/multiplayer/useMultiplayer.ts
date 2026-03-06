@@ -181,7 +181,7 @@ export function useMultiplayer() {
   useEffect(() => {
     if (!user) return;
 
-    // Only reload on changes to match_players rows belonging to this user
+    // Reload on all match_players changes so opponent ready/submit updates are visible immediately.
     const channel = supabase
       .channel(`mp-live-${user.id}`)
       .on(
@@ -190,7 +190,6 @@ export function useMultiplayer() {
           event: '*',
           schema: 'public',
           table: 'multiplayer_match_players',
-          filter: `user_id=eq.${user.id}`,
         },
         debouncedReload,
       )
