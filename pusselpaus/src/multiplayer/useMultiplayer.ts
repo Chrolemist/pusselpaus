@@ -70,7 +70,10 @@ export function useMultiplayer() {
     [matches],
   );
 
-  /* ── data loading ── */
+  /* ── data loading (with concurrency guard) ── */
+
+  const loadingRef = useRef(false);
+  const pendingReloadRef = useRef(false);
 
   const loadMatches = useCallback(async () => {
     if (!user) {
@@ -79,74 +82,85 @@ export function useMultiplayer() {
       return;
     }
 
+    // Concurrency guard: if already loading, just mark pending
+    if (loadingRef.current) {
+      pendingReloadRef.current = true;
+      return;
+    }
+    loadingRef.current = true;
     setLoading(true);
 
-    const { data: myPlayers, error: myPlayersError } = await supabase
-      .from('multiplayer_match_players')
-      .select('*')
-      .eq('user_id', user.id)
-      .returns<MultiplayerMatchPlayer[]>();
+    try {
+      const { data: myPlayers, error: myPlayersError } = await supabase
+        .from('multiplayer_match_players')
+        .select('*')
+        .eq('user_id', user.id)
+        .returns<MultiplayerMatchPlayer[]>();
 
-    if (myPlayersError) {
-      console.error('[mp] failed to load player rows:', myPlayersError);
-      setMatches([]);
+      if (myPlayersError) {
+        console.error('[mp] failed to load player rows:', myPlayersError);
+        return;
+      }
+
+      const matchIds = Array.from(new Set((myPlayers ?? []).map((p) => p.match_id)));
+      if (matchIds.length === 0) {
+        setMatches([]);
+        return;
+      }
+
+      const [{ data: matchRows, error: matchErr }, { data: allPlayers, error: playerErr }] =
+        await Promise.all([
+          supabase.from('multiplayer_matches').select('*').in('id', matchIds).returns<MultiplayerMatch[]>(),
+          supabase.from('multiplayer_match_players').select('*').in('match_id', matchIds).returns<MultiplayerMatchPlayer[]>(),
+        ]);
+
+      if (matchErr || playerErr) {
+        console.error('[mp] load error:', matchErr ?? playerErr);
+        return;
+      }
+
+      const userIds = Array.from(new Set((allPlayers ?? []).map((p) => p.user_id)));
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('id, username, tag, skin, is_online, level')
+        .in('id', userIds);
+
+      const profileMap = new Map((profiles ?? []).map((p) => [p.id, p]));
+      const playersByMatch = new Map<string, MultiplayerMatchPlayer[]>();
+      for (const p of allPlayers ?? []) {
+        playersByMatch.set(p.match_id, [...(playersByMatch.get(p.match_id) ?? []), p]);
+      }
+
+      const merged: MultiplayerMatchView[] = (matchRows ?? [])
+        .map((m) => {
+          const players = playersByMatch.get(m.id) ?? [];
+          const me = players.find((p) => p.user_id === user.id) ?? null;
+          return {
+            match: m,
+            me,
+            players: players.map((p) => ({
+              player: p,
+              profile:
+                (profileMap.get(p.user_id) as Pick<
+                  Profile,
+                  'id' | 'username' | 'tag' | 'skin' | 'is_online' | 'level'
+                > | null) ?? null,
+            })),
+          };
+        })
+        .sort((a, b) => b.match.created_at.localeCompare(a.match.created_at));
+
+      setMatches(merged);
+    } finally {
       setLoading(false);
-      return;
+      loadingRef.current = false;
+
+      // If a reload was requested while we were loading, do one more
+      if (pendingReloadRef.current) {
+        pendingReloadRef.current = false;
+        void loadMatches();
+      }
     }
-
-    const matchIds = Array.from(new Set((myPlayers ?? []).map((p) => p.match_id)));
-    if (matchIds.length === 0) {
-      setMatches([]);
-      setLoading(false);
-      return;
-    }
-
-    const [{ data: matchRows, error: matchErr }, { data: allPlayers, error: playerErr }] =
-      await Promise.all([
-        supabase.from('multiplayer_matches').select('*').in('id', matchIds).returns<MultiplayerMatch[]>(),
-        supabase.from('multiplayer_match_players').select('*').in('match_id', matchIds).returns<MultiplayerMatchPlayer[]>(),
-      ]);
-
-    if (matchErr || playerErr) {
-      console.error('[mp] load error:', matchErr ?? playerErr);
-      setMatches([]);
-      setLoading(false);
-      return;
-    }
-
-    const userIds = Array.from(new Set((allPlayers ?? []).map((p) => p.user_id)));
-    const { data: profiles } = await supabase
-      .from('profiles')
-      .select('id, username, tag, skin, is_online, level')
-      .in('id', userIds);
-
-    const profileMap = new Map((profiles ?? []).map((p) => [p.id, p]));
-    const playersByMatch = new Map<string, MultiplayerMatchPlayer[]>();
-    for (const p of allPlayers ?? []) {
-      playersByMatch.set(p.match_id, [...(playersByMatch.get(p.match_id) ?? []), p]);
-    }
-
-    const merged: MultiplayerMatchView[] = (matchRows ?? [])
-      .map((m) => {
-        const players = playersByMatch.get(m.id) ?? [];
-        const me = players.find((p) => p.user_id === user.id) ?? null;
-        return {
-          match: m,
-          me,
-          players: players.map((p) => ({
-            player: p,
-            profile:
-              (profileMap.get(p.user_id) as Pick<
-                Profile,
-                'id' | 'username' | 'tag' | 'skin' | 'is_online' | 'level'
-              > | null) ?? null,
-          })),
-        };
-      })
-      .sort((a, b) => b.match.created_at.localeCompare(a.match.created_at));
-
-    setMatches(merged);
-    setLoading(false);
   }, [user]);
 
   /* ── initial load ── */
@@ -155,22 +169,45 @@ export function useMultiplayer() {
     return () => window.clearTimeout(timer);
   }, [loadMatches]);
 
-  /* ── realtime (debounced to prevent request storms) ── */
+  /* ── realtime (debounced + filtered to this user) ── */
   const reloadTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const debouncedReload = useCallback(() => {
     if (reloadTimerRef.current) clearTimeout(reloadTimerRef.current);
-    reloadTimerRef.current = setTimeout(() => void loadMatches(), 300);
+    reloadTimerRef.current = setTimeout(() => void loadMatches(), 500);
   }, [loadMatches]);
 
   useEffect(() => {
     if (!user) return;
+
+    // Only reload on changes to match_players rows belonging to this user
     const channel = supabase
       .channel(`mp-live-${user.id}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'multiplayer_matches' }, debouncedReload)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'multiplayer_match_players' }, debouncedReload)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'multiplayer_match_players',
+          filter: `user_id=eq.${user.id}`,
+        },
+        debouncedReload,
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'multiplayer_matches',
+        },
+        debouncedReload,
+      )
       .subscribe();
-    return () => void supabase.removeChannel(channel);
-  }, [user, loadMatches]);
+
+    return () => {
+      if (reloadTimerRef.current) clearTimeout(reloadTimerRef.current);
+      void supabase.removeChannel(channel);
+    };
+  }, [user, debouncedReload]);
 
   /* ── actions ── */
 
