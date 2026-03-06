@@ -17,9 +17,7 @@ import type { Difficulty, Song } from '../core';
 import { playWinJingle } from '../audio/rhythmAudio';
 import { useCoinRewards } from '../../../hooks/useCoinRewards';
 import { useServerGameStats } from '../../../hooks/useServerGameStats';
-import { useMultiplayer } from '../../../hooks/useMultiplayer';
-import MultiplayerLiveBanner from '../../../components/MultiplayerLiveBanner';
-import { getActiveMatchPayload } from '../../../hooks/multiplayerActive';
+import { useMultiplayerGame, LiveBanner as MultiplayerLiveBanner, getActiveMatchPayload } from '../../../multiplayer';
 
 /* ── Page component ── */
 
@@ -32,7 +30,7 @@ export default function RytmRushPage() {
   const submittedMatchRef = useRef(false);
   const { rewardRytmRushPerformance } = useCoinRewards();
   const { syncGameResult } = useServerGameStats();
-  const { submitResultForGame } = useMultiplayer();
+  const { submitResult: submitMatchResult } = useMultiplayerGame('rytmrush');
 
   useEffect(() => {
     if (engine.phase !== 'menu') return;
@@ -118,7 +116,7 @@ export default function RytmRushPage() {
 
       if (!submittedMatchRef.current) {
         submittedMatchRef.current = true;
-        void submitResultForGame('rytmrush', {
+        void submitMatchResult({
           score: Math.round(engine.score),
           survivedSeconds: Math.round(engine.survivedSeconds),
         });
@@ -130,7 +128,7 @@ export default function RytmRushPage() {
       syncedStatsRef.current = false;
       submittedMatchRef.current = false;
     }
-  }, [engine.phase, engine.perfects, engine.greats, engine.goods, engine.misses, engine.cleared, engine.score, engine.survivedSeconds, rewardRytmRushPerformance, syncGameResult, submitResultForGame]);
+  }, [engine.phase, engine.perfects, engine.greats, engine.goods, engine.misses, engine.cleared, engine.score, engine.survivedSeconds, rewardRytmRushPerformance, syncGameResult, submitMatchResult]);
 
   /* ── Cleanup ── */
   useEffect(() => {

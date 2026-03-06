@@ -8,8 +8,7 @@ import PathGrid from '../components/PathGrid';
 import { useNumberPath } from '../hooks/useNumberPath';
 import type { Difficulty } from '../core/types';
 import { DIFFICULTY_LABELS, GRID_LABELS } from '../core/types';
-import MultiplayerLiveBanner from '../../../components/MultiplayerLiveBanner';
-import { getActiveMatchPayload } from '../../../hooks/multiplayerActive';
+import { LiveBanner as MultiplayerLiveBanner, getActiveMatchPayload } from '../../../multiplayer';
 
 /* ── helpers ── */
 

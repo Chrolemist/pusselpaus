@@ -17,7 +17,7 @@ import {
 } from '../core/storage';
 import { useCoinRewards } from '../../../hooks/useCoinRewards';
 import { useServerGameStats } from '../../../hooks/useServerGameStats';
-import { useMultiplayer } from '../../../hooks/useMultiplayer';
+import { useMultiplayerGame } from '../../../multiplayer';
 
 export interface SudokuState {
   board: Board;
@@ -35,7 +35,7 @@ export function useSudoku() {
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const { rewardWin } = useCoinRewards();
   const { syncGameResult } = useServerGameStats();
-  const { submitResultForGame } = useMultiplayer();
+  const { submitResult: submitMatchResult } = useMultiplayerGame('sudoku');
 
   const stopTimer = useCallback(() => {
     if (timerRef.current) {
@@ -118,7 +118,7 @@ export function useSudoku() {
           clearGame();
           recordWin(prev.difficulty, prev.elapsed);
           void rewardWin('sudoku', prev.difficulty);
-          void submitResultForGame('sudoku', {
+          void submitMatchResult({
             elapsedSeconds: prev.elapsed,
           });
           void syncGameResult({
@@ -131,7 +131,7 @@ export function useSudoku() {
         return { ...prev, board, conflicts, solved };
       });
     },
-    [stopTimer, rewardWin, submitResultForGame, syncGameResult],
+    [stopTimer, rewardWin, submitMatchResult, syncGameResult],
   );
 
   const erase = useCallback(() => {

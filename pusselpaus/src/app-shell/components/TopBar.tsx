@@ -5,7 +5,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../auth';
 import { useOnlineCount } from '../../hooks/useOnlineCount';
 import { useFriends } from '../../hooks/useFriends';
-import { useMultiplayer } from '../../hooks/useMultiplayer';
+import { useMultiplayer } from '../../multiplayer';
 import FriendsPanel from './FriendsPanel.tsx';
 
 type NoticeItem = {

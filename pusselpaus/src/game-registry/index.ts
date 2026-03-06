@@ -9,6 +9,18 @@ export interface GameStatsSummary {
   bestTime: number | null;
 }
 
+export interface MultiplayerDifficulty {
+  value: string;
+  label: string;
+}
+
+export interface MultiplayerConfig {
+  /** Available difficulty options shown in the match-creation UI */
+  difficulties: MultiplayerDifficulty[];
+  /** How results are ranked: 'time' = lowest wins, 'score' = highest wins */
+  rankBy: 'time' | 'score';
+}
+
 export interface GameDefinition {
   id: string;
   name: string;
@@ -20,6 +32,8 @@ export interface GameDefinition {
   StatsPage?: LazyExoticComponent<ComponentType>;
   hasSavedGame?: () => boolean;
   getStats?: () => GameStatsSummary;
+  /** If set, this game supports multiplayer */
+  multiplayer?: MultiplayerConfig;
 }
 
 function summarizeStats(statsObj: Record<string, { played: number; won: number; bestTime: number | null }>): GameStatsSummary {
@@ -43,6 +57,15 @@ export const games: GameDefinition[] = [
     StatsPage: lazy(() => import('../games/sudoku/pages/SudokuStatsPage')),
     hasSavedGame: () => !!loadSudokuGame(),
     getStats: () => summarizeStats(loadSudokuStats()),
+    multiplayer: {
+      difficulties: [
+        { value: 'easy', label: 'Lätt' },
+        { value: 'medium', label: 'Medel' },
+        { value: 'hard', label: 'Svår' },
+        { value: 'expert', label: 'Expert' },
+      ],
+      rankBy: 'time',
+    },
   },
   {
     id: 'numberpath',
@@ -55,6 +78,14 @@ export const games: GameDefinition[] = [
     StatsPage: lazy(() => import('../games/numberpath/pages/NumberPathStatsPage')),
     hasSavedGame: () => !!loadNumberPathGame(),
     getStats: () => summarizeStats(loadNumberPathStats()),
+    multiplayer: {
+      difficulties: [
+        { value: 'easy', label: 'Lätt' },
+        { value: 'medium', label: 'Medel' },
+        { value: 'hard', label: 'Svår' },
+      ],
+      rankBy: 'time',
+    },
   },
   {
     id: 'rytmrush',
@@ -66,6 +97,10 @@ export const games: GameDefinition[] = [
     PlayPage: lazy(() => import('../games/rytmrush/pages/RytmRushPage')),
     StatsPage: lazy(() => import('../games/rytmrush/pages/RytmRushStatsPage')),
     hasSavedGame: () => false,
+    multiplayer: {
+      difficulties: [{ value: 'easy', label: 'Standard' }],
+      rankBy: 'score',
+    },
     getStats: () => {
       const s = loadRytmRushStats();
       const entries = Object.values(s);

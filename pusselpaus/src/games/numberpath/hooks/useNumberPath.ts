@@ -19,7 +19,7 @@ import {
 } from '../audio/marimba';
 import { useCoinRewards } from '../../../hooks/useCoinRewards';
 import { useServerGameStats } from '../../../hooks/useServerGameStats';
-import { useMultiplayer } from '../../../hooks/useMultiplayer';
+import { useMultiplayerGame } from '../../../multiplayer';
 
 export type Phase = 'idle' | 'picking' | 'playing' | 'won';
 
@@ -35,7 +35,7 @@ export function useNumberPath() {
   const timerRef = useRef<ReturnType<typeof setInterval>>(undefined);
   const { rewardWin } = useCoinRewards();
   const { syncGameResult } = useServerGameStats();
-  const { submitResultForGame } = useMultiplayer();
+  const { submitResult: submitMatchResult } = useMultiplayerGame('numberpath');
 
   /* ── timer ── */
   useEffect(() => {
@@ -161,7 +161,7 @@ export function useNumberPath() {
         setPhase('won');
         recordWin(puzzle.difficulty, elapsed);
         void rewardWin('numberpath', puzzle.difficulty);
-        void submitResultForGame('numberpath', {
+        void submitMatchResult({
           elapsedSeconds: elapsed,
         });
         void syncGameResult({
@@ -177,7 +177,7 @@ export function useNumberPath() {
 
       return true;
     },
-    [puzzle, phase, pathCells, pathIndexMap, elapsed, rewardWin, submitResultForGame, syncGameResult],
+    [puzzle, phase, pathCells, pathIndexMap, elapsed, rewardWin, submitMatchResult, syncGameResult],
   );
 
   const undoTo = useCallback(

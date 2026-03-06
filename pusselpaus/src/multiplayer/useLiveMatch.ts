@@ -1,37 +1,28 @@
+/* ── useLiveMatch – polls a single active match for in-game display ── */
+
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../auth';
 import { supabase } from '../lib/supabaseClient';
 import type { MultiplayerMatch, MultiplayerMatchPlayer, Profile } from '../lib/database.types';
-import type { MultiplayerGameId } from './useMultiplayer';
-
-const ACTIVE_MATCH_KEY_PREFIX = 'pusselpaus:mp:active:';
+import { getActiveMatchPayload } from './activeMatch';
+import { mpTryResolveTimeout } from './api';
 
 type LiveOutcome = 'won' | 'lost' | null;
 
-interface LivePlayer {
+export interface LivePlayer {
   player: MultiplayerMatchPlayer;
   profile: Pick<Profile, 'id' | 'username' | 'tag' | 'skin' | 'is_online'> | null;
 }
 
-export function useLiveMultiplayerMatch(gameId: MultiplayerGameId) {
+export function useLiveMatch(gameId: string) {
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [match, setMatch] = useState<MultiplayerMatch | null>(null);
   const [players, setPlayers] = useState<LivePlayer[]>([]);
 
-  const key = `${ACTIVE_MATCH_KEY_PREFIX}${gameId}`;
-
   const getActiveMatchId = useCallback((): string | null => {
-    const raw = localStorage.getItem(key);
-    if (!raw) return null;
-
-    try {
-      const parsed = JSON.parse(raw) as { matchId?: string };
-      return parsed.matchId ?? null;
-    } catch {
-      return null;
-    }
-  }, [key]);
+    return getActiveMatchPayload(gameId)?.matchId ?? null;
+  }, [gameId]);
 
   const refresh = useCallback(async () => {
     if (!user) {
@@ -56,7 +47,6 @@ export function useLiveMultiplayerMatch(gameId: MultiplayerGameId) {
       .maybeSingle<MultiplayerMatch>();
 
     if (matchError || !matchRow) {
-      console.error('[Multiplayer Live] failed to load match:', matchError);
       setMatch(null);
       setPlayers([]);
       setLoading(false);
@@ -64,38 +54,25 @@ export function useLiveMultiplayerMatch(gameId: MultiplayerGameId) {
     }
 
     let effectiveMatch = matchRow;
-    if (matchRow.status === 'in_progress') {
-      const { data: resolveState, error: resolveError } = await supabase.rpc('mp_try_resolve_timeout', {
-        p_match_id: matchId,
-        p_timeout_seconds: 180,
-      });
 
-      if (resolveError) {
-        console.error('[Multiplayer Live] timeout resolve failed:', resolveError);
-      } else if (typeof resolveState === 'string' && resolveState.startsWith('resolved')) {
+    // Auto-resolve AFK timeouts
+    if (matchRow.status === 'in_progress') {
+      const resolveState = await mpTryResolveTimeout(matchId);
+      if (resolveState?.startsWith('resolved')) {
         const { data: refreshed } = await supabase
           .from('multiplayer_matches')
           .select('*')
           .eq('id', matchId)
           .maybeSingle<MultiplayerMatch>();
-
         if (refreshed) effectiveMatch = refreshed;
       }
     }
 
-    const { data: playerRows, error: playerError } = await supabase
+    const { data: playerRows } = await supabase
       .from('multiplayer_match_players')
       .select('*')
       .eq('match_id', matchId)
       .returns<MultiplayerMatchPlayer[]>();
-
-    if (playerError) {
-      console.error('[Multiplayer Live] failed to load players:', playerError);
-      setMatch(effectiveMatch);
-      setPlayers([]);
-      setLoading(false);
-      return;
-    }
 
     const userIds = Array.from(new Set((playerRows ?? []).map((p) => p.user_id)));
     const { data: profiles } = await supabase
@@ -104,29 +81,24 @@ export function useLiveMultiplayerMatch(gameId: MultiplayerGameId) {
       .in('id', userIds);
 
     const profileMap = new Map((profiles ?? []).map((p) => [p.id, p]));
-    const mergedPlayers: LivePlayer[] = (playerRows ?? []).map((p) => ({
+    const merged: LivePlayer[] = (playerRows ?? []).map((p) => ({
       player: p,
       profile: (profileMap.get(p.user_id) as Pick<Profile, 'id' | 'username' | 'tag' | 'skin' | 'is_online'> | null) ?? null,
     }));
 
     setMatch(effectiveMatch);
-    setPlayers(mergedPlayers);
+    setPlayers(merged);
     setLoading(false);
   }, [getActiveMatchId, user]);
 
+  // Poll every 2.5s
   useEffect(() => {
     let mounted = true;
-
     const load = async () => {
-      if (!mounted) return;
-      await refresh();
+      if (mounted) await refresh();
     };
-
     void load();
-    const timer = window.setInterval(() => {
-      void load();
-    }, 2500);
-
+    const timer = window.setInterval(() => void load(), 2500);
     return () => {
       mounted = false;
       window.clearInterval(timer);

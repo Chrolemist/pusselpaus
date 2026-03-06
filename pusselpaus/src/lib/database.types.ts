@@ -370,6 +370,12 @@ export interface Database {
         };
         Returns: void;
       };
+      mp_cancel_match: {
+        Args: {
+          p_match_id: string;
+        };
+        Returns: void;
+      };
     };
     Enums: Record<string, never>;
     CompositeTypes: Record<string, never>;

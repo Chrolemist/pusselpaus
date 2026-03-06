@@ -10,8 +10,7 @@ import SudokuBoard from '../components/SudokuBoard';
 import Numpad from '../components/Numpad';
 import Timer from '../components/Timer';
 import DifficultyPicker from '../components/DifficultyPicker';
-import MultiplayerLiveBanner from '../../../components/MultiplayerLiveBanner';
-import { getActiveMatchPayload } from '../../../hooks/multiplayerActive';
+import { LiveBanner as MultiplayerLiveBanner, getActiveMatchPayload } from '../../../multiplayer';
 
 interface TutorialTarget {
   index: number;

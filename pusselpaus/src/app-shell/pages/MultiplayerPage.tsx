@@ -1,18 +1,21 @@
+/* ── MultiplayerPage – lobby for creating/managing matches ──
+ *
+ *  All game-specific data (labels, paths, difficulties) comes from
+ *  game-registry – adding a new multiplayer game is just adding
+ *  `multiplayer: { ... }` to the game's definition.
+ */
+
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useFriends } from '../../hooks/useFriends';
-import { useMultiplayer, type MultiplayerGameId } from '../../hooks/useMultiplayer';
 import { useAuth } from '../../auth';
-
-const GAME_LABELS: Record<MultiplayerGameId, string> = {
-  sudoku: 'Sudoku',
-  numberpath: 'Sifferstigen',
-  rytmrush: 'RytmRush',
-};
-
-type SudokuDifficulty = 'easy' | 'medium' | 'hard' | 'expert';
-type NumberPathDifficulty = 'easy' | 'medium' | 'hard';
-type MatchConfig = Record<string, string | number | boolean | null>;
+import {
+  useMultiplayer,
+  multiplayerGames,
+  gameLabel,
+  gamePath,
+} from '../../multiplayer';
+import type { MatchConfig } from '../../multiplayer';
 
 export default function MultiplayerPage() {
   const navigate = useNavigate();
@@ -25,9 +28,10 @@ export default function MultiplayerPage() {
     [friends],
   );
 
-  const [gameId, setGameId] = useState<MultiplayerGameId>('sudoku');
-  const [sudokuDifficulty, setSudokuDifficulty] = useState<SudokuDifficulty>('medium');
-  const [numberPathDifficulty, setNumberPathDifficulty] = useState<NumberPathDifficulty>('medium');
+  /* ── form state ── */
+
+  const [gameId, setGameId] = useState(multiplayerGames[0]?.id ?? '');
+  const [difficultyValue, setDifficultyValue] = useState('medium');
   const [stake, setStake] = useState(25);
   const [useStake, setUseStake] = useState(true);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -35,27 +39,35 @@ export default function MultiplayerPage() {
   const [isCreating, setIsCreating] = useState(false);
   const [nowMs, setNowMs] = useState(() => Date.now());
 
+  // Keep the selected difficulty valid when switching games
+  const selectedGame = multiplayerGames.find((g) => g.id === gameId);
+  const difficulties = selectedGame?.multiplayer?.difficulties ?? [];
+
+  useEffect(() => {
+    if (difficulties.length > 0 && !difficulties.some((d) => d.value === difficultyValue)) {
+      setDifficultyValue(difficulties[0].value);
+    }
+  }, [difficulties, difficultyValue]);
+
+  /* ── tick countdown / now ── */
+
   useEffect(() => {
     if (mp.grouped.starting.length === 0) return;
-
     const timer = window.setInterval(() => {
       const now = Date.now();
       for (const entry of mp.grouped.starting) {
-        const startedAt = entry.match.started_at ? new Date(entry.match.started_at).getTime() : null;
+        const startedAt = entry.match.started_at
+          ? new Date(entry.match.started_at).getTime()
+          : null;
         if (!startedAt) continue;
-        if (now >= startedAt) {
-          void mp.tickMatchStart(entry.match.id);
-        }
+        if (now >= startedAt) void mp.tickMatchStart(entry.match.id);
       }
     }, 1000);
-
     return () => window.clearInterval(timer);
   }, [mp]);
 
   useEffect(() => {
-    const timer = window.setInterval(() => {
-      setNowMs(Date.now());
-    }, 1000);
+    const timer = window.setInterval(() => setNowMs(Date.now()), 1000);
     return () => window.clearInterval(timer);
   }, []);
 
@@ -67,45 +79,58 @@ export default function MultiplayerPage() {
     return `${remaining}s`;
   };
 
-  const toggleFriend = (id: string) => {
-    setSelectedIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+  /* ── helpers ── */
+
+  const toggleFriend = (id: string) =>
+    setSelectedIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
+    );
+
+  const flash = (msg: string) => {
+    setMessage(msg);
+    window.setTimeout(() => setMessage(null), 3000);
   };
+
+  /* ── create match ── */
 
   const create = async () => {
     if (isCreating) return;
     setIsCreating(true);
+
     const effectiveStake = useStake ? Math.max(1, stake) : 0;
-    const config: MatchConfig =
-      gameId === 'sudoku'
-        ? { difficulty: sudokuDifficulty }
-        : gameId === 'numberpath'
-          ? { difficulty: numberPathDifficulty }
-          : { difficulty: 'easy' };
+    const config: MatchConfig = { difficulty: difficultyValue };
     const configSeed = Math.floor(Math.random() * 2_000_000_000);
 
     const err = await mp.createMatch(gameId, effectiveStake, selectedIds, {
       config,
       configSeed,
     });
-    setMessage(err ?? 'Match skapad ✅');
+    flash(err ?? 'Match skapad ✅');
     if (!err) setSelectedIds([]);
-    window.setTimeout(() => setMessage(null), 3000);
     setIsCreating(false);
   };
 
+  /* ── render ── */
+
   return (
     <div className="flex min-h-full flex-col items-center gap-6 px-4 py-10">
-      <Link to="/" className="self-start text-sm text-text-muted hover:text-brand-light">← Tillbaka</Link>
+      <Link to="/" className="self-start text-sm text-text-muted hover:text-brand-light">
+        ← Tillbaka
+      </Link>
 
       <h2 className="text-3xl font-bold">⚔️ Multiplayer</h2>
       <p className="text-center text-sm text-text-muted max-w-xl">
-        Utmana vänner med stake eller kör utan stake. Vid stake lägger alla samma insats i potten, annars får vinnaren en bonus.
+        Utmana vänner med stake eller kör utan stake. Vid stake lägger alla
+        samma insats i potten, annars får vinnaren en bonus.
       </p>
 
       {message && (
-        <p className="rounded-lg bg-brand/20 px-3 py-2 text-xs text-brand-light">{message}</p>
+        <p className="rounded-lg bg-brand/20 px-3 py-2 text-xs text-brand-light">
+          {message}
+        </p>
       )}
 
+      {/* ── Create match ── */}
       <section className="w-full max-w-2xl rounded-2xl bg-surface-card p-5 ring-1 ring-white/10">
         <h3 className="mb-3 font-semibold">Skapa match</h3>
 
@@ -119,52 +144,47 @@ export default function MultiplayerPage() {
         </label>
 
         <div className="mb-3 grid gap-3 sm:grid-cols-2">
+          {/* Game picker – driven by registry */}
           <label className="text-sm">
             <span className="mb-1 block text-text-muted">Spel</span>
             <select
               value={gameId}
-              onChange={(e) => setGameId(e.target.value as MultiplayerGameId)}
+              onChange={(e) => setGameId(e.target.value)}
               className="w-full rounded-lg bg-black/30 px-3 py-2 ring-1 ring-white/10"
             >
-              <option value="sudoku">Sudoku</option>
-              <option value="numberpath">Sifferstigen</option>
-              <option value="rytmrush">RytmRush</option>
+              {multiplayerGames.map((g) => (
+                <option key={g.id} value={g.id}>
+                  {g.emoji} {g.name}
+                </option>
+              ))}
             </select>
           </label>
 
-          {gameId === 'sudoku' && (
+          {/* Difficulty picker – driven by registry */}
+          {difficulties.length > 1 && (
             <label className="text-sm">
-              <span className="mb-1 block text-text-muted">Sudoku-nivå (låst för alla)</span>
+              <span className="mb-1 block text-text-muted">
+                Nivå (låst för alla)
+              </span>
               <select
-                value={sudokuDifficulty}
-                onChange={(e) => setSudokuDifficulty(e.target.value as SudokuDifficulty)}
+                value={difficultyValue}
+                onChange={(e) => setDifficultyValue(e.target.value)}
                 className="w-full rounded-lg bg-black/30 px-3 py-2 ring-1 ring-white/10"
               >
-                <option value="easy">Lätt</option>
-                <option value="medium">Medel</option>
-                <option value="hard">Svår</option>
-                <option value="expert">Expert</option>
+                {difficulties.map((d) => (
+                  <option key={d.value} value={d.value}>
+                    {d.label}
+                  </option>
+                ))}
               </select>
             </label>
           )}
 
-          {gameId === 'numberpath' && (
-            <label className="text-sm">
-              <span className="mb-1 block text-text-muted">Sifferstigen-nivå (låst för alla)</span>
-              <select
-                value={numberPathDifficulty}
-                onChange={(e) => setNumberPathDifficulty(e.target.value as NumberPathDifficulty)}
-                className="w-full rounded-lg bg-black/30 px-3 py-2 ring-1 ring-white/10"
-              >
-                <option value="easy">Lätt</option>
-                <option value="medium">Medel</option>
-                <option value="hard">Svår</option>
-              </select>
-            </label>
-          )}
-
+          {/* Stake input */}
           <label className="text-sm">
-            <span className="mb-1 block text-text-muted">Stake (coins / spelare)</span>
+            <span className="mb-1 block text-text-muted">
+              Stake (coins / spelare)
+            </span>
             <input
               type="number"
               min={1}
@@ -178,17 +198,24 @@ export default function MultiplayerPage() {
         </div>
 
         {!useStake && (
-          <p className="mb-3 text-xs text-text-muted">Utan stake: ingen coin dras vid start. Vinnaren får multiplayer-bonus.</p>
+          <p className="mb-3 text-xs text-text-muted">
+            Utan stake: ingen coin dras vid start. Vinnaren får
+            multiplayer-bonus.
+          </p>
         )}
 
-        <p className="mb-2 text-xs font-bold uppercase text-text-muted">Välj vänner att bjuda in</p>
+        <p className="mb-2 text-xs font-bold uppercase text-text-muted">
+          Välj vänner att bjuda in
+        </p>
         <div className="max-h-44 space-y-2 overflow-y-auto rounded-lg bg-black/20 p-3">
           {acceptedFriends.length === 0 && (
             <p className="text-xs text-text-muted">Inga vänner ännu.</p>
           )}
-
           {acceptedFriends.map((f) => (
-            <label key={f.id} className="flex cursor-pointer items-center justify-between rounded-md px-2 py-1 hover:bg-white/5">
+            <label
+              key={f.id}
+              className="flex cursor-pointer items-center justify-between rounded-md px-2 py-1 hover:bg-white/5"
+            >
               <div className="flex items-center gap-2">
                 <input
                   type="checkbox"
@@ -196,9 +223,13 @@ export default function MultiplayerPage() {
                   onChange={() => toggleFriend(f.id)}
                 />
                 <span>{f.skin ?? '🙂'}</span>
-                <span className="text-sm">{f.username}#{f.tag}</span>
+                <span className="text-sm">
+                  {f.username}#{f.tag}
+                </span>
               </div>
-              <span className={`text-[11px] ${f.is_online ? 'text-green-300' : 'text-text-muted'}`}>
+              <span
+                className={`text-[11px] ${f.is_online ? 'text-green-300' : 'text-text-muted'}`}
+              >
                 {f.is_online ? 'Online' : 'Offline'}
               </span>
             </label>
@@ -214,20 +245,18 @@ export default function MultiplayerPage() {
         </button>
       </section>
 
-      <section className="w-full max-w-2xl space-y-4">
-        <h3 className="font-semibold">Inkommande inbjudningar</h3>
+      {/* ── Incoming invitations ── */}
+      <Section title="Inkommande inbjudningar">
         {mp.grouped.incoming.length === 0 ? (
-          <p className="text-sm text-text-muted">Inga inbjudningar just nu.</p>
+          <Empty>Inga inbjudningar just nu.</Empty>
         ) : (
           mp.grouped.incoming.map((entry) => (
-            <div key={entry.match.id} className="rounded-xl bg-surface-card p-4 ring-1 ring-white/10">
-              <p className="text-sm font-semibold">{GAME_LABELS[entry.match.game_id as MultiplayerGameId]} • {entry.match.stake > 0 ? `Stake ${entry.match.stake} 🪙` : 'Utan stake (bonus-läge)'}</p>
+            <MatchCard key={entry.match.id} entry={entry}>
               <div className="mt-2 flex gap-2">
                 <button
                   onClick={async () => {
                     const err = await mp.acceptInvite(entry.match.id);
-                    setMessage(err ?? 'Inbjudan accepterad ✅');
-                    window.setTimeout(() => setMessage(null), 2500);
+                    flash(err ?? 'Inbjudan accepterad ✅');
                   }}
                   className="rounded-md bg-green-500/20 px-3 py-1 text-xs font-bold text-green-300"
                 >
@@ -236,74 +265,87 @@ export default function MultiplayerPage() {
                 <button
                   onClick={async () => {
                     const err = await mp.declineInvite(entry.match.id);
-                    setMessage(err ?? 'Inbjudan nekad');
-                    window.setTimeout(() => setMessage(null), 2500);
+                    flash(err ?? 'Inbjudan nekad');
                   }}
                   className="rounded-md bg-red-500/20 px-3 py-1 text-xs font-bold text-red-300"
                 >
                   Neka
                 </button>
               </div>
-            </div>
+            </MatchCard>
           ))
         )}
-      </section>
+      </Section>
 
-      <section className="w-full max-w-2xl space-y-4">
-        <h3 className="font-semibold">Väntar på start</h3>
+      {/* ── Waiting to start ── */}
+      <Section title="Väntar på start">
         {mp.grouped.waiting.length === 0 ? (
-          <p className="text-sm text-text-muted">Inga väntande matcher.</p>
+          <Empty>Inga väntande matcher.</Empty>
         ) : (
           mp.grouped.waiting.map((entry) => {
-            const game = entry.match.game_id as MultiplayerGameId;
             const isHost = entry.match.host_id === user?.id;
-            const allAccepted = entry.players.every((p) => p.player.status === 'accepted');
+            const allAccepted = entry.players.every(
+              (p) => p.player.status === 'accepted',
+            );
 
             return (
-              <div key={entry.match.id} className="rounded-xl bg-surface-card p-4 ring-1 ring-white/10">
-                <p className="text-sm font-semibold">{GAME_LABELS[game]} • {entry.match.stake > 0 ? `Stake ${entry.match.stake} 🪙` : 'Utan stake (bonus-läge)'}</p>
+              <MatchCard key={entry.match.id} entry={entry}>
                 <p className="mt-1 text-xs text-text-muted">
-                  Accepterat: {entry.players.filter((p) => p.player.status === 'accepted').length}/{entry.players.length}
+                  Accepterat:{' '}
+                  {entry.players.filter((p) => p.player.status === 'accepted').length}/
+                  {entry.players.length}
                 </p>
                 <div className="mt-2 flex gap-2">
                   {isHost ? (
-                    <button
-                      onClick={async () => {
-                        const err = await mp.startMatch(entry.match.id, 5);
-                        setMessage(err ?? 'Matchstart synkad! Nedräkning igång ⏳');
-                        window.setTimeout(() => setMessage(null), 3000);
-                      }}
-                      disabled={!allAccepted}
-                      className="rounded-md bg-green-500/20 px-3 py-1 text-xs font-bold text-green-300 disabled:opacity-50"
-                    >
-                      Starta match
-                    </button>
+                    <>
+                      <button
+                        onClick={async () => {
+                          const err = await mp.startMatch(entry.match.id, 5);
+                          flash(err ?? 'Matchstart synkad! Nedräkning igång ⏳');
+                        }}
+                        disabled={!allAccepted}
+                        className="rounded-md bg-green-500/20 px-3 py-1 text-xs font-bold text-green-300 disabled:opacity-50"
+                      >
+                        Starta match
+                      </button>
+                      <button
+                        onClick={async () => {
+                          if (!window.confirm('Avbryta matchen?')) return;
+                          const err = await mp.cancelMatch(entry.match.id);
+                          flash(err ?? 'Match avbruten');
+                        }}
+                        className="rounded-md bg-red-500/20 px-3 py-1 text-xs font-bold text-red-300"
+                      >
+                        Avbryt
+                      </button>
+                    </>
                   ) : (
                     <span className="rounded-md bg-black/20 px-3 py-1 text-xs text-text-muted">
                       Väntar på att hosten startar
                     </span>
                   )}
                 </div>
-              </div>
+              </MatchCard>
             );
           })
         )}
-      </section>
+      </Section>
 
-      <section className="w-full max-w-2xl space-y-4">
-        <h3 className="font-semibold">Startar nu</h3>
+      {/* ── Starting now ── */}
+      <Section title="Startar nu">
         {mp.grouped.starting.length === 0 ? (
-          <p className="text-sm text-text-muted">Ingen match startar just nu.</p>
+          <Empty>Ingen match startar just nu.</Empty>
         ) : (
           mp.grouped.starting.map((entry) => {
-            const g = entry.match.game_id as MultiplayerGameId;
+            const g = entry.match.game_id;
             const countdown = formatStartCountdown(entry.match.started_at);
             const canEnter = !countdown || countdown === '0s';
 
             return (
-              <div key={entry.match.id} className="rounded-xl bg-surface-card p-4 ring-1 ring-white/10">
-                <p className="text-sm font-semibold">{GAME_LABELS[g]} • Gemensam start</p>
-                <p className="mt-1 text-xs text-text-muted">Start om: {countdown ?? 'snart'}</p>
+              <MatchCard key={entry.match.id} entry={entry} subtitle="Gemensam start">
+                <p className="mt-1 text-xs text-text-muted">
+                  Start om: {countdown ?? 'snart'}
+                </p>
                 <div className="mt-2 flex gap-2">
                   <button
                     onClick={() => {
@@ -312,7 +354,7 @@ export default function MultiplayerPage() {
                         configSeed: entry.match.config_seed ?? undefined,
                       });
                       if (canEnter) {
-                        navigate(mp.gamePath(g));
+                        navigate(gamePath(g));
                         return;
                       }
                       void mp.tickMatchStart(entry.match.id);
@@ -322,61 +364,129 @@ export default function MultiplayerPage() {
                     {canEnter ? 'Gå till spelet' : 'Redo i lobby'}
                   </button>
                 </div>
-              </div>
+              </MatchCard>
             );
           })
         )}
-      </section>
+      </Section>
 
-      <section className="w-full max-w-2xl space-y-4">
-        <h3 className="font-semibold">Aktiva matcher</h3>
+      {/* ── Active ── */}
+      <Section title="Aktiva matcher">
         {mp.grouped.active.length === 0 ? (
-          <p className="text-sm text-text-muted">Inga aktiva matcher.</p>
+          <Empty>Inga aktiva matcher.</Empty>
         ) : (
           mp.grouped.active.map((entry) => {
-            const g = entry.match.game_id as MultiplayerGameId;
+            const g = entry.match.game_id;
             return (
-              <div key={entry.match.id} className="rounded-xl bg-surface-card p-4 ring-1 ring-white/10">
-                <p className="text-sm font-semibold">{GAME_LABELS[g]} • {entry.match.stake > 0 ? 'Potten växer med antal spelare' : 'Bonus-läge utan stake'}</p>
+              <MatchCard key={entry.match.id} entry={entry}>
                 <div className="mt-2 flex gap-2">
                   <Link
-                    to={mp.gamePath(g)}
-                    onClick={() => mp.setActiveMatch(g, entry.match.id, {
-                      config: (entry.match.config as MatchConfig | null) ?? undefined,
-                      configSeed: entry.match.config_seed ?? undefined,
-                    })}
+                    to={gamePath(g)}
+                    onClick={() =>
+                      mp.setActiveMatch(g, entry.match.id, {
+                        config: (entry.match.config as MatchConfig | null) ?? undefined,
+                        configSeed: entry.match.config_seed ?? undefined,
+                      })
+                    }
                     className="rounded-md bg-brand/30 px-3 py-1 text-xs font-bold text-brand-light"
                   >
                     Gå till spelet
                   </Link>
                 </div>
-              </div>
+              </MatchCard>
             );
           })
         )}
-      </section>
+      </Section>
 
-      <section className="w-full max-w-2xl space-y-2 pb-8">
-        <h3 className="font-semibold">Senaste avslutade matcher</h3>
+      {/* ── Completed ── */}
+      <Section title="Senaste avslutade matcher">
         {mp.grouped.completed.length === 0 ? (
-          <p className="text-sm text-text-muted">Inga avslutade matcher ännu.</p>
+          <Empty>Inga avslutade matcher ännu.</Empty>
         ) : (
           mp.grouped.completed.map((entry) => {
-            const accepted = entry.players.filter((p) => p.player.status === 'accepted');
-            const pot = accepted.reduce((sum, p) => sum + p.player.stake_locked, 0);
-            const winner = entry.players.find((p) => p.player.user_id === entry.match.winner_id)?.profile;
+            const accepted = entry.players.filter(
+              (p) => p.player.status === 'accepted',
+            );
+            const pot = accepted.reduce(
+              (sum, p) => sum + p.player.stake_locked,
+              0,
+            );
+            const winner = entry.players.find(
+              (p) => p.player.user_id === entry.match.winner_id,
+            )?.profile;
 
             return (
-              <div key={entry.match.id} className="rounded-xl bg-black/20 px-4 py-3 ring-1 ring-white/10">
-                <p className="text-sm font-semibold">{GAME_LABELS[entry.match.game_id as MultiplayerGameId]}</p>
-                <p className="text-xs text-text-muted">Vinnare: {winner ? `${winner.username}#${winner.tag}` : 'okänd'} • {pot > 0 ? `Pot: ${pot} 🪙` : 'Utan stake: bonus utdelad'}</p>
+              <div
+                key={entry.match.id}
+                className="rounded-xl bg-black/20 px-4 py-3 ring-1 ring-white/10"
+              >
+                <p className="text-sm font-semibold">
+                  {gameLabel(entry.match.game_id)}
+                </p>
+                <p className="text-xs text-text-muted">
+                  Vinnare:{' '}
+                  {winner
+                    ? `${winner.username}#${winner.tag}`
+                    : 'okänd'}{' '}
+                  •{' '}
+                  {pot > 0
+                    ? `Pot: ${pot} 🪙`
+                    : 'Utan stake: bonus utdelad'}
+                </p>
               </div>
             );
           })
         )}
-      </section>
+      </Section>
 
-      {mp.loading && <p className="text-sm text-text-muted">Laddar multiplayer…</p>}
+      {mp.loading && (
+        <p className="text-sm text-text-muted">Laddar multiplayer…</p>
+      )}
+    </div>
+  );
+}
+
+/* ── tiny sub-components ── */
+
+function Section({
+  title,
+  children,
+}: {
+  title: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="w-full max-w-2xl space-y-4">
+      <h3 className="font-semibold">{title}</h3>
+      {children}
+    </section>
+  );
+}
+
+function Empty({ children }: { children: React.ReactNode }) {
+  return <p className="text-sm text-text-muted">{children}</p>;
+}
+
+interface MatchCardProps {
+  entry: import('../../multiplayer').MultiplayerMatchView;
+  subtitle?: string;
+  children?: React.ReactNode;
+}
+
+function MatchCard({ entry, subtitle, children }: MatchCardProps) {
+  const label = gameLabel(entry.match.game_id);
+  const stakeText =
+    entry.match.stake > 0
+      ? `Stake ${entry.match.stake} 🪙`
+      : 'Bonus-läge utan stake';
+
+  return (
+    <div className="rounded-xl bg-surface-card p-4 ring-1 ring-white/10">
+      <p className="text-sm font-semibold">
+        {label} • {subtitle ?? stakeText}
+      </p>
+      {children}
     </div>
   );
 }
