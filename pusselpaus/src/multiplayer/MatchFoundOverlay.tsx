@@ -57,6 +57,8 @@ export interface MatchFoundOverlayProps {
   visible: boolean;
   /** When true, no auto-decline timer (used for friend-invite flow where user already accepted) */
   noTimeout?: boolean;
+  /** Enable overlay sounds (match found / accept / countdown tick) */
+  enableSounds?: boolean;
 }
 
 /* ── Constants ── */
@@ -75,6 +77,7 @@ export default function MatchFoundOverlay({
   onDecline,
   visible,
   noTimeout = false,
+  enableSounds = true,
 }: MatchFoundOverlayProps) {
   const [secondsLeft, setSecondsLeft] = useState(timeLimit);
   const [hasAccepted, setHasAccepted] = useState(false);
@@ -91,8 +94,8 @@ export default function MatchFoundOverlay({
       noTimeout,
       timeLimit,
     });
-    void playMatchFound();
-  }, [visible, players.length, noTimeout, timeLimit]);
+    if (enableSounds) void playMatchFound();
+  }, [visible, players.length, noTimeout, timeLimit, enableSounds]);
 
   /* ── Countdown timer (resets on open) ── */
   useEffect(() => {
@@ -126,7 +129,7 @@ export default function MatchFoundOverlay({
       }
       if (seconds <= 5) {
         mpDebug('MatchFoundOverlay', 'countdown:play_tick_sound', { seconds });
-        void playCountdownTick();
+        if (enableSounds) void playCountdownTick();
       }
       setSecondsLeft(seconds);
     }, 1000);
@@ -135,16 +138,16 @@ export default function MatchFoundOverlay({
       mpDebug('MatchFoundOverlay', 'countdown:cleanup_interval');
       if (timerRef.current) clearInterval(timerRef.current);
     };
-  }, [visible, timeLimit, noTimeout]);
+  }, [visible, timeLimit, noTimeout, enableSounds]);
 
   /* ── Accept blip when new players accept ── */
   useEffect(() => {
     const count = players.filter((p) => p.accepted).length;
     if (count > prevAcceptCount.current && visible) {
-      void playAcceptTick();
+      if (enableSounds) void playAcceptTick();
     }
     prevAcceptCount.current = count;
-  }, [players, visible]);
+  }, [players, visible, enableSounds]);
 
   /* ── Confetti when everyone accepts ── */
   useEffect(() => {

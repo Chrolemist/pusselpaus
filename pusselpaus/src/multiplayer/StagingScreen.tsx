@@ -28,7 +28,7 @@ import {
 } from './useMultiplayer';
 import { useMatchmaking } from './useMatchmaking';
 import { setActiveMatchPayload, clearActiveMatch, getActiveMatchPayload } from './activeMatch';
-import { mpForfeitMatch, mpCancelMatch, mpDeclineInvite, mpForceCleanupActiveMatches } from './api';
+import { mpForceCleanupActiveMatches } from './api';
 import MatchFoundOverlay from './MatchFoundOverlay';
 import type { MatchPlayer } from './MatchFoundOverlay';
 import type { MatchConfig } from './types';
@@ -378,7 +378,7 @@ export default function StagingScreen({
     setTimeout(() => setMessage(null), 3000);
   }, []);
 
-  /* ── Matchmaking: when matched, auto-accept & skip overlay ── */
+  /* ── Matchmaking: when matched, show match-found overlay ── */
   useEffect(() => {
     if (mm.status !== 'matched' || !mm.matchId) return;
     const matchId = mm.matchId;
@@ -389,15 +389,14 @@ export default function StagingScreen({
       configSeed: mm.configSeed ?? undefined,
       config: { difficulty },
       matchmade: true,
+      showOverlay: true,
     });
     setActiveMatchId(matchId);
     setIsMatchmade(true);
 
-    // Both players already opted in by queuing — matchmake_join sets them as
-    // accepted on the server. We just need to refresh lobby data so
-    // activeEntry appears and the auto-start effect can fire.
+    // Refresh so activeEntry appears in overlay immediately.
     void mp.refresh();
-    setPhase('waiting');
+    setPhase('match-found');
   }, [mm.status, mm.matchId, mm.configSeed, difficulty, gameId, mp]);
 
   /* ── Overlay: derive MatchPlayer[] from activeEntry ── */
@@ -416,8 +415,10 @@ export default function StagingScreen({
   /* ── Overlay: accept handler ── */
   const handleOverlayAccept = useCallback(async () => {
     if (!activeMatchId) return;
+    // Matchmade players are already accepted server-side by queue join.
+    if (isMatchmade) return;
     await mp.acceptInvite(activeMatchId);
-  }, [activeMatchId, mp]);
+  }, [activeMatchId, isMatchmade, mp]);
 
   /* ── Overlay: decline handler ── */
   const handleOverlayDecline = useCallback(async () => {
@@ -613,12 +614,19 @@ export default function StagingScreen({
   const handleCancelMatch = useCallback(async () => {
     if (!activeMatchId) return;
     if (!window.confirm('Avbryta matchen?')) return;
-    await mp.cancelMatch(activeMatchId);
+
+    mpDebug('StagingScreen', 'cancel:request_force_cleanup', {
+      gameId,
+      matchId: activeMatchId,
+    });
+    await mpForceCleanupActiveMatches();
     clearActiveMatch(gameId);
     setActiveMatchId(null);
+    setIsMatchmade(false);
     startSentRef.current = false;
     setPhase('staging');
-  }, [activeMatchId, mp, gameId]);
+    await mp.refresh();
+  }, [activeMatchId, gameId, mp]);
 
   /* ── Toggle friend selection ── */
   const toggleFriend = (id: string) =>
@@ -636,9 +644,7 @@ export default function StagingScreen({
 
   /**
    * Leave / forfeit + clean, called from event handlers.
-   * Tries the right API per phase, with fallbacks:
-   *  - waiting → cancel → decline → forfeit
-   *  - starting/playing → forfeit
+   * Uses server-side force cleanup to avoid status-dependent 400 chains.
    */
   const forfeitNow = useCallback(() => {
     const matchId = activeMatchIdRef.current;
@@ -646,45 +652,28 @@ export default function StagingScreen({
     const p = phaseRef.current;
     if (p !== 'waiting' && p !== 'countdown' && p !== 'playing') return;
 
-    if (p === 'waiting') {
-      // Try all three in order until one succeeds
-      void (async () => {
-        const e1 = await mpCancelMatch(matchId);
-        if (e1) {
-          const e2 = await mpDeclineInvite(matchId);
-          if (e2) await mpForfeitMatch(matchId);
-        }
-      })();
-    } else {
-      void mpForfeitMatch(matchId);
-    }
-    clearActiveMatch(gameId);
+    void (async () => {
+      mpDebug('StagingScreen', 'forfeitNow:request_force_cleanup', {
+        gameId,
+        matchId,
+        phase: p,
+      });
+      await mpForceCleanupActiveMatches();
+      clearActiveMatch(gameId);
+      setActiveMatchId(null);
+      setIsMatchmade(false);
+      startSentRef.current = false;
+      await mp.refresh();
+    })();
   }, [gameId]);
 
   /* ── Auto-forfeit on component unmount (navigation away) ── */
   useEffect(() => {
     return () => {
-      const matchId = activeMatchIdRef.current;
-      const p = phaseRef.current;
-      if (!matchId) return;
-      if (p !== 'waiting' && p !== 'countdown' && p !== 'playing') return;
-
-      // Try all three APIs in order — one should work regardless of match state
-      if (p === 'waiting') {
-        void (async () => {
-          const e1 = await mpCancelMatch(matchId);
-          if (e1) {
-            const e2 = await mpDeclineInvite(matchId);
-            if (e2) await mpForfeitMatch(matchId);
-          }
-        })();
-      } else {
-        void mpForfeitMatch(matchId);
-      }
-      clearActiveMatch(gameId);
+      forfeitNow();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [gameId]);
+  }, [forfeitNow]);
 
   /* ── Auto-forfeit on tab close / refresh (beforeunload) ── */
   useEffect(() => {
@@ -772,6 +761,7 @@ export default function StagingScreen({
         onAccept={handleOverlayAccept}
         onDecline={handleOverlayDecline}
         noTimeout={isInviteOverlay}
+        enableSounds={!isMatchmade}
       />
     );
   }
