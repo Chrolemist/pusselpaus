@@ -256,12 +256,12 @@ export function useMultiplayer() {
   );
 
   const markReady = useCallback(
-    async (matchId: string): Promise<string | null> => {
+    async (matchId: string): Promise<{ error: string | null; data: { all_ready?: boolean; ready_count?: number; total_count?: number } | null }> => {
       mpDebug('useMultiplayer', 'accept:mark_ready_call', { matchId });
-      const { error } = await mpMarkReady(matchId);
-      mpDebug('useMultiplayer', 'accept:mark_ready_done', { matchId, error });
+      const { error, data } = await mpMarkReady(matchId);
+      mpDebug('useMultiplayer', 'accept:mark_ready_done', { matchId, error, data });
       await loadMatches();
-      return error;
+      return { error, data };
     },
     [loadMatches],
   );

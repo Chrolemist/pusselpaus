@@ -537,7 +537,11 @@ export default function StagingScreen({
       skin: displaySkin(profile?.skin),
       level: profile?.level ?? null,
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      accepted: (player as any).ready === true || (isMatchmade && player.user_id === user?.id && matchFoundAcceptedLocal),
+      accepted:
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (player as any).ready === true ||
+        player.status === 'accepted' ||
+        (isMatchmade && player.user_id === user?.id && matchFoundAcceptedLocal),
     }));
   }, [activeEntry, isMatchmade, user?.id, matchFoundAcceptedLocal]);
 
@@ -550,12 +554,15 @@ export default function StagingScreen({
       isMatchmade,
     });
     localAcceptMatchIdRef.current = activeMatchId;
-    const err = await mp.markReady(activeMatchId);
+    const { error: err, data: readyData } = await mp.markReady(activeMatchId);
     mpDebug('StagingScreen', 'accept:mark_ready_result', {
       gameId,
       matchId: activeMatchId,
       isMatchmade,
       error: err,
+      readyCount: readyData?.ready_count ?? null,
+      totalCount: readyData?.total_count ?? null,
+      allReady: readyData?.all_ready ?? null,
     });
 
     // Matchmade UI should reflect local click instantly regardless of backend timing.
@@ -564,7 +571,7 @@ export default function StagingScreen({
       void mpRef.current.refresh();
       if (err) {
         flash('Backend saknar ready-state migration. Kör SQL-migrationen först.');
-      } else {
+      } else if ((readyData?.all_ready === true) && ((readyData?.total_count ?? 0) >= 2)) {
         mpDebug('StagingScreen', 'accept:start_probe_request', {
           gameId,
           matchId: activeMatchId,
@@ -684,6 +691,7 @@ export default function StagingScreen({
     if (!isMatchmade) return;
     if (phase !== 'match-found' && phase !== 'waiting') return;
     if (!meReadyForActiveMatch) return;
+    if (activeNonForfeitedPlayers.length < 2) return;
     if (activeMatchStatus === 'starting' || activeMatchStatus === 'in_progress') return;
 
     const timer = window.setInterval(async () => {
@@ -701,7 +709,7 @@ export default function StagingScreen({
     }, 1200);
 
     return () => window.clearInterval(timer);
-  }, [activeMatchId, activeMatchStatus, gameId, isMatchmade, meReadyForActiveMatch, phase]);
+  }, [activeMatchId, activeMatchStatus, gameId, isMatchmade, meReadyForActiveMatch, phase, activeNonForfeitedPlayers.length]);
 
   // Safety net: keep pre-game state in sync even if realtime updates are delayed.
   useEffect(() => {
