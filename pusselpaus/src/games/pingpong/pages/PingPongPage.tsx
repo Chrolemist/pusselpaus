@@ -33,16 +33,31 @@ export default function PingPongPage() {
   const [scoreFlashSide, setScoreFlashSide] = useState<PongSide | null>(null);
   const [scoreFlashTick, setScoreFlashTick] = useState(0);
   const pressedKeysRef = useRef<Record<string, boolean>>({});
+  const stateRef = useRef(state);
   const previousStateRef = useRef(state);
   const servePulseSecondRef = useRef<number | null>(null);
   const confettiFiredRef = useRef(false);
   const trailIdRef = useRef(0);
+  const trailSampleAtRef = useRef(0);
+
+  const pushState = (nextState: PongState) => {
+    stateRef.current = nextState;
+    setState(nextState);
+  };
 
   useEffect(() => {
-    setState(createInitialPongState(mode));
+    const nextState = createInitialPongState(mode);
+    stateRef.current = nextState;
+    previousStateRef.current = nextState;
+    setState(nextState);
     setTrail([]);
+    trailSampleAtRef.current = 0;
     confettiFiredRef.current = false;
   }, [mode]);
+
+  useEffect(() => {
+    stateRef.current = state;
+  }, [state]);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -80,11 +95,30 @@ export default function PingPongPage() {
       const delta = Math.min(32, now - last);
       last = now;
       accumulator += delta;
+      let nextState = stateRef.current;
+      let changed = false;
 
       while (accumulator >= PONG_CONFIG.fixedStepMs) {
         const inputs = readInputs();
-        setState((prev) => stepPong(prev, inputs, PONG_CONFIG.fixedStepMs));
+        nextState = stepPong(nextState, inputs, PONG_CONFIG.fixedStepMs);
+        changed = true;
         accumulator -= PONG_CONFIG.fixedStepMs;
+      }
+
+      if (changed) {
+        stateRef.current = nextState;
+        setState(nextState);
+
+        if (nextState.status === 'playing' && now - trailSampleAtRef.current >= 34) {
+          trailSampleAtRef.current = now;
+          setTrail((prev) => {
+            const next = [...prev, { id: trailIdRef.current++, x: nextState.ball.x, y: nextState.ball.y }];
+            return next.slice(-7);
+          });
+        } else if (nextState.status !== 'playing') {
+          trailSampleAtRef.current = 0;
+          setTrail((prev) => (prev.length > 0 ? [] : prev));
+        }
       }
 
       frameId = window.requestAnimationFrame(loop);
@@ -93,18 +127,6 @@ export default function PingPongPage() {
     frameId = window.requestAnimationFrame(loop);
     return () => window.cancelAnimationFrame(frameId);
   }, []);
-
-  useEffect(() => {
-    if (state.status !== 'playing') {
-      if (trail.length > 0) setTrail([]);
-      return;
-    }
-
-    setTrail((prev) => {
-      const next = [...prev, { id: trailIdRef.current++, x: state.ball.x, y: state.ball.y }];
-      return next.slice(-9);
-    });
-  }, [state.ball.x, state.ball.y, state.status, trail.length]);
 
   useEffect(() => {
     const previous = previousStateRef.current;
@@ -238,13 +260,25 @@ export default function PingPongPage() {
               <Swords className="h-4 w-4" /> 2 spelare lokalt
             </button>
             <button
-              onClick={() => setState(startPongMatch(mode))}
+              onClick={() => {
+                const nextState = startPongMatch(mode);
+                previousStateRef.current = nextState;
+                setTrail([]);
+                trailSampleAtRef.current = 0;
+                pushState(nextState);
+              }}
               className="flex items-center justify-center gap-2 rounded-2xl bg-emerald-500/90 px-4 py-3 text-sm font-bold text-white shadow-lg shadow-emerald-500/20 transition hover:brightness-110"
             >
               <Play className="h-4 w-4" /> Starta match
             </button>
             <button
-              onClick={() => setState(createInitialPongState(mode))}
+              onClick={() => {
+                const nextState = createInitialPongState(mode);
+                previousStateRef.current = nextState;
+                setTrail([]);
+                trailSampleAtRef.current = 0;
+                pushState(nextState);
+              }}
               className="flex items-center justify-center gap-2 rounded-2xl bg-white/5 px-4 py-3 text-sm font-semibold text-text-muted ring-1 ring-white/10 transition hover:text-white"
             >
               <RotateCcw className="h-4 w-4" /> Nollställ
@@ -400,7 +434,13 @@ export default function PingPongPage() {
                         : 'Spelet körs redan på samma tick-modell som en framtida realtime-match.'}
                     </p>
                     <button
-                      onClick={() => setState(startPongMatch(mode))}
+                      onClick={() => {
+                        const nextState = startPongMatch(mode);
+                        previousStateRef.current = nextState;
+                        setTrail([]);
+                        trailSampleAtRef.current = 0;
+                        pushState(nextState);
+                      }}
                       className="mt-4 inline-flex items-center gap-2 rounded-2xl bg-white px-4 py-2 text-sm font-bold text-slate-900 transition hover:brightness-105"
                     >
                       <Play className="h-4 w-4" /> {state.status === 'finished' ? 'Spela igen' : 'Starta nu'}

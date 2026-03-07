@@ -94,18 +94,24 @@ function controlDirection(control: PongControlState): number {
 function deriveCpuControl(state: PongState): PongControlState {
   if (state.status === 'finished') return emptyControl();
   const paddleCenter = state.paddles.right.y + PONG_CONFIG.paddleHeight / 2;
+  const trackingBall = state.status === 'playing' && state.ball.vx > 0;
+  const trackingBias = trackingBall
+    ? Math.sin((state.ball.y + state.rallyHits * 17) / 57) * PONG_CONFIG.aiTrackingError
+    : 0;
   const targetY = state.status === 'serving'
     ? PONG_CONFIG.height / 2
-    : state.ball.y + PONG_CONFIG.ballSize / 2;
+    : trackingBall
+      ? state.ball.y + PONG_CONFIG.ballSize / 2 + trackingBias
+      : PONG_CONFIG.height / 2;
   const delta = targetY - paddleCenter;
 
   if (Math.abs(delta) <= PONG_CONFIG.aiDeadzone) return emptyControl();
   return delta < 0 ? { up: true, down: false } : { up: false, down: true };
 }
 
-function movePaddle(y: number, control: PongControlState, dtMs: number): { y: number; velocity: number } {
+function movePaddle(y: number, control: PongControlState, dtMs: number, speed: number): { y: number; velocity: number } {
   const direction = controlDirection(control);
-  const velocity = direction * PONG_CONFIG.paddleSpeed;
+  const velocity = direction * speed;
   const nextY = clamp(y + velocity * (dtMs / 1000), 0, PONG_CONFIG.height - PONG_CONFIG.paddleHeight);
   return { y: nextY, velocity };
 }
@@ -183,9 +189,11 @@ export function stepPong(state: PongState, rawInputs: PongInputs, dtMs: number):
     left: rawInputs.left,
     right: state.mode === 'cpu' ? deriveCpuControl(state) : rawInputs.right,
   };
+  const leftSpeed = PONG_CONFIG.paddleSpeed;
+  const rightSpeed = state.mode === 'cpu' ? PONG_CONFIG.cpuPaddleSpeed : PONG_CONFIG.paddleSpeed;
 
-  const nextLeft = movePaddle(state.paddles.left.y, inputs.left, dtMs);
-  const nextRight = movePaddle(state.paddles.right.y, inputs.right, dtMs);
+  const nextLeft = movePaddle(state.paddles.left.y, inputs.left, dtMs, leftSpeed);
+  const nextRight = movePaddle(state.paddles.right.y, inputs.right, dtMs, rightSpeed);
   const withPaddles = {
     ...state,
     paddles: {

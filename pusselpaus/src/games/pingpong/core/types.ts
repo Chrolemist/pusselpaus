@@ -7,12 +7,14 @@ export const PONG_CONFIG = {
   ballSize: 18,
   maxScore: 5,
   paddleSpeed: 620,
+  cpuPaddleSpeed: 470,
   ballBaseSpeed: 420,
   ballSpeedStep: 26,
   ballMaxSpeed: 860,
   serveDelayMs: 900,
   fixedStepMs: 1000 / 60,
-  aiDeadzone: 18,
+  aiDeadzone: 30,
+  aiTrackingError: 26,
 } as const;
 
 export type PongSide = 'left' | 'right';
