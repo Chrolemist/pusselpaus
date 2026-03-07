@@ -47,6 +47,14 @@ function summarizeStats(statsObj: Record<string, { played: number; won: number; 
 
 export const games: GameDefinition[] = [
   {
+    id: 'pingpong',
+    name: 'Ping Pong',
+    emoji: '🏓',
+    description: 'Snabb duell byggd för framtida realtime multiplayer',
+    path: '/pingpong',
+    PlayPage: lazy(() => import('../games/pingpong/pages/PingPongPage')),
+  },
+  {
     id: 'sudoku',
     name: 'Sudoku',
     emoji: '🔢',

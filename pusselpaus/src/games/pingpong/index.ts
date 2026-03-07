@@ -1,0 +1,1 @@
+export { default as PingPongPage } from './pages/PingPongPage';
