@@ -61,28 +61,31 @@ export default function TopBar() {
     window.setTimeout(() => setInviteActionMessage(null), 3500);
   }, []);
 
-  const goToInviteMatch = useCallback((entry: (typeof mp.grouped.incoming)[number]) => {
+  const acceptIncomingInvite = useCallback(async (entry: (typeof mp.grouped.incoming)[number]) => {
+    setProcessingInviteId(entry.match.id);
+    const err = await mp.acceptInvite(entry.match.id);
+    if (err) {
+      setProcessingInviteId(null);
+      flashInviteActionMessage(err);
+      return;
+    }
+
+    const readyResult = await mp.markReady(entry.match.id);
+    setProcessingInviteId(null);
+    if (readyResult.error) {
+      flashInviteActionMessage(readyResult.error);
+    }
+
     const gameId = entry.match.game_id;
     mp.setActiveMatch(gameId, entry.match.id, {
       config: (entry.match.config as MatchConfig | null) ?? undefined,
       configSeed: entry.match.config_seed ?? undefined,
-      showOverlay: true,
+      showOverlay: readyResult.error ? true : undefined,
     });
     setShowMatches(false);
     setMenuOpen(false);
     navigate(mp.gamePath(gameId));
-  }, [mp, navigate]);
-
-  const acceptIncomingInvite = useCallback(async (entry: (typeof mp.grouped.incoming)[number]) => {
-    setProcessingInviteId(entry.match.id);
-    const err = await mp.acceptInvite(entry.match.id);
-    setProcessingInviteId(null);
-    if (err) {
-      flashInviteActionMessage(err);
-      return;
-    }
-    goToInviteMatch(entry);
-  }, [flashInviteActionMessage, goToInviteMatch, mp]);
+  }, [flashInviteActionMessage, mp, navigate]);
 
   const declineIncomingInvite = useCallback(async (entry: (typeof mp.grouped.incoming)[number]) => {
     setProcessingInviteId(entry.match.id);
