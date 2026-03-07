@@ -12,7 +12,7 @@ import confetti from 'canvas-confetti';
 import { displaySkin } from '../core/skin';
 
 import { Link, useNavigate } from 'react-router-dom';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Swords, Trophy, Zap, Clock, Coins, Medal, Crown, X } from 'lucide-react';
 import { useLiveMatch, type LivePlayer } from './useLiveMatch';
 import { mpTickMatchStart, mpForfeitMatch, mpRequestRematch } from './api';
@@ -661,6 +661,32 @@ export default function LiveBanner({ gameId }: Props) {
     : Math.max(0, Math.min(1, timeoutRemaining / AFK_TIMEOUT_SECONDS));
   const timeoutUi = timeoutTone(timeoutRemaining);
 
+  const activateRematchLocally = useCallback((
+    rematchMatchId: string,
+    options?: {
+      config?: Record<string, unknown> | null;
+      configSeed?: number | null;
+      previousMatchId?: string | null;
+    },
+  ) => {
+    if (lastRematchStartIdRef.current !== rematchMatchId) {
+      lastRematchStartIdRef.current = rematchMatchId;
+      void playRematchStart();
+    }
+
+    if (getActiveMatchPayload(gameId)?.matchId !== rematchMatchId) {
+      setActiveMatchPayload(gameId, {
+        matchId: rematchMatchId,
+        setAt: new Date().toISOString(),
+        config: options?.config ?? undefined,
+        configSeed: options?.configSeed ?? undefined,
+      });
+    }
+
+    setDismissedMatchId(options?.previousMatchId ?? live.match?.id ?? null);
+    dispatchMultiplayerReplay(gameId);
+  }, [gameId, live.match?.id]);
+
   useEffect(() => {
     if (!live.match) return;
     if (live.match.status !== 'starting') return;
@@ -688,12 +714,21 @@ export default function LiveBanner({ gameId }: Props) {
   }, [live.match?.status, timeoutRemaining]);
 
   useEffect(() => {
+    if (live.match?.status !== 'completed') return;
+    if (!rematchRequested) return;
+    if (live.me?.rematch_match_id) return;
+
+    const timer = window.setInterval(() => {
+      void live.refresh();
+    }, 800);
+
+    return () => window.clearInterval(timer);
+  }, [live.match?.status, live.me?.rematch_match_id, live.refresh, rematchRequested]);
+
+  useEffect(() => {
     const rematchMatchId = live.me?.rematch_match_id;
     if (!rematchMatchId) return;
     if (lastRematchStartIdRef.current === rematchMatchId) return;
-    lastRematchStartIdRef.current = rematchMatchId;
-    void playRematchStart();
-    if (getActiveMatchPayload(gameId)?.matchId === rematchMatchId) return;
 
     let cancelled = false;
     void (async () => {
@@ -705,20 +740,17 @@ export default function LiveBanner({ gameId }: Props) {
 
       if (cancelled || !rematchMatch?.id) return;
 
-      setActiveMatchPayload(gameId, {
-        matchId: rematchMatch.id,
-        setAt: new Date().toISOString(),
+      activateRematchLocally(rematchMatch.id, {
         config: rematchMatch.config ?? undefined,
         configSeed: rematchMatch.config_seed ?? undefined,
+        previousMatchId: live.match?.id ?? null,
       });
-      setDismissedMatchId(live.match?.id ?? null);
-      dispatchMultiplayerReplay(gameId);
     })();
 
     return () => {
       cancelled = true;
     };
-  }, [gameId, live.match?.id, live.me?.rematch_match_id]);
+  }, [activateRematchLocally, live.match?.id, live.me?.rematch_match_id]);
 
   useEffect(() => {
     if (live.match?.status !== 'completed') {
@@ -885,12 +917,23 @@ export default function LiveBanner({ gameId }: Props) {
             if (!currentMatchId || requestingRematch) return;
             setRequestingRematch(true);
             void (async () => {
-              const { error } = await mpRequestRematch(currentMatchId);
+              const { error, data } = await mpRequestRematch(currentMatchId);
               if (error) {
                 console.error('[mp] rematch failed:', error);
                 setRequestingRematch(false);
                 return;
               }
+
+              if (data?.rematch_match_id) {
+                activateRematchLocally(data.rematch_match_id, {
+                  config: data.config ?? undefined,
+                  configSeed: data.config_seed ?? undefined,
+                  previousMatchId: currentMatchId,
+                });
+                setRequestingRematch(false);
+                return;
+              }
+
               await live.refresh();
               setRequestingRematch(false);
             })();
