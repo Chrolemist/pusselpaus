@@ -165,6 +165,7 @@ export default function StagingScreen({
       const status = entry.match.status;
       const mePlayer = entry.players.find((p) => p.player.user_id === user?.id);
       const iForfeited = mePlayer?.player.forfeited === true;
+      const activePlayerCount = entry.players.filter((p) => p.player.forfeited !== true).length;
 
       // Stale match: completed, cancelled, or I forfeited — clear and go to staging
       if (status === 'completed' || status === 'cancelled' || iForfeited) {
@@ -178,6 +179,32 @@ export default function StagingScreen({
         setActiveMatchId(null);
         setMatchFoundAcceptedLocal(false);
         setPhase('staging');
+        return;
+      }
+
+      // Random matchmaking should never restore as a one-player waiting room.
+      // If that happens, the previous cleanup likely missed a stale match.
+      if (existing.matchmade && status === 'waiting' && activePlayerCount < 2) {
+        mpDebug('StagingScreen', 'restore:cleanup_impossible_matchmade_waiting', {
+          gameId,
+          matchId: existing.matchId,
+          activePlayerCount,
+        });
+        clearActiveMatch(gameId);
+        setActiveMatchId(null);
+        setIsMatchmade(false);
+        setMatchFoundAcceptedLocal(false);
+        setServerReadyCount(null);
+        setServerTotalCount(null);
+        setServerAllReady(null);
+        setPhase('staging');
+        void (async () => {
+          const cleanup = await mpForceCleanupActiveMatches();
+          if (cleanup.error) {
+            flash('En gammal matchmaking gick inte att städa helt i backend.');
+          }
+          await mp.refresh();
+        })();
         return;
       }
 
