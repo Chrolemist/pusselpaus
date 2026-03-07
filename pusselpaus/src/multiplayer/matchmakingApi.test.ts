@@ -30,13 +30,23 @@ describe('matchmakeJoin', () => {
 
   it('returns match_id when instantly matched', async () => {
     mockRpc.mockResolvedValue({
-      data: { queued: false, queue_id: null, match_id: 'match-42', config_seed: 12345, queue_size: 0 },
+      data: {
+        queued: false,
+        queue_id: null,
+        match_id: 'match-42',
+        config_seed: 12345,
+        queue_size: 0,
+        match_created_at: '2026-03-07T12:00:00Z',
+        server_now: '2026-03-07T12:00:01Z',
+      },
       error: null,
     });
     const { data } = await matchmakeJoin('sudoku', 'medium');
     expect(data?.match_id).toBe('match-42');
     expect(data?.config_seed).toBe(12345);
     expect(data?.queued).toBe(false);
+    expect(data?.match_created_at).toBe('2026-03-07T12:00:00Z');
+    expect(data?.server_now).toBe('2026-03-07T12:00:01Z');
   });
 
   it('returns error string on RPC failure', async () => {
@@ -86,12 +96,22 @@ describe('matchmakePoll', () => {
 
   it('returns match_id when matched by another player', async () => {
     mockRpc.mockResolvedValue({
-      data: { queued: false, queue_id: null, match_id: 'match-99', config_seed: 555, queue_size: 0 },
+      data: {
+        queued: false,
+        queue_id: null,
+        match_id: 'match-99',
+        config_seed: 555,
+        queue_size: 0,
+        match_created_at: '2026-03-07T13:00:00Z',
+        server_now: '2026-03-07T13:00:02Z',
+      },
       error: null,
     });
     const { data } = await matchmakePoll('sudoku');
     expect(data?.match_id).toBe('match-99');
     expect(data?.config_seed).toBe(555);
+    expect(data?.match_created_at).toBe('2026-03-07T13:00:00Z');
+    expect(data?.server_now).toBe('2026-03-07T13:00:02Z');
   });
 
   it('returns error on failure', async () => {

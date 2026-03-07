@@ -300,6 +300,7 @@ export interface MpReadyStateResult {
   total_count?: number;
   me_ready?: boolean;
   started_at?: string | null;
+  server_now?: string | null;
 }
 
 function normalizeReadyStateResult(value: unknown): MpReadyStateResult | null {
@@ -314,6 +315,10 @@ function normalizeReadyStateResult(value: unknown): MpReadyStateResult | null {
     me_ready: toBoolean(readField(row, ['me_ready', 'meReady'])),
     started_at: ((): string | null => {
       const candidate = readField(row, ['started_at', 'startedAt']);
+      return typeof candidate === 'string' ? candidate : null;
+    })(),
+    server_now: ((): string | null => {
+      const candidate = readField(row, ['server_now', 'serverNow']);
       return typeof candidate === 'string' ? candidate : null;
     })(),
   };

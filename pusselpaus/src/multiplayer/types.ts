@@ -5,6 +5,7 @@ export interface ActiveMatchPayload {
   setAt: string;
   configSeed?: number;
   config?: Record<string, unknown>;
+  acceptDeadlineAt?: string;
   /** When true, StagingScreen shows the match-found overlay on load */
   showOverlay?: boolean;
   /** True if this match came from random matchmaking (stricter auto-forfeit) */

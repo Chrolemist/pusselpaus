@@ -23,6 +23,10 @@ export interface MatchmakingState {
   matchId: string | null;
   /** config seed for the matched game */
   configSeed: number | null;
+  /** Match creation timestamp from the database */
+  matchCreatedAt: string | null;
+  /** Current database time used to anchor synced countdowns */
+  serverNow: string | null;
   /** Number of players currently waiting in queue */
   queueSize: number;
   /** Seconds spent in queue */
@@ -43,6 +47,8 @@ export function useMatchmaking(gameId: string): MatchmakingState {
   const [status, setStatus] = useState<MatchmakingStatus>('idle');
   const [matchId, setMatchId] = useState<string | null>(null);
   const [configSeed, setConfigSeed] = useState<number | null>(null);
+  const [matchCreatedAt, setMatchCreatedAt] = useState<string | null>(null);
+  const [serverNow, setServerNow] = useState<string | null>(null);
   const [queueSize, setQueueSize] = useState(0);
   const [elapsed, setElapsed] = useState(0);
   const [error, setError] = useState<string | null>(null);
@@ -58,6 +64,8 @@ export function useMatchmaking(gameId: string): MatchmakingState {
     setStatus('idle');
     setMatchId(null);
     setConfigSeed(null);
+    setMatchCreatedAt(null);
+    setServerNow(null);
     setQueueSize(0);
     setElapsed(0);
     setError(null);
@@ -84,12 +92,14 @@ export function useMatchmaking(gameId: string): MatchmakingState {
   const handleResult = useCallback((result: MatchmakeResult) => {
     if (!mountedRef.current) return;
     setQueueSize(result.queue_size);
+    setServerNow(result.server_now ?? null);
 
     if (result.match_id) {
       // Matched!
       setStatus('matched');
       setMatchId(result.match_id);
       setConfigSeed(result.config_seed);
+      setMatchCreatedAt(result.match_created_at ?? null);
       setError(null);
       // Stop polling
       if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
@@ -154,6 +164,8 @@ export function useMatchmaking(gameId: string): MatchmakingState {
     status,
     matchId,
     configSeed,
+    matchCreatedAt,
+    serverNow,
     queueSize,
     elapsed,
     error,

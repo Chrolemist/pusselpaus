@@ -18,6 +18,10 @@ export interface MatchmakeResult {
   config_seed: number | null;
   /** Number of players in the queue right now (including you) */
   queue_size: number;
+  /** Match creation timestamp from the database when a match has been formed */
+  match_created_at?: string | null;
+  /** Current database time for client-side countdown synchronization */
+  server_now?: string | null;
 }
 
 /** Join the matchmaking queue for a game.

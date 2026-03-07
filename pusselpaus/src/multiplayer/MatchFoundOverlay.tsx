@@ -66,6 +66,8 @@ export interface MatchFoundOverlayProps {
   acceptedCountOverride?: number | null;
   /** Optional server-authoritative total count */
   totalCountOverride?: number | null;
+  /** Current database time for synced countdown rendering */
+  serverNowAt?: string | null;
 }
 
 /* ── Constants ── */
@@ -88,6 +90,7 @@ export default function MatchFoundOverlay({
   deadlineAt = null,
   acceptedCountOverride = null,
   totalCountOverride = null,
+  serverNowAt = null,
 }: MatchFoundOverlayProps) {
   const [secondsLeft, setSecondsLeft] = useState(timeLimit);
   const [hasAccepted, setHasAccepted] = useState(false);
@@ -95,8 +98,31 @@ export default function MatchFoundOverlay({
   const prevAcceptCount = useRef(0);
   const prevSecondsRef = useRef<number | null>(null);
   const declinedRef = useRef(false);
+  const serverClockRef = useRef<{ serverNowMs: number; localNowMs: number } | null>(null);
   const onDeclineRef = useRef(onDecline);
   useEffect(() => { onDeclineRef.current = onDecline; }, [onDecline]);
+
+  useEffect(() => {
+    if (!serverNowAt) {
+      serverClockRef.current = null;
+      return;
+    }
+    const serverNowMs = new Date(serverNowAt).getTime();
+    if (!Number.isFinite(serverNowMs)) {
+      serverClockRef.current = null;
+      return;
+    }
+    serverClockRef.current = {
+      serverNowMs,
+      localNowMs: Date.now(),
+    };
+  }, [serverNowAt]);
+
+  const getAuthoritativeNowMs = useCallback(() => {
+    const snapshot = serverClockRef.current;
+    if (!snapshot) return Date.now();
+    return snapshot.serverNowMs + (Date.now() - snapshot.localNowMs);
+  }, []);
 
   const localAcceptedCount = players.filter((p) => p.accepted).length;
   const meAccepted = hasAccepted || players.find((p) => p.id === myId)?.accepted;
@@ -148,8 +174,9 @@ export default function MatchFoundOverlay({
 
     const deadlineMs = deadlineAt ? new Date(deadlineAt).getTime() : Number.NaN;
     const hasServerDeadline = Number.isFinite(deadlineMs);
+    const hasServerNow = serverClockRef.current !== null;
     const initialSeconds = hasServerDeadline
-      ? Math.max(0, Math.ceil((deadlineMs - Date.now()) / 1000))
+      ? Math.max(0, Math.ceil((deadlineMs - getAuthoritativeNowMs()) / 1000))
       : timeLimit;
 
     mpDebug('MatchFoundOverlay', 'countdown:start', {
@@ -157,6 +184,8 @@ export default function MatchFoundOverlay({
       timeLimit,
       deadlineAt,
       hasServerDeadline,
+      hasServerNow,
+      serverNowAt,
     });
 
     setSecondsLeft(initialSeconds);
@@ -164,11 +193,11 @@ export default function MatchFoundOverlay({
 
     timerRef.current = setInterval(() => {
       const seconds = hasServerDeadline
-        ? Math.max(0, Math.ceil((deadlineMs - Date.now()) / 1000))
+        ? Math.max(0, Math.ceil((deadlineMs - getAuthoritativeNowMs()) / 1000))
         : Math.max(0, (prevSecondsRef.current ?? timeLimit) - 1);
 
       if (prevSecondsRef.current !== seconds) {
-        mpDebug('MatchFoundOverlay', 'countdown:tick', { seconds, deadlineAt, hasServerDeadline });
+        mpDebug('MatchFoundOverlay', 'countdown:tick', { seconds, deadlineAt, hasServerDeadline, hasServerNow, serverNowAt });
         if (seconds <= 5 && seconds > 0) {
           mpDebug('MatchFoundOverlay', 'countdown:play_tick_sound', { seconds });
           if (enableSounds) void playCountdownTick();
@@ -193,7 +222,7 @@ export default function MatchFoundOverlay({
       mpDebug('MatchFoundOverlay', 'countdown:cleanup_interval');
       if (timerRef.current) clearInterval(timerRef.current);
     };
-  }, [visible, timeLimit, noTimeout, anyDeclined, enableSounds, players.length, deadlineAt, totalCount, allAccepted, meAccepted]);
+  }, [visible, timeLimit, noTimeout, anyDeclined, enableSounds, players.length, deadlineAt, totalCount, allAccepted, meAccepted, getAuthoritativeNowMs, serverNowAt]);
 
   /* ── Accept blip when new players accept ── */
   useEffect(() => {

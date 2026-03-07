@@ -93,6 +93,12 @@ export default function StagingScreen({
   children,
 }: StagingScreenProps) {
   const PREGAME_REFRESH_INTERVAL_MS = 350;
+  const buildAcceptDeadlineAt = useCallback((createdAt?: string | null): string | undefined => {
+    if (!createdAt) return undefined;
+    const createdMs = new Date(createdAt).getTime();
+    if (!Number.isFinite(createdMs)) return undefined;
+    return new Date(createdMs + 15_000).toISOString();
+  }, []);
   const { user } = useAuth();
   const { friends } = useFriends();
   const mp = useMultiplayer();
@@ -131,6 +137,7 @@ export default function StagingScreen({
   const [serverMatchStatus, setServerMatchStatus] = useState<string | null>(null);
   const [serverStartedAt, setServerStartedAt] = useState<string | null>(null);
   const [serverMeReady, setServerMeReady] = useState<boolean | null>(null);
+  const [serverNow, setServerNow] = useState<string | null>(null);
 
   useEffect(() => {
     mpDebug('StagingScreen', 'phase:changed', {
@@ -163,6 +170,7 @@ export default function StagingScreen({
         setServerMatchStatus(null);
         setServerStartedAt(null);
         setServerMeReady(null);
+        setServerNow(null);
         setSelectedFriends([]);
         setMessage(null);
         // Also leave matchmaking queue if active
@@ -205,6 +213,7 @@ export default function StagingScreen({
           setServerMatchStatus(null);
           setServerStartedAt(null);
           setServerMeReady(null);
+          setServerNow(null);
           setPhase('staging');
           void (async () => {
             const cleanup = await mpForceCleanupActiveMatches();
@@ -351,6 +360,29 @@ export default function StagingScreen({
     [mp.matches, activeMatchId],
   );
   const hasPendingActiveMatchRestore = !!activePayload?.matchId && !activeEntry;
+  const serverClockRef = useRef<{ serverNowMs: number; localNowMs: number } | null>(null);
+
+  useEffect(() => {
+    if (!serverNow) {
+      serverClockRef.current = null;
+      return;
+    }
+    const serverNowMs = new Date(serverNow).getTime();
+    if (!Number.isFinite(serverNowMs)) {
+      serverClockRef.current = null;
+      return;
+    }
+    serverClockRef.current = {
+      serverNowMs,
+      localNowMs: Date.now(),
+    };
+  }, [serverNow]);
+
+  const getAuthoritativeNowMs = useCallback(() => {
+    const snapshot = serverClockRef.current;
+    if (!snapshot) return Date.now();
+    return snapshot.serverNowMs + (Date.now() - snapshot.localNowMs);
+  }, []);
 
   // Stable refs to avoid re-running the countdown effect on every realtime reload
   const mpRef = useRef(mp);
@@ -392,6 +424,7 @@ export default function StagingScreen({
     setServerMatchStatus(null);
     setServerStartedAt(null);
     setServerMeReady(null);
+    setServerNow(null);
     if (countdownTimerRef.current) {
       window.clearInterval(countdownTimerRef.current);
       countdownTimerRef.current = null;
@@ -600,7 +633,7 @@ export default function StagingScreen({
 
         countdownRunningForMatchRef.current = activeMatchMatchId;
         const tick = () => {
-          const remainingMs = startedAt - Date.now();
+          const remainingMs = startedAt - getAuthoritativeNowMs();
           const remaining = Math.max(0, Math.ceil(remainingMs / 1000));
           setCountdownValue(remaining);
           if (remaining <= 3) {
@@ -632,7 +665,7 @@ export default function StagingScreen({
           } else if (remaining <= 0) {
             // Fallback: if status update is delayed/missed on this client,
             // keep retrying the start tick while we're still in `starting`.
-            const now = Date.now();
+            const now = getAuthoritativeNowMs();
             if (now - countdownFallbackTickAtRef.current >= 1000) {
               countdownFallbackTickAtRef.current = now;
               mpDebug('StagingScreen', 'countdown:retry_tick_match_start', {
@@ -678,7 +711,7 @@ export default function StagingScreen({
       });
       startGameOnce(activeMatchMatchId, 'in_progress');
     }
-  }, [activeEntry, activeMatchStatus, effectiveActiveMatchStatus, activeMatchStartedAt, effectiveActiveMatchStartedAt, activeMatchMatchId, activeMatchHostId, isHostForActiveMatch, meForfeited, gameId, startGameOnce, handleTickMatchStartResult]);
+  }, [activeEntry, activeMatchStatus, effectiveActiveMatchStatus, activeMatchStartedAt, effectiveActiveMatchStartedAt, activeMatchMatchId, activeMatchHostId, isHostForActiveMatch, meForfeited, gameId, startGameOnce, handleTickMatchStartResult, getAuthoritativeNowMs]);
 
   useEffect(() => {
     return () => {
@@ -746,6 +779,7 @@ export default function StagingScreen({
       setAt: new Date().toISOString(),
       configSeed: mm.configSeed ?? undefined,
       config: { difficulty },
+      acceptDeadlineAt: buildAcceptDeadlineAt(mm.matchCreatedAt),
       matchmade: true,
       showOverlay: true,
     });
@@ -757,7 +791,7 @@ export default function StagingScreen({
     // Refresh so activeEntry appears in overlay immediately.
     void mpRef.current.refresh();
     setPhase('match-found');
-  }, [mm.status, mm.matchId, mm.configSeed, difficulty, gameId]);
+  }, [buildAcceptDeadlineAt, mm.status, mm.matchId, mm.configSeed, mm.matchCreatedAt, difficulty, gameId]);
 
   /* ── Recovery: if queue UI is stuck but match already exists, adopt it ── */
   useEffect(() => {
@@ -789,6 +823,7 @@ export default function StagingScreen({
       setAt: new Date().toISOString(),
       configSeed: existingMatch.match.config_seed ?? undefined,
       config: (existingMatch.match.config as Record<string, unknown> | null) ?? undefined,
+      acceptDeadlineAt: buildAcceptDeadlineAt(existingMatch.match.created_at),
       matchmade: true,
       showOverlay: existingMatch.match.status === 'waiting' ? true : undefined,
     });
@@ -809,7 +844,7 @@ export default function StagingScreen({
     if (existingMatch.match.status === 'in_progress') {
       setPhase('playing');
     }
-  }, [phase, activeMatchId, mp.matches, gameId, mm.status]);
+  }, [buildAcceptDeadlineAt, phase, activeMatchId, mp.matches, gameId, mm.status]);
 
   /* ── Overlay: derive MatchPlayer[] from activeEntry ── */
   const overlayPlayers = useMemo<MatchPlayer[]>(() => {
@@ -900,6 +935,7 @@ export default function StagingScreen({
     setServerMatchStatus(null);
     setServerStartedAt(null);
     setServerMeReady(null);
+    setServerNow(null);
     setPhase('staging');
 
     if (!matchId) {
@@ -1049,11 +1085,13 @@ export default function StagingScreen({
         allReady: data.all_ready ?? null,
         meReady: data.me_ready ?? null,
         startedAt: data.started_at ?? null,
+        serverNow: data.server_now ?? null,
       });
 
       setServerMatchStatus(data.status ?? null);
       setServerStartedAt(data.started_at ?? null);
       setServerMeReady(data.me_ready ?? null);
+      setServerNow(data.server_now ?? null);
 
       if (typeof data.ready_count === 'number') {
         setServerReadyCount(data.ready_count);
@@ -1188,6 +1226,7 @@ export default function StagingScreen({
         setAt: new Date().toISOString(),
         config: (myMatch.match.config as Record<string, unknown> | null) ?? undefined,
         configSeed: myMatch.match.config_seed ?? undefined,
+        acceptDeadlineAt: currentPayload?.acceptDeadlineAt,
         matchmade: currentPayload?.matchmade,
         showOverlay: currentPayload?.showOverlay,
       });
@@ -1289,6 +1328,7 @@ export default function StagingScreen({
     setServerMatchStatus(null);
     setServerStartedAt(null);
     setServerMeReady(null);
+    setServerNow(null);
     setPhase('staging');
     await mp.refresh();
   }, [activeMatchId, gameId, mp, flash]);
@@ -1441,9 +1481,7 @@ export default function StagingScreen({
 
   /* ── Match-found overlay (matchmaking ready-up) ── */
   if (phase === 'match-found') {
-    const acceptDeadlineAt = activeEntry?.match.created_at
-      ? new Date(new Date(activeEntry.match.created_at).getTime() + 15_000).toISOString()
-      : null;
+    const acceptDeadlineAt = buildAcceptDeadlineAt(activeEntry?.match.created_at) ?? activePayload?.acceptDeadlineAt ?? null;
 
     return (
       <MatchFoundOverlay
@@ -1451,6 +1489,7 @@ export default function StagingScreen({
         players={overlayPlayers}
         timeLimit={15}
         deadlineAt={acceptDeadlineAt}
+        serverNowAt={serverNow ?? mm.serverNow ?? null}
         acceptedCountOverride={isMatchmade ? serverReadyCount : null}
         totalCountOverride={isMatchmade ? serverTotalCount : null}
         myId={user?.id ?? ''}
