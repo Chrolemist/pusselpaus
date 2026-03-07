@@ -4,7 +4,13 @@ export function isMpDebugEnabled(): boolean {
 }
 
 function isAllowedEvent(event: string): boolean {
-  return event.startsWith('accept:');
+  return (
+    event.startsWith('accept:')
+    || event.startsWith('countdown:')
+    || event.startsWith('status_effect:')
+    || event.startsWith('tickMatchStart:')
+    || event.startsWith('startMatchIfReady:')
+  );
 }
 
 export function mpDebug(scope: string, event: string, payload?: Record<string, unknown>): void {
