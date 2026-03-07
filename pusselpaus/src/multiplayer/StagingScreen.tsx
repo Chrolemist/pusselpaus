@@ -494,6 +494,29 @@ export default function StagingScreen({
     [gameId, difficulty, activeMatchConfigSeed, activeMatchConfig],
   );
 
+  const handleTickMatchStartResult = useCallback(
+    (matchId: string, result: string | null, source: 'tick' | 'retry') => {
+      mpDebug('StagingScreen', 'countdown:tick_match_start_result', {
+        gameId,
+        matchId,
+        source,
+        result,
+      });
+
+      if (result === 'started' || result === 'in_progress') {
+        setServerMatchStatus('in_progress');
+        setServerStartedAt(null);
+        if (countdownTimerRef.current) {
+          window.clearInterval(countdownTimerRef.current);
+          countdownTimerRef.current = null;
+        }
+        countdownRunningForMatchRef.current = null;
+        startGameOnce(matchId, 'in_progress');
+      }
+    },
+    [gameId, startGameOnce],
+  );
+
   useEffect(() => {
     if (!effectiveActiveMatchStatus || !activeMatchMatchId) return;
 
@@ -599,7 +622,10 @@ export default function StagingScreen({
               matchId: activeMatchMatchId,
               isHost: isHostForActiveMatch,
             });
-            void mpRef.current.tickMatchStart(activeMatchMatchId);
+            void (async () => {
+              const result = await mpRef.current.tickMatchStart(activeMatchMatchId);
+              handleTickMatchStartResult(activeMatchMatchId, result, 'tick');
+            })();
           } else if (remaining <= 0) {
             // Fallback: if status update is delayed/missed on this client,
             // keep retrying the start tick while we're still in `starting`.
@@ -611,7 +637,10 @@ export default function StagingScreen({
                 matchId: activeMatchMatchId,
                 isHost: isHostForActiveMatch,
               });
-              void mpRef.current.tickMatchStart(activeMatchMatchId);
+              void (async () => {
+                const result = await mpRef.current.tickMatchStart(activeMatchMatchId);
+                handleTickMatchStartResult(activeMatchMatchId, result, 'retry');
+              })();
             }
             if (now - countdownFallbackRefreshAtRef.current >= 1000) {
               countdownFallbackRefreshAtRef.current = now;
@@ -646,7 +675,7 @@ export default function StagingScreen({
       });
       startGameOnce(activeMatchMatchId, 'in_progress');
     }
-  }, [activeEntry, activeMatchStatus, effectiveActiveMatchStatus, activeMatchStartedAt, effectiveActiveMatchStartedAt, activeMatchMatchId, activeMatchHostId, isHostForActiveMatch, meForfeited, gameId, startGameOnce]);
+  }, [activeEntry, activeMatchStatus, effectiveActiveMatchStatus, activeMatchStartedAt, effectiveActiveMatchStartedAt, activeMatchMatchId, activeMatchHostId, isHostForActiveMatch, meForfeited, gameId, startGameOnce, handleTickMatchStartResult]);
 
   useEffect(() => {
     return () => {
