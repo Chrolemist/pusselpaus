@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import confetti from 'canvas-confetti';
 import { AnimatePresence, motion } from 'motion/react';
-import { ArrowLeft, Play, RotateCcw, Swords, Cpu, TimerReset } from 'lucide-react';
+import { ArrowLeft, Play, RotateCcw, Swords, Cpu, TimerReset, Maximize2, Minimize2 } from 'lucide-react';
 import { PONG_CONFIG, PONG_CPU_PRESETS, type PongCpuLevel, type PongInputs, type PongMode, type PongSide, type PongState } from '../core/types';
 import { activateFireBoost, createInitialPongState, startPongMatch, stepPong } from '../core/engine';
 import { playFireBoost, playPaddleHit, playScoreBurst, playServePulse, playVictoryFanfare, playWallBounce } from '../audio/pingPongAudio';
@@ -45,6 +45,9 @@ export default function PingPongPage() {
   const confettiFiredRef = useRef(false);
   const trailIdRef = useRef(0);
   const trailSampleAtRef = useRef(0);
+  const arenaFocusRef = useRef<HTMLDivElement | null>(null);
+  const [isPortraitMobile, setIsPortraitMobile] = useState(false);
+  const [isArenaFocusMode, setIsArenaFocusMode] = useState(false);
 
   const pushState = (nextState: PongState) => {
     stateRef.current = nextState;
@@ -64,6 +67,47 @@ export default function PingPongPage() {
   useEffect(() => {
     stateRef.current = state;
   }, [state]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const media = window.matchMedia('(max-width: 900px) and (orientation: portrait)');
+    const update = () => setIsPortraitMobile(media.matches);
+
+    update();
+    media.addEventListener('change', update);
+    return () => media.removeEventListener('change', update);
+  }, []);
+
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      if (!document.fullscreenElement) {
+        setIsArenaFocusMode(false);
+        return;
+      }
+
+      setIsArenaFocusMode(document.fullscreenElement === arenaFocusRef.current);
+    };
+
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
+  }, []);
+
+  useEffect(() => {
+    document.body.style.overflow = isArenaFocusMode ? 'hidden' : '';
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [isArenaFocusMode]);
+
+  useEffect(() => {
+    if (!isPortraitMobile && isArenaFocusMode) {
+      setIsArenaFocusMode(false);
+      if (document.fullscreenElement) {
+        void document.exitFullscreen().catch(() => undefined);
+      }
+    }
+  }, [isArenaFocusMode, isPortraitMobile]);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -251,9 +295,37 @@ export default function PingPongPage() {
     }
   };
 
+  const enterArenaFocusMode = async () => {
+    setIsArenaFocusMode(true);
+
+    if (!arenaFocusRef.current?.requestFullscreen) {
+      return;
+    }
+
+    try {
+      await arenaFocusRef.current.requestFullscreen();
+    } catch {
+      setIsArenaFocusMode(true);
+    }
+  };
+
+  const exitArenaFocusMode = async () => {
+    if (document.fullscreenElement) {
+      try {
+        await document.exitFullscreen();
+      } catch {
+        setIsArenaFocusMode(false);
+        return;
+      }
+    }
+
+    setIsArenaFocusMode(false);
+  };
+
   return (
-    <div className="flex min-h-full flex-col items-center gap-6 px-4 py-8">
-      <div className="flex w-full max-w-5xl items-center justify-between">
+    <div className={isArenaFocusMode ? 'fixed inset-0 z-50 flex bg-[#020617]' : 'flex min-h-full flex-col items-center gap-6 px-4 py-8'}>
+      {!isArenaFocusMode && (
+        <div className="flex w-full max-w-5xl items-center justify-between">
         <Link to="/" className="flex items-center gap-1 text-sm text-text-muted transition hover:text-brand-light">
           <ArrowLeft className="h-4 w-4" /> Lobby
         </Link>
@@ -261,10 +333,12 @@ export default function PingPongPage() {
         <div className="rounded-full bg-white/5 px-3 py-1 text-xs font-semibold uppercase tracking-[0.24em] text-brand-light ring-1 ring-white/10">
           Ping Pong Prototype
         </div>
-      </div>
+        </div>
+      )}
 
-      <div className="w-full max-w-5xl rounded-[30px] border border-white/10 bg-[linear-gradient(180deg,rgba(15,23,42,0.92)_0%,rgba(12,18,35,0.98)_100%)] p-5 shadow-[0_30px_80px_rgba(8,15,35,0.45)]">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+      <div className={isArenaFocusMode ? 'flex h-dvh w-screen items-center justify-center bg-[#020617]' : 'w-full max-w-5xl rounded-[30px] border border-white/10 bg-[linear-gradient(180deg,rgba(15,23,42,0.92)_0%,rgba(12,18,35,0.98)_100%)] p-5 shadow-[0_30px_80px_rgba(8,15,35,0.45)]'}>
+        {!isArenaFocusMode && (
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div>
             <h1 className="text-3xl font-extrabold text-white">🏓 Ping Pong</h1>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-text-muted">
@@ -309,12 +383,37 @@ export default function PingPongPage() {
             >
               <RotateCcw className="h-4 w-4" /> Nollställ
             </button>
+            {isPortraitMobile && (
+              <button
+                onClick={() => {
+                  void enterArenaFocusMode();
+                }}
+                className="sm:col-span-2 flex items-center justify-center gap-2 rounded-2xl bg-white/5 px-4 py-3 text-sm font-semibold text-text-muted ring-1 ring-white/10 transition hover:text-white"
+              >
+                <Maximize2 className="h-4 w-4" /> Helskärmsbana
+              </button>
+            )}
           </div>
-        </div>
+          </div>
+        )}
 
-        <div className="mt-5 grid gap-4 lg:grid-cols-[1fr_260px]">
-          <div className="rounded-[28px] border border-cyan-400/15 bg-[#07111f] p-3 shadow-inner shadow-cyan-500/5">
-            <div className="relative aspect-[16/9] overflow-hidden rounded-[22px] border border-white/8 bg-[radial-gradient(circle_at_center,rgba(56,189,248,0.08),transparent_32%),linear-gradient(180deg,#08101b_0%,#0a1424_100%)]">
+        <div className={isArenaFocusMode ? 'w-full' : 'mt-5 grid gap-4 lg:grid-cols-[1fr_260px]'}>
+          <div
+            ref={arenaFocusRef}
+            className={isArenaFocusMode ? 'relative flex h-dvh w-screen items-center justify-center bg-[#020617]' : 'rounded-[28px] border border-cyan-400/15 bg-[#07111f] p-3 shadow-inner shadow-cyan-500/5'}
+          >
+            <div className={isArenaFocusMode ? 'relative aspect-[16/9] w-full overflow-hidden bg-[radial-gradient(circle_at_center,rgba(56,189,248,0.08),transparent_32%),linear-gradient(180deg,#08101b_0%,#0a1424_100%)]' : 'relative aspect-[16/9] overflow-hidden rounded-[22px] border border-white/8 bg-[radial-gradient(circle_at_center,rgba(56,189,248,0.08),transparent_32%),linear-gradient(180deg,#08101b_0%,#0a1424_100%)]'} style={isArenaFocusMode ? { maxHeight: '100dvh' } : undefined}>
+              {isArenaFocusMode && (
+                <button
+                  onClick={() => {
+                    void exitArenaFocusMode();
+                  }}
+                  className="absolute right-3 top-3 z-30 inline-flex items-center gap-2 rounded-full border border-white/10 bg-slate-950/70 px-3 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-white/80 backdrop-blur"
+                >
+                  <Minimize2 className="h-3.5 w-3.5" /> Stäng
+                </button>
+              )}
+
               <motion.div
                 className="absolute rounded-full bg-white/10 blur-[80px]"
                 animate={{ opacity: state.status === 'playing' ? [0.2, 0.4, 0.2] : 0.12, scale: state.status === 'playing' ? [0.9, 1.08, 0.95] : 0.9 }}
@@ -534,7 +633,7 @@ export default function PingPongPage() {
             </div>
           </div>
 
-          <div className="space-y-4">
+          {!isArenaFocusMode && <div className="space-y-4">
             <div className="rounded-[24px] bg-white/5 p-4 ring-1 ring-white/10">
               <p className="text-xs font-semibold uppercase tracking-[0.24em] text-brand-light">Status</p>
               <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
@@ -626,7 +725,7 @@ export default function PingPongPage() {
                 </div>
               </div>
             </div>
-          </div>
+          </div>}
         </div>
       </div>
     </div>
