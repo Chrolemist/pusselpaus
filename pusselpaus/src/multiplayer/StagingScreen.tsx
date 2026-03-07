@@ -634,7 +634,9 @@ export default function StagingScreen({
   const isHost = activeEntry?.match.host_id === user?.id;
   const hasLocalAcceptForActiveMatch =
     !!activeMatchMatchId && localAcceptMatchIdRef.current === activeMatchMatchId;
-  const canStartMatchFoundPhase = hasLocalAcceptForActiveMatch && (!isMatchmade || meReadyForActiveMatch);
+  const canStartMatchFoundPhase = isMatchmade
+    ? true
+    : hasLocalAcceptForActiveMatch && meReadyForActiveMatch;
 
   useEffect(() => {
     mpDebug('StagingScreen', 'auto_start:evaluate', {
@@ -652,10 +654,10 @@ export default function StagingScreen({
     if (!activeMatchMatchId || !allPlayersReady || !isHost) return;
     if (startSentRef.current) return; // Already sent — don't call again
 
-    // For match-found overlay (friend invite): host starts when all accept
+    // For match-found overlay: host starts as soon as server rows say everyone is ready.
     if (phase === 'match-found' && canStartMatchFoundPhase) {
       startSentRef.current = true;
-      mpDebug('StagingScreen', 'auto_start:trigger_friend_invite', {
+      mpDebug('StagingScreen', isMatchmade ? 'accept:auto_start_trigger' : 'auto_start:trigger_friend_invite', {
         gameId,
         matchId: activeMatchMatchId,
         countdownSeconds: isMatchmade ? 3 : 5,
@@ -734,8 +736,9 @@ export default function StagingScreen({
   useEffect(() => {
     if (!activeMatchId) return;
     if (!isMatchmade) return;
+    if (!isHostForActiveMatch) return;
     if (phase !== 'match-found' && phase !== 'waiting') return;
-    if (!meReadyForActiveMatch) return;
+    if (serverAllReady !== true && !allPlayersReady) return;
     if (activeMatchStatus === 'starting' || activeMatchStatus === 'in_progress') return;
 
     const timer = window.setInterval(async () => {
@@ -753,7 +756,7 @@ export default function StagingScreen({
     }, 1200);
 
     return () => window.clearInterval(timer);
-  }, [activeMatchId, activeMatchStatus, gameId, isMatchmade, meReadyForActiveMatch, phase]);
+  }, [activeMatchId, activeMatchStatus, allPlayersReady, gameId, isHostForActiveMatch, isMatchmade, phase, serverAllReady]);
 
   // Safety net: keep pre-game state in sync even if realtime updates are delayed.
   useEffect(() => {
