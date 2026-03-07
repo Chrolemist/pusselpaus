@@ -127,6 +127,7 @@ export default function StagingScreen({
   useEffect(() => {
     if (resetRef) {
       (resetRef as React.MutableRefObject<(() => void) | null>).current = () => {
+        mm.reset();
         setPhase('staging');
         setActiveMatchId(null);
         setIsInviteOverlay(false);
@@ -652,16 +653,19 @@ export default function StagingScreen({
 
   /* ── Overlay: decline handler ── */
   const handleOverlayDecline = useCallback(async () => {
-    if (activeMatchId) {
-      if (isMatchmade) {
-        await mpForceCleanupActiveMatches();
-        await mp.refresh();
-        return;
-      } else {
-        await mp.declineInvite(activeMatchId);
-      }
+    const matchId = activeMatchId;
+    const wasMatchmade = isMatchmade;
+
+    mm.reset();
+    if (countdownTimerRef.current) {
+      window.clearInterval(countdownTimerRef.current);
+      countdownTimerRef.current = null;
     }
+    countdownRunningForMatchRef.current = null;
     clearActiveMatch(gameId);
+    if (wasMatchmade) {
+      for (const g of games) clearActiveMatch(g.id);
+    }
     setActiveMatchId(null);
     setIsInviteOverlay(false);
     setIsMatchmade(false);
@@ -670,8 +674,24 @@ export default function StagingScreen({
     setServerTotalCount(null);
     setServerAllReady(null);
     setPhase('staging');
+
+    if (!matchId) {
+      await mp.refresh();
+      return;
+    }
+
+    if (wasMatchmade) {
+      const cleanup = await mpForceCleanupActiveMatches();
+      if (cleanup.error) {
+        flash('Kunde inte städa matchmaking i backend. Prova att söka igen om du fastnar kvar.');
+      }
+    } else {
+      const err = await mp.declineInvite(matchId);
+      if (err) flash(err);
+    }
+
     await mp.refresh();
-  }, [activeMatchId, gameId, isMatchmade, mp]);
+  }, [activeMatchId, flash, gameId, isMatchmade, mm, mp]);
 
   /* ── Auto-start when all players accept ── */
   // Derived stable primitives for the auto-start effect
@@ -723,15 +743,18 @@ export default function StagingScreen({
     // and force-clean them (tries RPCs, falls back to direct table updates).
     // This handles the edge case where a matchmade match is stuck in
     // 'waiting' with both players 'accepted' and no RPC can un-stuck it.
-    const cleaned = await mpForceCleanupActiveMatches();
-    if (cleaned > 0) {
+    const cleanup = await mpForceCleanupActiveMatches();
+    if (cleanup.error) {
+      flash('Kunde inte städa tidigare matchmaking helt. Försöker ansluta ändå.');
+    }
+    if (cleanup.cleaned > 0) {
       // Also clear all game localStorage entries
       for (const g of games) clearActiveMatch(g.id);
       await mp.refresh();
     }
 
     await mm.join(difficulty);
-  }, [mm, difficulty, mp]);
+  }, [mm, difficulty, mp, flash]);
 
   /* ── Matchmaking: leave queue handler ── */
   const handleLeaveQueue = useCallback(async () => {
@@ -941,14 +964,17 @@ export default function StagingScreen({
       gameId,
       matchId: activeMatchId,
     });
-    await mpForceCleanupActiveMatches();
+    const cleanup = await mpForceCleanupActiveMatches();
+    if (cleanup.error) {
+      flash('Kunde inte städa matchen helt i backend.');
+    }
     clearActiveMatch(gameId);
     setActiveMatchId(null);
     setIsMatchmade(false);
     startSentRef.current = false;
     setPhase('staging');
     await mp.refresh();
-  }, [activeMatchId, gameId, mp]);
+  }, [activeMatchId, gameId, mp, flash]);
 
   /* ── Toggle friend selection ── */
   const toggleFriend = (id: string) =>

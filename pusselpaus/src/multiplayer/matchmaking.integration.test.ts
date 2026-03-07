@@ -196,7 +196,7 @@ describe('Scenario 2: stuck match blocks queue — nuclear cleanup', () => {
     mockRpc.mockResolvedValue({ data: 1, error: null });
 
     const cleaned = await mpForceCleanupActiveMatches();
-    expect(cleaned).toBe(1);
+    expect(cleaned).toEqual({ cleaned: 1, error: null });
     expect(mockRpc).toHaveBeenCalledWith('mp_force_cleanup');
   });
 
@@ -204,7 +204,7 @@ describe('Scenario 2: stuck match blocks queue — nuclear cleanup', () => {
     mockRpc.mockResolvedValue({ data: null, error: { message: 'DB error' } });
 
     const cleaned = await mpForceCleanupActiveMatches();
-    expect(cleaned).toBe(0);
+    expect(cleaned).toEqual({ cleaned: 0, error: 'DB error' });
   });
 
   it('after cleanup, matchmake_join succeeds', async () => {
@@ -314,7 +314,7 @@ describe('Scenario 4: auto-start never fired — match stuck in waiting', () => 
     mockRpc.mockResolvedValue({ data: 1, error: null });
 
     const cleaned = await mpForceCleanupActiveMatches();
-    expect(cleaned).toBe(1);
+    expect(cleaned).toEqual({ cleaned: 1, error: null });
     expect(mockRpc).toHaveBeenCalledWith('mp_force_cleanup');
   });
 });
@@ -383,7 +383,7 @@ describe('Scenario 6: cross-game blocking', () => {
     mockRpc.mockResolvedValue({ data: 2, error: null });
 
     const cleaned = await mpForceCleanupActiveMatches();
-    expect(cleaned).toBe(2);
+    expect(cleaned).toEqual({ cleaned: 2, error: null });
     expect(mockRpc).toHaveBeenCalledWith('mp_force_cleanup');
   });
 });

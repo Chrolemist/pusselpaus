@@ -405,15 +405,26 @@ export async function mpSubmitResult(
  *  The server function bypasses all of that by using SECURITY DEFINER.
  */
 
-export async function mpForceCleanupActiveMatches(): Promise<number> {
+export interface MpForceCleanupResult {
+  cleaned: number;
+  error: string | null;
+}
+
+export async function mpForceCleanupActiveMatches(): Promise<MpForceCleanupResult> {
   const { data, error } = await supabase.rpc('mp_force_cleanup');
   if (error) {
     console.error('[mp] Force cleanup RPC failed:', error);
-    return 0;
+    return {
+      cleaned: 0,
+      error: error.message || 'Kunde inte städa matchmaking',
+    };
   }
   const cleaned = typeof data === 'number' ? data : 0;
   if (cleaned > 0) {
     console.log(`[mp] Force cleanup: cleaned ${cleaned} matches`);
   }
-  return cleaned;
+  return {
+    cleaned,
+    error: null,
+  };
 }

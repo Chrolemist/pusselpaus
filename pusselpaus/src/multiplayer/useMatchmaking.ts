@@ -33,6 +33,8 @@ export interface MatchmakingState {
   join: (difficulty: string | null) => Promise<void>;
   /** Leave the queue */
   leave: () => Promise<void>;
+  /** Reset local matchmaking state without touching the server */
+  reset: () => void;
 }
 
 const POLL_INTERVAL = 2000; // 2s
@@ -47,6 +49,19 @@ export function useMatchmaking(gameId: string): MatchmakingState {
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const mountedRef = useRef(true);
+
+  const clearLocalState = useCallback(() => {
+    if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
+    if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
+
+    if (!mountedRef.current) return;
+    setStatus('idle');
+    setMatchId(null);
+    setConfigSeed(null);
+    setQueueSize(0);
+    setElapsed(0);
+    setError(null);
+  }, []);
 
   // Track status for unmount cleanup
   const statusRef = useRef(status);
@@ -103,6 +118,7 @@ export function useMatchmaking(gameId: string): MatchmakingState {
   }, [gameId, handleResult]);
 
   const join = useCallback(async (difficulty: string | null) => {
+    clearLocalState();
     setError(null);
     setElapsed(0);
     setStatus('queuing');
@@ -123,22 +139,16 @@ export function useMatchmaking(gameId: string): MatchmakingState {
     if (data.queued) {
       startPolling();
     }
-  }, [gameId, handleResult, startPolling]);
+  }, [clearLocalState, gameId, handleResult, startPolling]);
 
   const leave = useCallback(async () => {
-    // Stop polling
-    if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
-    if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
-
-    setStatus('idle');
-    setMatchId(null);
-    setConfigSeed(null);
-    setQueueSize(0);
-    setElapsed(0);
-    setError(null);
-
+    clearLocalState();
     await matchmakeLeave(gameId);
-  }, [gameId]);
+  }, [clearLocalState, gameId]);
+
+  const reset = useCallback(() => {
+    clearLocalState();
+  }, [clearLocalState]);
 
   return {
     status,
@@ -149,5 +159,6 @@ export function useMatchmaking(gameId: string): MatchmakingState {
     error,
     join,
     leave,
+    reset,
   };
 }
