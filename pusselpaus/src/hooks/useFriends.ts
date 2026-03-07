@@ -92,25 +92,40 @@ export function useFriends() {
           schema: 'public',
           table: 'friendships',
         },
-        (payload) => {
-          const next = payload.new as { requester_id?: string; addressee_id?: string } | null;
-          const prev = payload.old as { requester_id?: string; addressee_id?: string } | null;
-          const isRelevant = [
-            next?.requester_id,
-            next?.addressee_id,
-            prev?.requester_id,
-            prev?.addressee_id,
-          ].includes(user.id);
-
-          if (isRelevant) {
-            scheduleRefresh();
-          }
+        () => {
+          scheduleRefresh();
         },
       )
-      .subscribe();
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED') {
+          scheduleRefresh();
+        }
+      });
+
+    const handleFocus = () => {
+      scheduleRefresh();
+    };
+
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        scheduleRefresh();
+      }
+    };
+
+    window.addEventListener('focus', handleFocus);
+    document.addEventListener('visibilitychange', handleVisibility);
+
+    const fallbackInterval = window.setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        void fetchFriends();
+      }
+    }, 10000);
 
     return () => {
       if (reloadTimer) window.clearTimeout(reloadTimer);
+      window.removeEventListener('focus', handleFocus);
+      document.removeEventListener('visibilitychange', handleVisibility);
+      window.clearInterval(fallbackInterval);
       void supabase.removeChannel(channel);
     };
   }, [user, fetchFriends]);
