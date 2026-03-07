@@ -246,6 +246,17 @@ export default function StagingScreen({
       // Restore matchmade flag from persisted payload
       if (existing.matchmade) setIsMatchmade(true);
 
+      if (existing.matchmade && status === 'waiting') {
+        mpDebug('StagingScreen', 'restore:matchmade_keep_match_found', {
+          gameId,
+          matchId: existing.matchId,
+          status,
+        });
+        setIsInviteOverlay(false);
+        setPhase('match-found');
+        return;
+      }
+
       // Show match-found overlay if flagged (friend invite just accepted)
       if (existing.showOverlay && status === 'waiting') {
         mpDebug('StagingScreen', 'restore:show_overlay', {
@@ -253,7 +264,7 @@ export default function StagingScreen({
           matchId: existing.matchId,
           status,
         });
-        setIsInviteOverlay(existing.matchmade ? false : true);
+        setIsInviteOverlay(true);
         setMatchFoundAcceptedLocal(false);
         setPhase('match-found');
         // Clear the flag so a page refresh goes to normal waiting
