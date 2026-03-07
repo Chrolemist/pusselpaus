@@ -2,6 +2,8 @@
 
 Use this folder as a copy base when you add a new game.
 
+Project-wide architecture rules live in `docs/adding-games.md`.
+
 ## Suggested steps
 
 1. Copy this folder to `src/games/<game-id>`.
@@ -9,6 +11,7 @@ Use this folder as a copy base when you add a new game.
 3. Replace UI and game logic in `pages` and `core`.
 4. Keep storage keys unique per game.
 5. Register the game in `src/game-registry/index.ts`.
+6. Keep the game route lazy and avoid pulling game-specific code into `App.tsx` or other shell components.
 
 ## Folder structure
 

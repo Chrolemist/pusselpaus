@@ -1,3 +1,11 @@
+# PusselPaus
+
+## Add New Games Safely
+
+When you add more games, follow [docs/adding-games.md](docs/adding-games.md).
+
+The important rule is that every new game should stay route-lazy and keep heavy UI, audio, and tutorial code inside the game module instead of the app shell.
+
 # React + TypeScript + Vite
 
 This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
