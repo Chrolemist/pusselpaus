@@ -1398,7 +1398,7 @@ export default function StagingScreen({
 
   /* ── Match-found overlay (matchmaking ready-up) ── */
   if (phase === 'match-found') {
-    const acceptDeadlineAt = activeEntry?.match.created_at
+    const acceptDeadlineAt = !isMatchmade && activeEntry?.match.created_at
       ? new Date(new Date(activeEntry.match.created_at).getTime() + 15_000).toISOString()
       : null;
 
@@ -1413,7 +1413,7 @@ export default function StagingScreen({
         myId={user?.id ?? ''}
         onAccept={handleOverlayAccept}
         onDecline={handleOverlayDecline}
-        noTimeout={isInviteOverlay && !isMatchmade}
+        noTimeout={isInviteOverlay || isMatchmade}
         enableSounds
       />
     );
