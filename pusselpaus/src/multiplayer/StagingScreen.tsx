@@ -238,17 +238,20 @@ export default function StagingScreen({
   const tickStartSentForMatchRef = useRef<string | null>(null);
   // Guard: ensure game onStart is invoked only once per match
   const gameStartedForMatchRef = useRef<string | null>(null);
+  const declineHandledForMatchRef = useRef<string | null>(null);
   // Guard: prevent countdown interval recreation spam for same match
   const countdownTimerRef = useRef<number | null>(null);
   const countdownRunningForMatchRef = useRef<string | null>(null);
   const countdownFallbackRefreshAtRef = useRef<number>(0);
   const countdownFallbackTickAtRef = useRef<number>(0);
+  const declineCleanupTimerRef = useRef<number | null>(null);
   // Reset startSent when match changes (new match or match cleared)
   useEffect(() => {
     startSentRef.current = false;
     localAcceptMatchIdRef.current = null;
     tickStartSentForMatchRef.current = null;
     gameStartedForMatchRef.current = null;
+    declineHandledForMatchRef.current = null;
     setMatchFoundAcceptedLocal(false);
     setServerReadyCount(null);
     setServerTotalCount(null);
@@ -260,6 +263,10 @@ export default function StagingScreen({
     countdownRunningForMatchRef.current = null;
     countdownFallbackRefreshAtRef.current = 0;
     countdownFallbackTickAtRef.current = 0;
+    if (declineCleanupTimerRef.current) {
+      window.clearTimeout(declineCleanupTimerRef.current);
+      declineCleanupTimerRef.current = null;
+    }
   }, [activeMatchId]);
 
   // Derived stable values for the effect
@@ -320,6 +327,31 @@ export default function StagingScreen({
 
   useEffect(() => {
     if (!activeMatchStatus || !activeMatchMatchId) return;
+
+    const hasDeclinedPlayer = activeEntry?.players.some((p) => p.player.status === 'declined') === true;
+
+    if (
+      hasDeclinedPlayer
+      && (activeMatchStatus === 'waiting' || activeMatchStatus === 'starting' || activeMatchStatus === 'cancelled')
+      && declineHandledForMatchRef.current !== activeMatchMatchId
+    ) {
+      declineHandledForMatchRef.current = activeMatchMatchId;
+
+      if (countdownTimerRef.current) {
+        window.clearInterval(countdownTimerRef.current);
+        countdownTimerRef.current = null;
+      }
+      countdownRunningForMatchRef.current = null;
+
+      setPhase('match-found');
+      declineCleanupTimerRef.current = window.setTimeout(() => {
+        clearActiveMatch(gameId);
+        setActiveMatchId(null);
+        setIsMatchmade(false);
+        setPhase('staging');
+      }, 1800);
+      return;
+    }
 
     // Match ended or I forfeited — clean up and go back to staging
     if (activeMatchStatus === 'completed' || activeMatchStatus === 'cancelled' || meForfeited) {
@@ -446,13 +478,17 @@ export default function StagingScreen({
       });
       startGameOnce(activeMatchMatchId, 'in_progress');
     }
-  }, [activeMatchStatus, activeMatchStartedAt, activeMatchMatchId, activeMatchHostId, isHostForActiveMatch, meForfeited, gameId, isMatchmade, meReadyForActiveMatch, serverAllReady, serverTotalCount, startGameOnce]);
+  }, [activeEntry, activeMatchStatus, activeMatchStartedAt, activeMatchMatchId, activeMatchHostId, isHostForActiveMatch, meForfeited, gameId, isMatchmade, meReadyForActiveMatch, serverAllReady, serverTotalCount, startGameOnce]);
 
   useEffect(() => {
     return () => {
       if (countdownTimerRef.current) {
         window.clearInterval(countdownTimerRef.current);
         countdownTimerRef.current = null;
+      }
+      if (declineCleanupTimerRef.current) {
+        window.clearTimeout(declineCleanupTimerRef.current);
+        declineCleanupTimerRef.current = null;
       }
       countdownRunningForMatchRef.current = null;
     };
@@ -572,6 +608,7 @@ export default function StagingScreen({
         skin: displaySkin(profile?.skin),
         level: profile?.level ?? null,
         accepted,
+        declined: player.status === 'declined',
       };
     });
   }, [activeEntry, isMatchmade, user?.id, matchFoundAcceptedLocal]);
@@ -618,6 +655,8 @@ export default function StagingScreen({
     if (activeMatchId) {
       if (isMatchmade) {
         await mpForceCleanupActiveMatches();
+        await mp.refresh();
+        return;
       } else {
         await mp.declineInvite(activeMatchId);
       }
@@ -820,6 +859,8 @@ export default function StagingScreen({
   useEffect(() => {
     if (phase !== 'waiting' || activeMatchId) return;
 
+    const currentPayload = getActiveMatchPayload(gameId);
+
     // Find a match I'm hosting in waiting state for this game
     const myMatch = mp.matches.find(
       (m) =>
@@ -835,6 +876,8 @@ export default function StagingScreen({
         setAt: new Date().toISOString(),
         config: (myMatch.match.config as Record<string, unknown> | null) ?? undefined,
         configSeed: myMatch.match.config_seed ?? undefined,
+        matchmade: currentPayload?.matchmade,
+        showOverlay: currentPayload?.showOverlay,
       });
     }
   }, [phase, activeMatchId, mp.matches, gameId, user?.id]);

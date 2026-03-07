@@ -40,6 +40,7 @@ export interface MatchPlayer {
   skin: string;
   level: number | null;
   accepted: boolean;
+  declined?: boolean;
 }
 
 export interface MatchFoundOverlayProps {
@@ -100,6 +101,7 @@ export default function MatchFoundOverlay({
   const acceptedCount = acceptedCountOverride ?? players.filter((p) => p.accepted).length;
   const totalCount = totalCountOverride ?? players.length;
   const allAccepted = totalCount > 0 && acceptedCount >= totalCount;
+  const anyDeclined = players.some((p) => p.declined === true);
 
   /* ── Play match-found sound when overlay opens ── */
   useEffect(() => {
@@ -126,7 +128,7 @@ export default function MatchFoundOverlay({
     }
 
     // No countdown for friend-invite flow
-    if (noTimeout) {
+    if (noTimeout || anyDeclined) {
       mpDebug('MatchFoundOverlay', 'countdown:skipped_noTimeout');
       return;
     }
@@ -188,7 +190,7 @@ export default function MatchFoundOverlay({
       mpDebug('MatchFoundOverlay', 'countdown:cleanup_interval');
       if (timerRef.current) clearInterval(timerRef.current);
     };
-  }, [visible, timeLimit, noTimeout, enableSounds, players.length, deadlineAt, totalCount, allAccepted]);
+  }, [visible, timeLimit, noTimeout, anyDeclined, enableSounds, players.length, deadlineAt, totalCount, allAccepted]);
 
   /* ── Accept blip when new players accept ── */
   useEffect(() => {
@@ -361,9 +363,11 @@ export default function MatchFoundOverlay({
                 <motion.div
                   key={p.id}
                   className={`relative flex flex-col items-center gap-1 rounded-xl px-3 py-2 transition-colors duration-300 ${
-                    p.accepted
-                      ? 'bg-success/15 ring-1 ring-success/40'
-                      : 'bg-white/5 ring-1 ring-white/10'
+                    p.declined
+                      ? 'bg-red-500/15 ring-1 ring-red-500/40'
+                      : p.accepted
+                        ? 'bg-success/15 ring-1 ring-success/40'
+                        : 'bg-white/5 ring-1 ring-white/10'
                   }`}
                   initial={{ scale: 0, opacity: 0 }}
                   animate={{ scale: 1, opacity: 1 }}
@@ -389,15 +393,15 @@ export default function MatchFoundOverlay({
 
                   {/* Accepted indicator */}
                   <AnimatePresence>
-                    {p.accepted && (
+                    {(p.accepted || p.declined) && (
                       <motion.div
-                        className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-success text-[10px] font-bold text-white shadow"
+                        className={`absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold text-white shadow ${p.declined ? 'bg-red-500' : 'bg-success'}`}
                         initial={{ scale: 0 }}
                         animate={{ scale: 1 }}
                         exit={{ scale: 0 }}
                         transition={{ type: 'spring', stiffness: 400, damping: 15 }}
                       >
-                        <Check className="h-3 w-3" />
+                        {p.declined ? <X className="h-3 w-3" /> : <Check className="h-3 w-3" />}
                       </motion.div>
                     )}
                   </AnimatePresence>
@@ -424,7 +428,7 @@ export default function MatchFoundOverlay({
               animate={{ y: 0, opacity: 1 }}
               transition={{ delay: 0.6, duration: 0.4 }}
             >
-              {!meAccepted ? (
+              {!meAccepted && !anyDeclined ? (
                 <>
                   <motion.button
                     onClick={handleAccept}
@@ -449,23 +453,35 @@ export default function MatchFoundOverlay({
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                 >
-                  <div className="flex items-center gap-2 text-success">
-                    <motion.span
-                      className="text-lg"
-                      animate={{ scale: [1, 1.2, 1] }}
-                      transition={{ duration: 0.6, repeat: Infinity, repeatDelay: 1 }}
-                    >
-                      <Check className="h-5 w-5" />
-                    </motion.span>
-                    <span className="text-sm font-semibold">Accepterat!</span>
-                  </div>
-                  {!allAccepted && (
-                    <p className="text-xs text-text-muted">
-                      Väntar på andra spelare…
-                    </p>
+                  {anyDeclined ? (
+                    <>
+                      <div className="flex items-center gap-2 text-red-300">
+                        <X className="h-5 w-5" />
+                        <span className="text-sm font-semibold">En spelare nekade matchen</span>
+                      </div>
+                      <p className="text-xs text-text-muted">Matchen stängs…</p>
+                    </>
+                  ) : (
+                    <>
+                      <div className="flex items-center gap-2 text-success">
+                        <motion.span
+                          className="text-lg"
+                          animate={{ scale: [1, 1.2, 1] }}
+                          transition={{ duration: 0.6, repeat: Infinity, repeatDelay: 1 }}
+                        >
+                          <Check className="h-5 w-5" />
+                        </motion.span>
+                        <span className="text-sm font-semibold">Accepterat!</span>
+                      </div>
+                      {!allAccepted && (
+                        <p className="text-xs text-text-muted">
+                          Väntar på andra spelare…
+                        </p>
+                      )}
+                    </>
                   )}
                   {/* Exit button for friend-invite flow (no timer to auto-exit) */}
-                  {noTimeout && (
+                  {noTimeout && !anyDeclined && (
                     <motion.button
                       onClick={onDecline}
                       className="mt-2 flex items-center gap-1 rounded-lg bg-white/5 px-4 py-2 text-xs font-semibold text-text-muted ring-1 ring-white/10 transition hover:bg-red-500/15 hover:text-red-300 hover:ring-red-500/30"
@@ -481,7 +497,7 @@ export default function MatchFoundOverlay({
 
             {/* ── All accepted state ── */}
             <AnimatePresence>
-              {allAccepted && (
+              {allAccepted && !anyDeclined && (
                 <motion.p
                   className="text-center text-sm font-bold text-success"
                   initial={{ opacity: 0, y: 10 }}
