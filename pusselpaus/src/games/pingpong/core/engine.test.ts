@@ -79,4 +79,70 @@ describe('pingpong engine', () => {
     expect(Math.abs(boosted.ball.vx)).toBeGreaterThan(Math.abs(state.ball.vx));
     expect(boosted.boostReady.left).toBe(false);
   });
+
+  it('keeps each side charge across alternating rallies', () => {
+    let state = createInitialPongState('versus', 'medium');
+
+    for (let index = 0; index < 3; index += 1) {
+      state = stepPong(
+        {
+          ...state,
+          status: 'playing',
+          ball: {
+            x: PONG_CONFIG.paddleInset + PONG_CONFIG.paddleWidth - 2,
+            y: state.paddles.left.y + 30,
+            vx: -420,
+            vy: 0,
+            isFireball: false,
+          },
+        },
+        { left: { up: false, down: false }, right: { up: false, down: false } },
+        16,
+      );
+
+      expect(state.boostCharge.left).toBe(index + 1);
+
+      state = stepPong(
+        {
+          ...state,
+          status: 'playing',
+          ball: {
+            x: PONG_CONFIG.width - PONG_CONFIG.paddleInset - PONG_CONFIG.paddleWidth - PONG_CONFIG.ballSize + 2,
+            y: state.paddles.right.y + 30,
+            vx: 420,
+            vy: 0,
+            isFireball: false,
+          },
+        },
+        { left: { up: false, down: false }, right: { up: false, down: false } },
+        16,
+      );
+
+      expect(state.boostCharge.left).toBe(index + 1);
+      expect(state.boostCharge.right).toBe(index + 1);
+    }
+
+    expect(state.boostReady.left).toBe(false);
+    expect(state.boostReady.right).toBe(false);
+
+    state = stepPong(
+      {
+        ...state,
+        status: 'playing',
+        ball: {
+          x: PONG_CONFIG.paddleInset + PONG_CONFIG.paddleWidth - 2,
+          y: state.paddles.left.y + 30,
+          vx: -420,
+          vy: 0,
+          isFireball: false,
+        },
+      },
+      { left: { up: false, down: false }, right: { up: false, down: false } },
+      16,
+    );
+
+    expect(state.boostCharge.left).toBe(PONG_CONFIG.fireBoostChargeHits);
+    expect(state.boostReady.left).toBe(true);
+    expect(state.boostCharge.right).toBe(3);
+  });
 });

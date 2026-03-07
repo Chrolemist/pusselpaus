@@ -157,8 +157,8 @@ function reflectFromPaddle(state: PongState, side: PongSide, paddleY: number, ne
     rallyHits: state.rallyHits + 1,
     bestRally: Math.max(state.bestRally, state.rallyHits + 1),
     boostCharge: {
-      left: side === 'left' ? nextCharge : 0,
-      right: side === 'right' ? nextCharge : 0,
+      left: side === 'left' ? nextCharge : state.boostCharge.left,
+      right: side === 'right' ? nextCharge : state.boostCharge.right,
     },
     boostReady: {
       left: side === 'left' ? state.boostReady.left || nextCharge >= PONG_CONFIG.fireBoostChargeHits : state.boostReady.left,
