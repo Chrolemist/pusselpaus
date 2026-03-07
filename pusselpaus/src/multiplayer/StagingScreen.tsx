@@ -27,7 +27,15 @@ import {
   gameLabel,
 } from './useMultiplayer';
 import { useMatchmaking } from './useMatchmaking';
-import { setActiveMatchPayload, clearActiveMatch, getActiveMatchPayload } from './activeMatch';
+import {
+  setActiveMatchPayload,
+  clearActiveMatch,
+  getActiveMatchPayload,
+  clearAllActiveMatches,
+  getPendingMatchmakingCleanup,
+  clearPendingMatchmakingCleanup,
+  setPendingMatchmakingCleanup,
+} from './activeMatch';
 import { mpForceCleanupActiveMatches } from './api';
 import MatchFoundOverlay from './MatchFoundOverlay';
 import type { MatchPlayer } from './MatchFoundOverlay';
@@ -257,6 +265,7 @@ export default function StagingScreen({
   useEffect(() => { mpRef.current = mp; }, [mp]);
   const onStartRef = useRef(onStart);
   useEffect(() => { onStartRef.current = onStart; }, [onStart]);
+  const pendingCleanupHandledRef = useRef(false);
 
   // Guard: prevent auto-start from calling startMatchIfReady multiple times
   const startSentRef = useRef(false);
@@ -527,6 +536,29 @@ export default function StagingScreen({
     setMessage(msg);
     setTimeout(() => setMessage(null), 3000);
   }, []);
+
+  useEffect(() => {
+    if (pendingCleanupHandledRef.current) return;
+    const pendingCleanup = getPendingMatchmakingCleanup();
+    if (!pendingCleanup) return;
+
+    pendingCleanupHandledRef.current = true;
+    clearPendingMatchmakingCleanup();
+    clearAllActiveMatches();
+
+    void (async () => {
+      mpDebug('StagingScreen', 'pending_cleanup:resume', {
+        gameId,
+        reason: pendingCleanup.reason ?? null,
+        setAt: pendingCleanup.setAt,
+      });
+      const cleanup = await mpForceCleanupActiveMatches();
+      if (cleanup.error) {
+        flash('En gammal matchmaking kunde inte städas helt i backend.');
+      }
+      await mpRef.current.refresh();
+    })();
+  }, [flash, gameId]);
 
   /* ── Matchmaking: when matched, show match-found overlay ── */
   const handledMatchmakeMatchIdRef = useRef<string | null>(null);
@@ -1013,9 +1045,11 @@ export default function StagingScreen({
   const activeMatchIdRef = useRef(activeMatchId);
   const isMatchmadeRef = useRef(isMatchmade);
   const phaseRef = useRef(phase);
+  const matchmakingStatusRef = useRef(mm.status);
   useEffect(() => { activeMatchIdRef.current = activeMatchId; }, [activeMatchId]);
   useEffect(() => { isMatchmadeRef.current = isMatchmade; }, [isMatchmade]);
   useEffect(() => { phaseRef.current = phase; }, [phase]);
+  useEffect(() => { matchmakingStatusRef.current = mm.status; }, [mm.status]);
 
   /**
    * Leave / forfeit + clean, called from event handlers.
@@ -1045,22 +1079,56 @@ export default function StagingScreen({
     })();
   }, [gameId]);
 
+  const cleanupMatchmadeExit = useCallback((reason: 'unmount' | 'beforeunload' | 'pagehide') => {
+    const p = phaseRef.current;
+    const isQueueing = matchmakingStatusRef.current === 'queuing';
+    const isPreGameMatchmade = isMatchmadeRef.current && p !== 'playing';
+
+    if (!isQueueing && !isPreGameMatchmade) return;
+
+    mpDebug('StagingScreen', 'matchmade_exit:cleanup_requested', {
+      gameId,
+      reason,
+      phase: p,
+      isQueueing,
+      isMatchmade: isMatchmadeRef.current,
+      activeMatchId: activeMatchIdRef.current,
+    });
+
+    setPendingMatchmakingCleanup(reason);
+    clearAllActiveMatches();
+
+    void (async () => {
+      await mpForceCleanupActiveMatches();
+    })();
+  }, [gameId]);
+
   /* ── Auto-forfeit on component unmount (navigation away) ── */
   useEffect(() => {
     return () => {
+      cleanupMatchmadeExit('unmount');
       forfeitNow();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [forfeitNow]);
+  }, [cleanupMatchmadeExit, forfeitNow]);
 
   /* ── Auto-forfeit on tab close / refresh (beforeunload) ── */
   useEffect(() => {
     const onBeforeUnload = () => {
+      cleanupMatchmadeExit('beforeunload');
+      forfeitNow();
+    };
+    const onPageHide = () => {
+      cleanupMatchmadeExit('pagehide');
       forfeitNow();
     };
     window.addEventListener('beforeunload', onBeforeUnload);
-    return () => window.removeEventListener('beforeunload', onBeforeUnload);
-  }, [forfeitNow]);
+    window.addEventListener('pagehide', onPageHide);
+    return () => {
+      window.removeEventListener('beforeunload', onBeforeUnload);
+      window.removeEventListener('pagehide', onPageHide);
+    };
+  }, [cleanupMatchmadeExit, forfeitNow]);
 
   /* ── If phase is 'playing', render the actual game ── */
   if (phase === 'playing') {

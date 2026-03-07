@@ -5,6 +5,10 @@ import {
   getActiveMatchPayload,
   setActiveMatchPayload,
   clearActiveMatch,
+  clearAllActiveMatches,
+  getPendingMatchmakingCleanup,
+  setPendingMatchmakingCleanup,
+  clearPendingMatchmakingCleanup,
   getActiveMatchKey,
 } from '../multiplayer/activeMatch';
 import type { ActiveMatchPayload } from '../multiplayer/types';
@@ -76,6 +80,36 @@ describe('clearActiveMatch', () => {
     setActiveMatchPayload('numberpath', { matchId: 'n', setAt: 'now' });
     clearActiveMatch('sudoku');
     expect(getActiveMatchPayload('numberpath')).not.toBeNull();
+  });
+});
+
+describe('clearAllActiveMatches', () => {
+  it('removes active matches for all games', () => {
+    setActiveMatchPayload('sudoku', { matchId: 's', setAt: 'now' });
+    setActiveMatchPayload('numberpath', { matchId: 'n', setAt: 'now' });
+    localStorage.setItem('other:key', 'keep');
+
+    clearAllActiveMatches();
+
+    expect(getActiveMatchPayload('sudoku')).toBeNull();
+    expect(getActiveMatchPayload('numberpath')).toBeNull();
+    expect(localStorage.getItem('other:key')).toBe('keep');
+  });
+});
+
+describe('pending matchmaking cleanup', () => {
+  it('stores and retrieves pending cleanup payload', () => {
+    setPendingMatchmakingCleanup('beforeunload');
+
+    const result = getPendingMatchmakingCleanup();
+    expect(result?.reason).toBe('beforeunload');
+    expect(typeof result?.setAt).toBe('string');
+  });
+
+  it('clears pending cleanup payload', () => {
+    setPendingMatchmakingCleanup('unmount');
+    clearPendingMatchmakingCleanup();
+    expect(getPendingMatchmakingCleanup()).toBeNull();
   });
 });
 
