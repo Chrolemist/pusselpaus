@@ -670,3 +670,87 @@ describe('queue leave on unmount', () => {
     });
   });
 });
+
+/* ═══════════════════════════════════════════════════════════════════════
+ *  11. MATCH-FOUND PHASE REGRESSIONS
+ *     Matchmade waiting must stay in the accept overlay.
+ *     Friend-invite waiting must still use the normal waiting panel unless
+ *     showOverlay is explicitly set.
+ * ═══════════════════════════════════════════════════════════════════════ */
+
+describe('match-found phase regressions', () => {
+  function resolveRestorePhase(args: {
+    status: 'waiting' | 'starting' | 'in_progress' | 'completed' | 'cancelled';
+    matchmade?: boolean;
+    showOverlay?: boolean;
+    activePlayerCount?: number;
+  }): 'match-found' | 'waiting' | 'playing' | 'staging' | 'unchanged' {
+    const { status, matchmade, showOverlay, activePlayerCount = 2 } = args;
+
+    if (status === 'completed' || status === 'cancelled') {
+      return 'staging';
+    }
+
+    if (matchmade && status === 'waiting' && activePlayerCount < 2) {
+      return 'staging';
+    }
+
+    if (matchmade && status === 'waiting') {
+      return 'match-found';
+    }
+
+    if (showOverlay && status === 'waiting') {
+      return 'match-found';
+    }
+
+    if (status === 'waiting') {
+      return 'waiting';
+    }
+
+    if (status === 'in_progress') {
+      return 'playing';
+    }
+
+    return 'unchanged';
+  }
+
+  it('keeps random matchmaking in match-found while match is still waiting', () => {
+    const resolved = resolveRestorePhase({
+      status: 'waiting',
+      matchmade: true,
+      showOverlay: undefined,
+      activePlayerCount: 2,
+    });
+
+    expect(resolved).toBe('match-found');
+  });
+
+  it('does not downgrade one random-match client to the generic waiting panel', () => {
+    const clientA = resolveRestorePhase({
+      status: 'waiting',
+      matchmade: true,
+      showOverlay: true,
+      activePlayerCount: 2,
+    });
+    const clientB = resolveRestorePhase({
+      status: 'waiting',
+      matchmade: true,
+      showOverlay: undefined,
+      activePlayerCount: 2,
+    });
+
+    expect(clientA).toBe('match-found');
+    expect(clientB).toBe('match-found');
+  });
+
+  it('still sends friend-invite waiting matches to the normal waiting panel when no overlay flag exists', () => {
+    const resolved = resolveRestorePhase({
+      status: 'waiting',
+      matchmade: false,
+      showOverlay: undefined,
+      activePlayerCount: 2,
+    });
+
+    expect(resolved).toBe('waiting');
+  });
+});

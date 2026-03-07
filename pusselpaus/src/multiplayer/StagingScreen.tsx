@@ -193,8 +193,28 @@ export default function StagingScreen({
         entryFound: Boolean(entry),
       });
 
-      // Match not found in lobby data yet — wait for it to load
-      if (!entry) return;
+      // Match not found in lobby data yet — keep the user in multiplayer flow
+      // and force a refresh instead of exposing the solo staging screen.
+      if (!entry) {
+        setActiveMatchId(existing.matchId);
+        if (existing.matchmade) {
+          setIsMatchmade(true);
+          setIsInviteOverlay(false);
+          setPhase('match-found');
+        } else if (existing.showOverlay) {
+          setIsInviteOverlay(true);
+          setPhase('match-found');
+        } else {
+          setPhase('waiting');
+        }
+
+        const now = Date.now();
+        if (now - restoreRefreshAtRef.current > 1000) {
+          restoreRefreshAtRef.current = now;
+          void mpRef.current.refresh();
+        }
+        return;
+      }
 
       const status = entry.match.status;
       const mePlayer = entry.players.find((p) => p.player.user_id === user?.id);
@@ -296,6 +316,7 @@ export default function StagingScreen({
     () => mp.matches.find((m) => m.match.id === activeMatchId),
     [mp.matches, activeMatchId],
   );
+  const hasPendingActiveMatchRestore = !!activePayload?.matchId && !activeEntry;
 
   // Stable refs to avoid re-running the countdown effect on every realtime reload
   const mpRef = useRef(mp);
@@ -303,6 +324,7 @@ export default function StagingScreen({
   const onStartRef = useRef(onStart);
   useEffect(() => { onStartRef.current = onStart; }, [onStart]);
   const pendingCleanupHandledRef = useRef(false);
+  const restoreRefreshAtRef = useRef(0);
 
   // Guard: prevent auto-start from calling startMatchIfReady multiple times
   const startSentRef = useRef(false);
@@ -1254,8 +1276,19 @@ export default function StagingScreen({
         </motion.p>
       )}
 
+      {hasPendingActiveMatchRestore && (
+        <motion.div
+          initial={{ opacity: 0, y: -5 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="rounded-2xl bg-surface-card px-4 py-3 text-center ring-1 ring-white/10"
+        >
+          <p className="text-sm font-semibold text-white">Återansluter till multiplayer...</p>
+          <p className="mt-1 text-xs text-text-muted">Matchen laddas in innan du kan fortsätta.</p>
+        </motion.div>
+      )}
+
       {/* Difficulty picker */}
-      {difficulties.length > 1 && phase === 'staging' && (
+      {difficulties.length > 1 && phase === 'staging' && !hasPendingActiveMatchRestore && (
         <div className="flex gap-2">
           {difficulties.map((d) => (
             <button
@@ -1274,7 +1307,7 @@ export default function StagingScreen({
       )}
 
       {/* ── STAGING phase ── */}
-      {phase === 'staging' && (
+      {phase === 'staging' && !hasPendingActiveMatchRestore && (
         <div className="flex w-full max-w-sm flex-col items-center gap-4">
           {/* Resume saved game */}
           {hasSavedGame && onResume && (
