@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useAuth } from '../../auth';
 import { motion } from 'motion/react';
-import { Check, Mail, Puzzle } from 'lucide-react';
+import { Check, Puzzle } from 'lucide-react';
 
 export default function LoginPage() {
   const { signInWithGoogle, signInWithDiscord, signInWithEmail, enterGuestMode, loading } = useAuth();
@@ -68,22 +68,14 @@ export default function LoginPage() {
           onSubmit={handleEmailLogin}
           className="rounded-[26px] border border-white/8 bg-white/[0.045] p-4 ring-1 ring-white/8 shadow-xl"
         >
-          <div className="flex items-center gap-2 text-sm font-semibold text-white">
-            <Mail className="h-4 w-4 text-brand-light" />
-            Email magic link
-          </div>
-          <p className="mt-1 text-xs text-text-muted">
-            Vi skickar en magic link till din inkorg.
-          </p>
-
-          <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+          <div className="flex flex-col gap-2 sm:flex-row">
             <input
               type="email"
               inputMode="email"
               autoComplete="email"
               value={email}
               onChange={(event) => setEmail(event.target.value)}
-              placeholder="namn@email.se"
+              placeholder="Din e-postadress"
               disabled={loading || emailPending}
               className="min-w-0 flex-1 rounded-2xl bg-black/20 px-4 py-3 text-sm text-white outline-none ring-1 ring-white/10 placeholder:text-text-muted focus:ring-brand/50 disabled:opacity-60"
             />
