@@ -353,6 +353,7 @@ export default function StagingScreen({
   const countdownFallbackRefreshAtRef = useRef<number>(0);
   const countdownFallbackTickAtRef = useRef<number>(0);
   const declineCleanupTimerRef = useRef<number | null>(null);
+  const hostAutoReadySentForMatchRef = useRef<string | null>(null);
   // Reset startSent when match changes (new match or match cleared)
   useEffect(() => {
     startSentRef.current = false;
@@ -360,6 +361,7 @@ export default function StagingScreen({
     tickStartSentForMatchRef.current = null;
     gameStartedForMatchRef.current = null;
     declineHandledForMatchRef.current = null;
+    hostAutoReadySentForMatchRef.current = null;
     setMatchFoundAcceptedLocal(false);
     setServerReadyCount(null);
     setServerTotalCount(null);
@@ -395,6 +397,36 @@ export default function StagingScreen({
     return mePlayer.player.ready === true;
   })();
   const meReadyForActiveMatch = matchFoundAcceptedLocal || meReadyFromServer;
+
+  useEffect(() => {
+    if (!activeMatchId || !activeMatchMatchId) return;
+    if (isMatchmade) return;
+    if (!isHostForActiveMatch) return;
+    if (activeMatchStatus !== 'waiting') return;
+    if (meReadyFromServer) return;
+    if (hostAutoReadySentForMatchRef.current === activeMatchMatchId) return;
+
+    hostAutoReadySentForMatchRef.current = activeMatchMatchId;
+
+    void (async () => {
+      mpDebug('StagingScreen', 'host:auto_mark_ready_request', {
+        gameId,
+        matchId: activeMatchMatchId,
+      });
+      const { error, data } = await mp.markReady(activeMatchId);
+      mpDebug('StagingScreen', 'host:auto_mark_ready_result', {
+        gameId,
+        matchId: activeMatchMatchId,
+        error,
+        readyCount: data?.ready_count ?? null,
+        totalCount: data?.total_count ?? null,
+        allReady: data?.all_ready ?? null,
+      });
+      if (error) {
+        hostAutoReadySentForMatchRef.current = null;
+      }
+    })();
+  }, [activeMatchId, activeMatchMatchId, activeMatchStatus, gameId, isHostForActiveMatch, isMatchmade, meReadyFromServer, mp]);
 
   useEffect(() => {
     if (!activeMatchMatchId) return;
@@ -1112,18 +1144,44 @@ export default function StagingScreen({
     if (!activeMatchId) return;
     if (!window.confirm('Avbryta matchen?')) return;
 
-    mpDebug('StagingScreen', 'cancel:request_force_cleanup', {
+    mpDebug('StagingScreen', 'cancel:request', {
       gameId,
       matchId: activeMatchId,
     });
-    const cleanup = await mpForceCleanupActiveMatches();
-    if (cleanup.error) {
-      flash('Kunde inte städa matchen helt i backend.');
+
+    let err = await mp.cancelMatch(activeMatchId);
+
+    if (err) {
+      mpDebug('StagingScreen', 'cancel:fallback_force_cleanup', {
+        gameId,
+        matchId: activeMatchId,
+        error: err,
+      });
+      const cleanup = await mpForceCleanupActiveMatches();
+      if (cleanup.error) {
+        flash('Kunde inte avbryta matchen helt i backend.');
+      } else {
+        err = null;
+      }
     }
+
+    if (err) {
+      flash(err);
+      return;
+    }
+
+    if (countdownTimerRef.current) {
+      window.clearInterval(countdownTimerRef.current);
+      countdownTimerRef.current = null;
+    }
+    countdownRunningForMatchRef.current = null;
     clearActiveMatch(gameId);
     setActiveMatchId(null);
     setIsMatchmade(false);
     startSentRef.current = false;
+    setServerReadyCount(null);
+    setServerTotalCount(null);
+    setServerAllReady(null);
     setPhase('staging');
     await mp.refresh();
   }, [activeMatchId, gameId, mp, flash]);
