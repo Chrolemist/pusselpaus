@@ -11,7 +11,7 @@ import { useSudoku } from '../hooks/useSudoku';
 import SudokuBoard from '../components/SudokuBoard';
 import Numpad from '../components/Numpad';
 import Timer from '../components/Timer';
-import { LiveBanner as MultiplayerLiveBanner, MULTIPLAYER_REPLAY_EVENT, StagingScreen, type StagingResult } from '../../../multiplayer';
+import { LiveBanner as MultiplayerLiveBanner, MULTIPLAYER_EXIT_EVENT, MULTIPLAYER_REPLAY_EVENT, StagingScreen, type StagingResult } from '../../../multiplayer';
 
 interface TutorialTarget {
   index: number;
@@ -125,9 +125,17 @@ export default function SudokuPage() {
       stagingResetRef.current?.();
     };
 
+    const handleExit = (event: Event) => {
+      const exitEvent = event as CustomEvent<{ gameId?: string }>;
+      if (exitEvent.detail?.gameId !== 'sudoku') return;
+      stagingResetRef.current?.();
+    };
+
     window.addEventListener(MULTIPLAYER_REPLAY_EVENT, handleReplay as EventListener);
+    window.addEventListener(MULTIPLAYER_EXIT_EVENT, handleExit as EventListener);
     return () => {
       window.removeEventListener(MULTIPLAYER_REPLAY_EVENT, handleReplay as EventListener);
+      window.removeEventListener(MULTIPLAYER_EXIT_EVENT, handleExit as EventListener);
     };
   }, []);
 

@@ -9,7 +9,7 @@ import PathGrid from '../components/PathGrid';
 import { useNumberPath } from '../hooks/useNumberPath';
 import type { Difficulty } from '../core/types';
 import { DIFFICULTY_LABELS, GRID_LABELS } from '../core/types';
-import { LiveBanner as MultiplayerLiveBanner, MULTIPLAYER_REPLAY_EVENT, StagingScreen, type StagingResult } from '../../../multiplayer';
+import { LiveBanner as MultiplayerLiveBanner, MULTIPLAYER_EXIT_EVENT, MULTIPLAYER_REPLAY_EVENT, StagingScreen, type StagingResult } from '../../../multiplayer';
 
 /* ── helpers ── */
 
@@ -45,9 +45,17 @@ export default function NumberPathPage() {
       stagingResetRef.current?.();
     };
 
+    const handleExit = (event: Event) => {
+      const exitEvent = event as CustomEvent<{ gameId?: string }>;
+      if (exitEvent.detail?.gameId !== 'numberpath') return;
+      stagingResetRef.current?.();
+    };
+
     window.addEventListener(MULTIPLAYER_REPLAY_EVENT, handleReplay as EventListener);
+    window.addEventListener(MULTIPLAYER_EXIT_EVENT, handleExit as EventListener);
     return () => {
       window.removeEventListener(MULTIPLAYER_REPLAY_EVENT, handleReplay as EventListener);
+      window.removeEventListener(MULTIPLAYER_EXIT_EVENT, handleExit as EventListener);
     };
   }, []);
 

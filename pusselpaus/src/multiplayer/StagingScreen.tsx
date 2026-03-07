@@ -233,8 +233,10 @@ export default function StagingScreen({
         (p) => p.player.forfeited !== true && (p.player.status === 'accepted' || p.player.status === 'matched'),
       ).length;
 
-      // Stale match: completed, cancelled, or I forfeited — clear and go to staging
-      if (status === 'completed' || status === 'cancelled' || iForfeited) {
+      // Cancelled matches and forfeits should clear immediately.
+      // Completed matches stay active so the in-game results overlay can remain
+      // visible until the player dismisses it manually.
+      if (status === 'cancelled' || iForfeited) {
         mpDebug('StagingScreen', 'restore:stale_match_cleanup', {
           gameId,
           matchId: existing.matchId,
@@ -245,6 +247,16 @@ export default function StagingScreen({
         setActiveMatchId(null);
         setMatchFoundAcceptedLocal(false);
         setPhase('staging');
+        return;
+      }
+
+      if (status === 'completed') {
+        mpDebug('StagingScreen', 'restore:completed_keep_playing_for_results', {
+          gameId,
+          matchId: existing.matchId,
+        });
+        setActiveMatchId(existing.matchId);
+        setPhase('playing');
         return;
       }
 
@@ -495,8 +507,17 @@ export default function StagingScreen({
       return;
     }
 
-    // Match ended or I forfeited — clean up and go back to staging
-    if (activeMatchStatus === 'completed' || activeMatchStatus === 'cancelled' || meForfeited) {
+    if (activeMatchStatus === 'completed') {
+      mpDebug('StagingScreen', 'status_effect:completed_keep_playing_for_results', {
+        gameId,
+        matchId: activeMatchMatchId,
+      });
+      setPhase('playing');
+      return;
+    }
+
+    // Cancelled matches and forfeits should still clean up immediately.
+    if (activeMatchStatus === 'cancelled' || meForfeited) {
       mpDebug('StagingScreen', 'status_effect:cleanup_to_staging', {
         gameId,
         matchId: activeMatchMatchId,

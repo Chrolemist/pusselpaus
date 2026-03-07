@@ -12,6 +12,11 @@ export type { MatchmakingState, MatchmakingStatus } from '../useMatchmaking';
 export { matchmakeJoin, matchmakeLeave, matchmakePoll } from '../matchmakingApi';
 export type { MatchmakeResult } from '../matchmakingApi';
 
-export { MULTIPLAYER_REPLAY_EVENT, dispatchMultiplayerReplay } from '../replay';
+export {
+	MULTIPLAYER_REPLAY_EVENT,
+	MULTIPLAYER_EXIT_EVENT,
+	dispatchMultiplayerReplay,
+	dispatchMultiplayerExit,
+} from '../replay';
 
 export { playMatchFound, playAcceptTick, playCountdownTick, playRematchStart, disposeMatchSounds } from '../matchSounds';

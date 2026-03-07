@@ -183,22 +183,21 @@ describe('stale match cleanup', () => {
     expect(getActiveMatchPayload('numberpath')).not.toBeNull();
   });
 
-  it('recovery detects stale completed match and clears it', () => {
-    // Simulate the recovery logic from StagingScreen:
-    // if (status === 'completed' || status === 'cancelled' || iForfeited) → clear
+  it('completed match payload is preserved so results can stay open until dismissed', () => {
     const gameId = 'sudoku';
     setActiveMatchPayload(gameId, {
       matchId: 'old-completed-match',
       setAt: new Date().toISOString(),
     });
 
-    // Simulate match status from DB being 'completed'
-    const matchStatus = 'completed';
-    if (matchStatus === 'completed' || matchStatus === 'cancelled') {
+    // Simulate the updated StagingScreen recovery logic:
+    // completed matches are kept so the results overlay can stay visible.
+    const shouldClearForStatus = (status: 'completed' | 'cancelled') => status === 'cancelled';
+    if (shouldClearForStatus('completed')) {
       clearActiveMatch(gameId);
     }
 
-    expect(getActiveMatchPayload(gameId)).toBeNull();
+    expect(getActiveMatchPayload(gameId)?.matchId).toBe('old-completed-match');
   });
 
   it('stale matchmade payload is cleared on cancel', () => {

@@ -6,7 +6,7 @@ import { ArrowLeft, Play, Maximize2, Minimize2 } from 'lucide-react';
 import { PONG_CONFIG, type PongControlState, type PongCpuLevel, type PongInputs, type PongSide, type PongState } from '../core/types';
 import { activateFireBoost, createInitialPongState, startPongMatch, stepPong } from '../core/engine';
 import { playFireBoost, playPaddleHit, playScoreBurst, playServePulse, playVictoryFanfare, playWallBounce } from '../audio/pingPongAudio';
-import { LiveBanner as MultiplayerLiveBanner, MULTIPLAYER_REPLAY_EVENT, StagingScreen, type StagingResult, useMultiplayerGame } from '../../../multiplayer';
+import { LiveBanner as MultiplayerLiveBanner, MULTIPLAYER_EXIT_EVENT, MULTIPLAYER_REPLAY_EVENT, StagingScreen, type StagingResult, useMultiplayerGame } from '../../../multiplayer';
 import { usePongRealtimeMatch } from '../multiplayer';
 
 const PINGPONG_SOLO_DIFFICULTIES: Array<{ value: PongCpuLevel; label: string }> = [
@@ -211,9 +211,19 @@ export default function PingPongPage() {
       stagingResetRef.current?.();
     };
 
+    const handleExit = (event: Event) => {
+      const exitEvent = event as CustomEvent<{ gameId?: string }>;
+      if (exitEvent.detail?.gameId !== 'pingpong') return;
+      setSession(null);
+      resetLocalGameState(createInitialPongState('cpu', 'medium'));
+      stagingResetRef.current?.();
+    };
+
     window.addEventListener(MULTIPLAYER_REPLAY_EVENT, handleReplay as EventListener);
+    window.addEventListener(MULTIPLAYER_EXIT_EVENT, handleExit as EventListener);
     return () => {
       window.removeEventListener(MULTIPLAYER_REPLAY_EVENT, handleReplay as EventListener);
+      window.removeEventListener(MULTIPLAYER_EXIT_EVENT, handleExit as EventListener);
     };
   }, [resetLocalGameState]);
 

@@ -19,7 +19,7 @@ import { mpTickMatchStart, mpForfeitMatch, mpRequestRematch } from './api';
 import { clearActiveMatch, getActiveMatchPayload, setActiveMatchPayload } from './activeMatch';
 import { gameLabel } from './useMultiplayer';
 import { playCountdownTick, playRematchStart } from './matchSounds';
-import { dispatchMultiplayerReplay } from './replay';
+import { dispatchMultiplayerExit, dispatchMultiplayerReplay } from './replay';
 import LevelBadge from '../components/LevelBadge';
 import type { MultiplayerMatch } from '../lib/database.types';
 import { supabase } from '../lib/supabaseClient';
@@ -951,7 +951,9 @@ export default function LiveBanner({ gameId }: Props) {
             })();
           }}
           onClose={() => {
+            clearActiveMatch(gameId);
             setDismissedMatchId(live.match?.id ?? null);
+            dispatchMultiplayerExit(gameId);
           }}
           onGoLobby={() => {
             clearActiveMatch(gameId);

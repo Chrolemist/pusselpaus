@@ -25,12 +25,19 @@ type BroadcastEnabledChannel = {
   send(payload: { type: 'broadcast'; event: string; payload: unknown }): Promise<unknown>;
 };
 
+type PendingBroadcastMessage = {
+  event: 'input' | 'snapshot' | 'event';
+  payload: unknown;
+};
+
 function nowMs(): number {
   return Date.now();
 }
 
 export function createSupabaseBroadcastTransport<TInput extends Record<string, unknown>, TState extends Record<string, unknown>, TEvent extends Record<string, unknown> = Record<string, unknown>>(): RealtimeTransport<TInput, TState, TEvent> {
   let channel: RealtimeChannel | null = null;
+  let isSubscribed = false;
+  const pendingMessages: PendingBroadcastMessage[] = [];
   const inputHandlers = new Set<(envelope: RealtimeInputEnvelope<TInput>) => void>();
   const snapshotHandlers = new Set<(snapshot: RealtimeSnapshotEnvelope<TState>) => void>();
   const eventHandlers = new Set<(event: RealtimeEventEnvelope<TEvent>) => void>();
@@ -56,11 +63,42 @@ export function createSupabaseBroadcastTransport<TInput extends Record<string, u
     }
   };
 
+  const flushPendingMessages = async () => {
+    if (!channel || !isSubscribed || pendingMessages.length === 0) return;
+
+    const messages = pendingMessages.splice(0, pendingMessages.length);
+    for (const message of messages) {
+      await channel.send({
+        type: 'broadcast',
+        event: message.event,
+        payload: message.payload,
+      });
+    }
+  };
+
+  const sendOrQueue = async (event: PendingBroadcastMessage['event'], payload: unknown) => {
+    if (!channel) return;
+
+    if (!isSubscribed) {
+      pendingMessages.push({ event, payload });
+      return;
+    }
+
+    await channel.send({
+      type: 'broadcast',
+      event,
+      payload,
+    });
+  };
+
   return {
     async connect(args) {
       if (channel) {
         await supabase.removeChannel(channel);
       }
+
+      isSubscribed = false;
+      pendingMessages.length = 0;
 
       connectionState = {
         connected: false,
@@ -117,6 +155,7 @@ export function createSupabaseBroadcastTransport<TInput extends Record<string, u
         })
         .subscribe(async (status: ChannelStatus) => {
           if (status === 'SUBSCRIBED') {
+            isSubscribed = true;
             connectionState = {
               ...connectionState,
               connected: true,
@@ -125,10 +164,12 @@ export function createSupabaseBroadcastTransport<TInput extends Record<string, u
             };
             await channel?.track({ userId: args.userId, connectedAt: new Date().toISOString() });
             emitPresence();
+            await flushPendingMessages();
             return;
           }
 
           if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+            isSubscribed = false;
             connectionState = {
               ...connectionState,
               connected: false,
@@ -137,6 +178,7 @@ export function createSupabaseBroadcastTransport<TInput extends Record<string, u
           }
 
           if (status === 'CLOSED') {
+            isSubscribed = false;
             connectionState = {
               ...connectionState,
               connected: false,
@@ -148,6 +190,8 @@ export function createSupabaseBroadcastTransport<TInput extends Record<string, u
 
     async disconnect() {
       if (!channel) return;
+      isSubscribed = false;
+      pendingMessages.length = 0;
       await channel.untrack();
       await supabase.removeChannel(channel);
       channel = null;
@@ -160,30 +204,15 @@ export function createSupabaseBroadcastTransport<TInput extends Record<string, u
     },
 
     async sendInput(envelope) {
-      if (!channel) return;
-      await channel.send({
-        type: 'broadcast',
-        event: 'input',
-        payload: envelope,
-      });
+      await sendOrQueue('input', envelope);
     },
 
     async sendSnapshot(snapshot) {
-      if (!channel) return;
-      await channel.send({
-        type: 'broadcast',
-        event: 'snapshot',
-        payload: snapshot,
-      });
+      await sendOrQueue('snapshot', snapshot);
     },
 
     async sendEvent(envelope) {
-      if (!channel) return;
-      await channel.send({
-        type: 'broadcast',
-        event: 'event',
-        payload: envelope,
-      });
+      await sendOrQueue('event', envelope);
     },
 
     onInput(handler) {
