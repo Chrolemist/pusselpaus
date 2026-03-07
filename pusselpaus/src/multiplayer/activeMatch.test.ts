@@ -3,6 +3,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import {
   getActiveMatchPayload,
+  isStaleMatchmadePayload,
   setActiveMatchPayload,
   clearActiveMatch,
   clearAllActiveMatches,
@@ -161,23 +162,28 @@ describe('matchmade flag', () => {
   });
 
   it('expires stale matchmade payloads automatically', () => {
-    setActiveMatchPayload('sudoku', {
+    const payload: ActiveMatchPayload = {
       matchId: 'stale-mm',
       setAt: new Date(Date.now() - 60_000).toISOString(),
       matchmade: true,
-    });
+    };
 
-    expect(getActiveMatchPayload('sudoku')).toBeNull();
-    expect(localStorage.getItem(getActiveMatchKey('sudoku'))).toBeNull();
+    setActiveMatchPayload('sudoku', payload);
+
+    expect(getActiveMatchPayload('sudoku')?.matchId).toBe('stale-mm');
+    expect(isStaleMatchmadePayload(payload)).toBe(true);
   });
 
   it('keeps fresh matchmade payloads', () => {
-    setActiveMatchPayload('sudoku', {
+    const payload: ActiveMatchPayload = {
       matchId: 'fresh-mm',
       setAt: new Date().toISOString(),
       matchmade: true,
-    });
+    };
+
+    setActiveMatchPayload('sudoku', payload);
 
     expect(getActiveMatchPayload('sudoku')?.matchId).toBe('fresh-mm');
+    expect(isStaleMatchmadePayload(payload)).toBe(false);
   });
 });

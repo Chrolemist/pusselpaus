@@ -31,6 +31,7 @@ import {
   setActiveMatchPayload,
   clearActiveMatch,
   getActiveMatchPayload,
+  isStaleMatchmadePayload,
   clearAllActiveMatches,
   getPendingMatchmakingCleanup,
   clearPendingMatchmakingCleanup,
@@ -156,6 +157,30 @@ export default function StagingScreen({
   useEffect(() => {
     const existing = getActiveMatchPayload(gameId);
     if (existing?.matchId) {
+      if (isStaleMatchmadePayload(existing)) {
+        mpDebug('StagingScreen', 'restore:cleanup_stale_matchmade_payload', {
+          gameId,
+          matchId: existing.matchId,
+          setAt: existing.setAt,
+        });
+        clearActiveMatch(gameId);
+        setActiveMatchId(null);
+        setIsMatchmade(false);
+        setMatchFoundAcceptedLocal(false);
+        setServerReadyCount(null);
+        setServerTotalCount(null);
+        setServerAllReady(null);
+        setPhase('staging');
+        void (async () => {
+          const cleanup = await mpForceCleanupActiveMatches();
+          if (cleanup.error) {
+            flash('En gammal matchmaking kunde inte städas helt i backend.');
+          }
+          await mp.refresh();
+        })();
+        return;
+      }
+
       // Find the match in the lobby data and decide the phase
       const entry = mp.matches.find((m) => m.match.id === existing.matchId);
 

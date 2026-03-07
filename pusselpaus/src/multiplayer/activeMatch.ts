@@ -4,7 +4,7 @@ import type { ActiveMatchPayload } from './types';
 
 const KEY_PREFIX = 'pusselpaus:mp:active:';
 const PENDING_MATCHMAKING_CLEANUP_KEY = 'pusselpaus:mp:pending-cleanup';
-const STALE_MATCHMADE_MAX_AGE_MS = 10_000;
+export const STALE_MATCHMADE_MAX_AGE_MS = 10_000;
 
 export interface PendingMatchmakingCleanupPayload {
   setAt: string;
@@ -16,25 +16,22 @@ export function getActiveMatchKey(gameId: string): string {
 }
 
 export function getActiveMatchPayload(gameId: string): ActiveMatchPayload | null {
-  const key = getActiveMatchKey(gameId);
-  const raw = localStorage.getItem(key);
+  const raw = localStorage.getItem(getActiveMatchKey(gameId));
   if (!raw) return null;
   try {
     const parsed = JSON.parse(raw) as ActiveMatchPayload;
     if (!parsed.matchId) return null;
-
-    if (parsed.matchmade) {
-      const setAtMs = new Date(parsed.setAt).getTime();
-      if (Number.isFinite(setAtMs) && Date.now() - setAtMs > STALE_MATCHMADE_MAX_AGE_MS) {
-        localStorage.removeItem(key);
-        return null;
-      }
-    }
-
     return parsed;
   } catch {
     return null;
   }
+}
+
+export function isStaleMatchmadePayload(payload: ActiveMatchPayload | null): boolean {
+  if (!payload?.matchmade) return false;
+  const setAtMs = new Date(payload.setAt).getTime();
+  if (!Number.isFinite(setAtMs)) return false;
+  return Date.now() - setAtMs > STALE_MATCHMADE_MAX_AGE_MS;
 }
 
 export function setActiveMatchPayload(gameId: string, payload: ActiveMatchPayload): void {
