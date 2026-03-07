@@ -117,7 +117,9 @@ export function useSudoku() {
           stopTimer();
           clearGame();
           recordWin(prev.difficulty, prev.elapsed);
-          void rewardWin('sudoku', prev.difficulty);
+          if (!isMultiplayer) {
+            void rewardWin('sudoku', prev.difficulty);
+          }
           void awardXp({ gameId: 'sudoku', won: true, difficulty: prev.difficulty, multiplayer: isMultiplayer });
           void submitMatchResult({
             elapsedSeconds: prev.elapsed,

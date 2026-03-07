@@ -98,6 +98,14 @@ function formatCompletedOffset(match: MultiplayerMatch | null, submittedAt: stri
   return formatRemaining(Math.round((submittedMs - startedMs) / 1000));
 }
 
+function getSyncedFinishSeconds(match: MultiplayerMatch | null, player: LivePlayer['player']): number | null {
+  if (!match?.started_at || !player.submitted_at) return null;
+  const startedMs = new Date(match.started_at).getTime();
+  const submittedMs = new Date(player.submitted_at).getTime();
+  if (!Number.isFinite(startedMs) || !Number.isFinite(submittedMs) || submittedMs < startedMs) return null;
+  return Math.max(0, Math.round((submittedMs - startedMs) / 1000));
+}
+
 function buildResultRows(gameId: string, match: MultiplayerMatch, players: LivePlayer[]): MatchResultRow[] {
   const acceptedPlayers = players.filter((entry) => entry.player.status === 'accepted');
   const pot = acceptedPlayers.reduce((sum, entry) => sum + Math.max(0, entry.player.stake_locked ?? 0), 0);
@@ -114,8 +122,8 @@ function buildResultRows(gameId: string, match: MultiplayerMatch, players: LiveP
       const scoreDiff = (b.player.score ?? -1) - (a.player.score ?? -1);
       if (scoreDiff !== 0) return scoreDiff;
     } else {
-      const aElapsed = a.player.elapsed_seconds ?? Number.POSITIVE_INFINITY;
-      const bElapsed = b.player.elapsed_seconds ?? Number.POSITIVE_INFINITY;
+      const aElapsed = getSyncedFinishSeconds(match, a.player) ?? a.player.elapsed_seconds ?? Number.POSITIVE_INFINITY;
+      const bElapsed = getSyncedFinishSeconds(match, b.player) ?? b.player.elapsed_seconds ?? Number.POSITIVE_INFINITY;
       if (aElapsed !== bElapsed) return aElapsed - bElapsed;
     }
 
@@ -143,8 +151,9 @@ function buildResultRows(gameId: string, match: MultiplayerMatch, players: LiveP
       statLabel = `Överlevde ${formatRemaining(Math.max(0, Math.round(entry.player.survived_seconds ?? 0)))}`;
       detailLabel = `Poäng ${formatScore(entry.player.score)}`;
     } else {
+      const syncedFinishSeconds = getSyncedFinishSeconds(match, entry.player);
       statusLabel = isWinner ? 'Snabbast i mål' : 'Klarade banan';
-      statLabel = `Tid ${formatRemaining(Math.max(0, Math.round(entry.player.elapsed_seconds ?? 0)))}`;
+      statLabel = `Tid ${formatRemaining(Math.max(0, Math.round(syncedFinishSeconds ?? entry.player.elapsed_seconds ?? 0)))}`;
       detailLabel = finishOffset ? `Målpassering ${finishOffset}` : null;
     }
 
@@ -209,7 +218,6 @@ function timeoutTone(seconds: number | null) {
       ring: 'ring-brand/25',
       bar: 'from-brand via-cyan-400 to-sky-400',
       pulse: false,
-      label: 'Gemensam sluttid',
     };
   }
   if (seconds <= 5) {
@@ -219,7 +227,6 @@ function timeoutTone(seconds: number | null) {
       ring: 'ring-red-300/45',
       bar: 'from-red-600 via-red-500 to-amber-300',
       pulse: true,
-      label: 'Final countdown',
     };
   }
   if (seconds <= 10) {
@@ -229,7 +236,6 @@ function timeoutTone(seconds: number | null) {
       ring: 'ring-red-400/35',
       bar: 'from-red-500 via-orange-400 to-yellow-300',
       pulse: true,
-      label: 'Sista sekunderna',
     };
   }
   if (seconds <= 30) {
@@ -239,7 +245,6 @@ function timeoutTone(seconds: number | null) {
       ring: 'ring-amber-400/30',
       bar: 'from-amber-400 via-yellow-300 to-brand-light',
       pulse: false,
-      label: 'Skynda till mål',
     };
   }
   return {
@@ -248,7 +253,6 @@ function timeoutTone(seconds: number | null) {
     ring: 'ring-emerald-400/25',
     bar: 'from-emerald-400 via-cyan-300 to-brand-light',
     pulse: false,
-    label: 'Gemensam sluttid',
   };
 }
 
@@ -608,11 +612,7 @@ export default function LiveBanner({ gameId }: Props) {
                 animate={timeoutUi.pulse ? { scale: timeoutRemaining != null && timeoutRemaining <= 5 ? [1, 1.03, 0.995, 1] : [1, 1.015, 1], opacity: [1, 0.96, 1] } : { scale: 1, opacity: 1 }}
                 transition={timeoutUi.pulse ? { duration: timeoutRemaining != null && timeoutRemaining <= 5 ? 0.55 : 0.9, repeat: Infinity, ease: 'easeInOut' } : { duration: 0.2 }}
               >
-                <div className="mb-2 flex items-center justify-between gap-3">
-                  <div>
-                    <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-text-muted">{timeoutUi.label}</p>
-                    <p className="text-xs text-text-muted">Bli klar innan timern går ut för att få ett registrerat resultat.</p>
-                  </div>
+                <div className="mb-2 flex items-center justify-end gap-3">
                   <motion.div
                     key={timeoutRemaining}
                     className={`rounded-xl bg-white/5 px-3 py-2 text-right ring-1 ring-white/10 ${timeoutUi.text}`}
@@ -622,7 +622,6 @@ export default function LiveBanner({ gameId }: Props) {
                       : { scale: 1, opacity: 1 }}
                     transition={{ duration: timeoutRemaining != null && timeoutRemaining <= 5 ? 0.45 : 0.2 }}
                   >
-                    <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-text-muted">Tid kvar</p>
                     <p className={`font-extrabold tabular-nums ${timeoutRemaining != null && timeoutRemaining <= 5 ? 'text-4xl sm:text-5xl leading-none drop-shadow-[0_0_12px_rgba(248,113,113,0.45)]' : 'text-2xl'}`}>
                       {formatRemaining(timeoutRemaining)}
                     </p>

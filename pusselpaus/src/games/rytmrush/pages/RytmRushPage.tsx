@@ -88,7 +88,7 @@ export default function RytmRushPage() {
           ? (engine.perfects + engine.greats + engine.goods) / total
           : 0;
       if (engine.cleared || hitRate >= 0.65) {
-        if (!rewardedRef.current) {
+        if (!rewardedRef.current && !isMultiplayer) {
           rewardedRef.current = true;
           void rewardRytmRushPerformance({
             score: engine.score,
@@ -166,6 +166,7 @@ export default function RytmRushPage() {
       /* ── Results screen ── */
       <ResultsView
         engine={engine}
+        isMultiplayer={isMultiplayer}
         onBack={() => {
           engine.saveResult();
           engine.setPhase('menu');
@@ -252,10 +253,11 @@ export default function RytmRushPage() {
 
 interface ResultsViewProps {
   engine: ReturnType<typeof useRhythmEngine>;
+  isMultiplayer: boolean;
   onBack: () => void;
 }
 
-function ResultsView({ engine, onBack }: ResultsViewProps) {
+function ResultsView({ engine, isMultiplayer, onBack }: ResultsViewProps) {
   const total =
     engine.perfects + engine.greats + engine.goods + engine.misses;
   const hitRate =
@@ -298,9 +300,15 @@ function ResultsView({ engine, onBack }: ResultsViewProps) {
             {Math.round(engine.score).toLocaleString('sv-SE')}
           </p>
 
-          <p className="rounded-lg bg-yellow-500/20 px-3 py-1 text-sm font-semibold text-yellow-300">
-            +{performanceCoins} coins
-          </p>
+          {isMultiplayer ? (
+            <p className="rounded-lg bg-brand/15 px-3 py-1 text-sm font-semibold text-brand-light">
+              Multiplayer-belöning visas i den synkade scoreboarden.
+            </p>
+          ) : (
+            <p className="rounded-lg bg-yellow-500/20 px-3 py-1 text-sm font-semibold text-yellow-300">
+              +{performanceCoins} coins
+            </p>
+          )}
 
           <div className="flex gap-6 text-center">
             <Stat label="Max Combo" value={`${engine.maxCombo}x`} />

@@ -160,7 +160,9 @@ export function useNumberPath() {
         clearInterval(timerRef.current);
         setPhase('won');
         recordWin(puzzle.difficulty, elapsed);
-        void rewardWin('numberpath', puzzle.difficulty);
+        if (!isMultiplayer) {
+          void rewardWin('numberpath', puzzle.difficulty);
+        }
         void awardXp({ gameId: 'numberpath', won: true, difficulty: puzzle.difficulty, multiplayer: isMultiplayer });
         void submitMatchResult({
           elapsedSeconds: elapsed,
