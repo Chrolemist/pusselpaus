@@ -228,7 +228,23 @@ export function useMultiplayer() {
       if (!user) return 'Ej inloggad';
       if (invitedIds.length === 0) return 'Välj minst en vän';
       if (stake < 0) return 'Stake kan inte vara negativ';
-      if (hasBlockingMatch()) return 'Du har redan en aktiv multiplayer-match';
+      if (hasBlockingMatch()) {
+        mpDebug('useMultiplayer', 'create:blocked_active_match', {
+          gameId,
+          stake,
+          invitedIds,
+        });
+        return 'Du har redan en aktiv multiplayer-match';
+      }
+
+      mpDebug('useMultiplayer', 'create:attempt', {
+        gameId,
+        stake,
+        invitedIds,
+        config: options?.config ?? {},
+        configSeed: options?.configSeed ?? null,
+      });
+
       const err = await mpCreateMatch(
         gameId,
         stake,
@@ -236,7 +252,19 @@ export function useMultiplayer() {
         options?.config ?? {},
         options?.configSeed,
       );
-      if (!err) await loadMatches();
+      if (!err) {
+        await loadMatches();
+        mpDebug('useMultiplayer', 'create:loaded_matches_after_create', {
+          gameId,
+          invitedIds,
+        });
+      } else {
+        mpDebug('useMultiplayer', 'create:returned_error', {
+          gameId,
+          invitedIds,
+          error: err,
+        });
+      }
       return err;
     },
     [user, loadMatches, hasBlockingMatch],

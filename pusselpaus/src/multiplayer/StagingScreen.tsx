@@ -989,12 +989,24 @@ export default function StagingScreen({
     const config: MatchConfig = { difficulty };
     const configSeed = Math.floor(Math.random() * 2_000_000_000);
 
+    mpDebug('StagingScreen', 'create:submit', {
+      gameId,
+      selectedFriends,
+      difficulty,
+      configSeed,
+    });
+
     const err = await mp.createMatch(gameId, 0, selectedFriends, {
       config,
       configSeed,
     });
 
     if (err) {
+      mpDebug('StagingScreen', 'create:error', {
+        gameId,
+        selectedFriends,
+        error: err,
+      });
       flash(err);
       setIsCreating(false);
       return;
@@ -1002,6 +1014,10 @@ export default function StagingScreen({
 
     // Find the newly created match
     await mp.refresh();
+    mpDebug('StagingScreen', 'create:refresh_complete', {
+      gameId,
+      selectedFriends,
+    });
     setIsCreating(false);
     setPhase('waiting');
   }, [isCreating, selectedFriends, difficulty, gameId, mp, flash]);

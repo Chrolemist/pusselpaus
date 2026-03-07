@@ -5,7 +5,9 @@ export function isMpDebugEnabled(): boolean {
 
 function isAllowedEvent(event: string): boolean {
   return (
-    event.startsWith('accept:')
+    event.startsWith('create:')
+    || event.startsWith('invite:')
+    || event.startsWith('accept:')
     || event.startsWith('countdown:')
     || event.startsWith('status_effect:')
     || event.startsWith('tickMatchStart:')

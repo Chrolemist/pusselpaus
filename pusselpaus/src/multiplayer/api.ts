@@ -18,6 +18,14 @@ export async function mpCreateMatch(
   config: MatchConfig,
   configSeed?: number,
 ): Promise<string | null> {
+  mpDebug('api', 'create:request', {
+    gameId,
+    stake,
+    invitedCount: invitedIds.length,
+    invitedIds,
+    config,
+    configSeed: configSeed ?? null,
+  });
   const { error } = await supabase.rpc('mp_create_match', {
     p_game_id: gameId,
     p_stake: stake,
@@ -26,9 +34,27 @@ export async function mpCreateMatch(
     p_config_seed: configSeed,
   });
   if (error) {
+    mpDebug('api', 'create:error', {
+      gameId,
+      stake,
+      invitedIds,
+      config,
+      configSeed: configSeed ?? null,
+      code: error.code ?? null,
+      message: error.message ?? null,
+      details: error.details ?? null,
+      hint: error.hint ?? null,
+    });
     console.error('[mp] create failed:', error);
     return error.message || 'Kunde inte skapa match';
   }
+  mpDebug('api', 'create:ok', {
+    gameId,
+    stake,
+    invitedIds,
+    config,
+    configSeed: configSeed ?? null,
+  });
   return null;
 }
 
