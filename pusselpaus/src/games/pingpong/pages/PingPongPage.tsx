@@ -4,8 +4,8 @@ import confetti from 'canvas-confetti';
 import { AnimatePresence, motion } from 'motion/react';
 import { ArrowLeft, Play, RotateCcw, Swords, Cpu, TimerReset } from 'lucide-react';
 import { PONG_CONFIG, PONG_CPU_PRESETS, type PongCpuLevel, type PongInputs, type PongMode, type PongSide, type PongState } from '../core/types';
-import { createInitialPongState, startPongMatch, stepPong } from '../core/engine';
-import { playPaddleHit, playScoreBurst, playServePulse, playVictoryFanfare, playWallBounce } from '../audio/pingPongAudio';
+import { activateFireBoost, createInitialPongState, startPongMatch, stepPong } from '../core/engine';
+import { playFireBoost, playPaddleHit, playScoreBurst, playServePulse, playVictoryFanfare, playWallBounce } from '../audio/pingPongAudio';
 
 function winnerLabel(side: PongSide | null): string {
   if (side === 'left') return 'Vänster spelare vann';
@@ -23,6 +23,10 @@ function sideAccent(side: PongSide | null): string {
   return 'text-brand-light';
 }
 
+function sideLabel(side: PongSide): string {
+  return side === 'left' ? 'Vänster' : 'Höger';
+}
+
 export default function PingPongPage() {
   const [mode, setMode] = useState<PongMode>('cpu');
   const [cpuLevel, setCpuLevel] = useState<PongCpuLevel>('medium');
@@ -33,6 +37,7 @@ export default function PingPongPage() {
   const [wallImpact, setWallImpact] = useState(0);
   const [scoreFlashSide, setScoreFlashSide] = useState<PongSide | null>(null);
   const [scoreFlashTick, setScoreFlashTick] = useState(0);
+  const [fireBoostFlashTick, setFireBoostFlashTick] = useState(0);
   const pressedKeysRef = useRef<Record<string, boolean>>({});
   const stateRef = useRef(state);
   const previousStateRef = useRef(state);
@@ -226,6 +231,25 @@ export default function PingPongPage() {
   const leftScoring = scoreFlashSide === 'left';
   const rightScoring = scoreFlashSide === 'right';
   const cpuPreset = PONG_CPU_PRESETS[cpuLevel];
+  const leftBoostPercent = Math.min(100, (state.boostCharge.left / PONG_CONFIG.fireBoostChargeHits) * 100);
+  const rightBoostPercent = Math.min(100, (state.boostCharge.right / PONG_CONFIG.fireBoostChargeHits) * 100);
+
+  const triggerFireBoost = (preferredSide?: PongSide) => {
+    const candidates: PongSide[] = preferredSide
+      ? [preferredSide, preferredSide === 'left' ? 'right' : 'left']
+      : state.ball.vx >= 0 ? ['left', 'right'] : ['right', 'left'];
+
+    for (const side of candidates) {
+      const nextState = activateFireBoost(stateRef.current, side);
+      if (nextState !== stateRef.current) {
+        previousStateRef.current = stateRef.current;
+        pushState(nextState);
+        setFireBoostFlashTick((tick) => tick + 1);
+        playFireBoost();
+        return;
+      }
+    }
+  };
 
   return (
     <div className="flex min-h-full flex-col items-center gap-6 px-4 py-8">
@@ -397,10 +421,49 @@ export default function PingPongPage() {
 
               <motion.div
                 className="absolute rounded-full bg-white shadow-[0_0_28px_rgba(255,255,255,0.4)]"
-                animate={state.status === 'playing' ? { scale: [1, 1.06, 1], boxShadow: ['0 0 20px rgba(255,255,255,0.35)', '0 0 34px rgba(255,255,255,0.55)', '0 0 20px rgba(255,255,255,0.35)'] } : { scale: 1 }}
+                animate={state.ball.isFireball
+                  ? {
+                      scale: [1, 1.28, 1.1],
+                      boxShadow: ['0 0 18px rgba(255,190,92,0.5)', '0 0 42px rgba(249,115,22,0.9)', '0 0 28px rgba(239,68,68,0.7)'],
+                    }
+                  : state.status === 'playing'
+                    ? { scale: [1, 1.06, 1], boxShadow: ['0 0 20px rgba(255,255,255,0.35)', '0 0 34px rgba(255,255,255,0.55)', '0 0 20px rgba(255,255,255,0.35)'] }
+                    : { scale: 1 }}
                 transition={{ duration: 0.8, repeat: Infinity, ease: 'easeInOut' }}
-                style={ballStyle}
+                onPointerDown={() => {
+                  const preferredSide = state.ball.vx >= 0 ? 'left' : 'right';
+                  triggerFireBoost(preferredSide);
+                }}
+                style={{
+                  ...ballStyle,
+                  background: state.ball.isFireball ? 'radial-gradient(circle at 30% 30%, #fff7ed 0%, #fdba74 18%, #f97316 45%, #dc2626 72%, #7f1d1d 100%)' : undefined,
+                  cursor: (state.boostReady.left || state.boostReady.right) ? 'pointer' : 'default',
+                  touchAction: 'manipulation',
+                }}
               />
+
+              <AnimatePresence>
+                {state.ball.isFireball && (
+                  <motion.div
+                    key={`fire-aura-${fireBoostFlashTick}-${state.fireBoostOwner ?? 'none'}`}
+                    className="absolute rounded-full blur-2xl"
+                    initial={{ opacity: 0.75, scale: 0.7 }}
+                    animate={{ opacity: [0.45, 0.9, 0.45], scale: [0.9, 1.45, 1.1] }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.45, repeat: Infinity, ease: 'easeInOut' }}
+                    style={{
+                      left: `${(state.ball.x / PONG_CONFIG.width) * 100}%`,
+                      top: `${(state.ball.y / PONG_CONFIG.height) * 100}%`,
+                      width: `${(PONG_CONFIG.ballSize / PONG_CONFIG.width) * 220}%`,
+                      height: `${(PONG_CONFIG.ballSize / PONG_CONFIG.height) * 220}%`,
+                      background: state.fireBoostOwner === 'left'
+                        ? 'radial-gradient(circle, rgba(34,211,238,0.28) 0%, rgba(249,115,22,0.55) 38%, rgba(239,68,68,0.16) 72%, transparent 100%)'
+                        : 'radial-gradient(circle, rgba(232,121,249,0.28) 0%, rgba(249,115,22,0.55) 38%, rgba(239,68,68,0.16) 72%, transparent 100%)',
+                      transform: 'translate(-32%, -32%)',
+                    }}
+                  />
+                )}
+              </AnimatePresence>
 
               {state.status === 'serving' && (
                 <motion.div
@@ -411,6 +474,24 @@ export default function PingPongPage() {
                 >
                   Serve {state.serveTo === 'left' ? 'vänster' : 'höger'}
                 </motion.div>
+              )}
+
+              {(state.boostReady.left || state.boostReady.right || state.ball.isFireball) && (
+                <div className="absolute inset-x-0 bottom-4 flex justify-center">
+                  <motion.div
+                    className="rounded-full border border-orange-300/25 bg-slate-950/78 px-4 py-2 text-center shadow-xl"
+                    key={`fire-status-${fireBoostFlashTick}-${state.fireBoostOwner ?? 'idle'}-${state.boostReady.left}-${state.boostReady.right}`}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                  >
+                    <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-orange-200">Fire Boost</p>
+                    <p className="mt-1 text-xs text-text-muted">
+                      {state.ball.isFireball
+                        ? `${state.fireBoostOwner ? sideLabel(state.fireBoostOwner) : 'Någon'} skickade iväg ett eldklot.`
+                        : 'Tryck direkt på bollen för att aktivera boost.'}
+                    </p>
+                  </motion.div>
+                </div>
               )}
 
               {state.status !== 'playing' && (
@@ -499,6 +580,34 @@ export default function PingPongPage() {
                 </p>
               </div>
             )}
+
+            <div className="rounded-[24px] bg-white/5 p-4 ring-1 ring-white/10">
+              <p className="text-xs font-semibold uppercase tracking-[0.24em] text-brand-light">Fire Boost</p>
+              <div className="mt-3 space-y-3 text-sm text-text-muted">
+                <div className="rounded-2xl bg-black/20 px-3 py-3">
+                  <div className="flex items-center justify-between text-xs text-text-muted">
+                    <span>Vänster laddning</span>
+                    <span>{state.boostReady.left ? 'Redo' : `${state.boostCharge.left}/${PONG_CONFIG.fireBoostChargeHits}`}</span>
+                  </div>
+                  <div className="mt-2 h-2 overflow-hidden rounded-full bg-white/10">
+                    <div className={`h-full rounded-full ${state.boostReady.left ? 'bg-gradient-to-r from-orange-300 via-orange-400 to-red-500' : 'bg-gradient-to-r from-cyan-400 to-orange-400'}`} style={{ width: `${state.boostReady.left ? 100 : leftBoostPercent}%` }} />
+                  </div>
+                </div>
+                <div className="rounded-2xl bg-black/20 px-3 py-3">
+                  <div className="flex items-center justify-between text-xs text-text-muted">
+                    <span>Höger laddning</span>
+                    <span>{state.boostReady.right ? 'Redo' : `${state.boostCharge.right}/${PONG_CONFIG.fireBoostChargeHits}`}</span>
+                  </div>
+                  <div className="mt-2 h-2 overflow-hidden rounded-full bg-white/10">
+                    <div className={`h-full rounded-full ${state.boostReady.right ? 'bg-gradient-to-r from-orange-300 via-orange-400 to-red-500' : 'bg-gradient-to-r from-fuchsia-400 to-orange-400'}`} style={{ width: `${state.boostReady.right ? 100 : rightBoostPercent}%` }} />
+                  </div>
+                </div>
+                <div className="rounded-2xl bg-black/20 px-3 py-3">
+                  <p className="font-semibold text-white">Så funkar det</p>
+                  <p className="mt-1">Försvara dig tillräckligt länge, bygg laddning och tryck sedan direkt på bollen med mus eller touch för att skicka ett eldklot mot motståndaren.</p>
+                </div>
+              </div>
+            </div>
 
             <div className="rounded-[24px] bg-white/5 p-4 ring-1 ring-white/10">
               <p className="text-xs font-semibold uppercase tracking-[0.24em] text-brand-light">Kontroller</p>

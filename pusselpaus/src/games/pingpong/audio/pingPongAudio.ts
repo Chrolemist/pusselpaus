@@ -61,3 +61,10 @@ export function playVictoryFanfare(): void {
   window.setTimeout(() => playTone({ frequency: 659, rampTo: 988, durationMs: 200, type: 'triangle', gain: 0.05 }), 90);
   window.setTimeout(() => playTone({ frequency: 784, rampTo: 1174, durationMs: 240, type: 'triangle', gain: 0.055 }), 180);
 }
+
+export function playFireBoost(): void {
+  playTone({ frequency: 620, rampTo: 1420, durationMs: 180, type: 'sawtooth', gain: 0.055 });
+  window.setTimeout(() => {
+    playTone({ frequency: 920, rampTo: 1780, durationMs: 140, type: 'square', gain: 0.035 });
+  }, 45);
+}

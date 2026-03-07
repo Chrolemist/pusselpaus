@@ -15,6 +15,10 @@ export const PONG_CONFIG = {
   fixedStepMs: 1000 / 60,
   aiDeadzone: 30,
   aiTrackingError: 26,
+  fireBoostChargeHits: 4,
+  fireBoostMinSpeed: 980,
+  fireBoostMaxSpeed: 1320,
+  fireBoostDurationMs: 1400,
 } as const;
 
 export type PongSide = 'left' | 'right';
@@ -60,6 +64,7 @@ export interface PongBallState {
   y: number;
   vx: number;
   vy: number;
+  isFireball: boolean;
 }
 
 export interface PongScoreState {
@@ -81,6 +86,10 @@ export interface PongState {
   serveTimerMs: number;
   winner: PongSide | null;
   lastScorer: PongSide | null;
+  boostReady: Record<PongSide, boolean>;
+  boostCharge: Record<PongSide, number>;
+  fireBoostOwner: PongSide | null;
+  fireBoostTimerMs: number;
   rallyHits: number;
   bestRally: number;
   elapsedMs: number;

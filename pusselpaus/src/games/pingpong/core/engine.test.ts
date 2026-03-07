@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { PONG_CONFIG } from './types';
-import { createInitialPongState, startPongMatch, stepPong } from './engine';
+import { activateFireBoost, createInitialPongState, startPongMatch, stepPong } from './engine';
 
 describe('pingpong engine', () => {
   it('bounces off the top wall', () => {
@@ -45,5 +45,36 @@ describe('pingpong engine', () => {
     expect(next.score.left).toBe(PONG_CONFIG.maxScore);
     expect(next.status).toBe('finished');
     expect(next.winner).toBe('left');
+  });
+
+  it('activates fire boost after enough defended hits', () => {
+    let state = createInitialPongState('cpu', 'medium');
+
+    for (let index = 0; index < PONG_CONFIG.fireBoostChargeHits; index += 1) {
+      state = stepPong(
+        {
+          ...state,
+          status: 'playing',
+          ball: {
+            x: PONG_CONFIG.paddleInset + PONG_CONFIG.paddleWidth - 2,
+            y: state.paddles.left.y + 30,
+            vx: -420,
+            vy: 0,
+            isFireball: false,
+          },
+        },
+        { left: { up: false, down: false }, right: { up: false, down: false } },
+        16,
+      );
+    }
+
+    expect(state.boostReady.left).toBe(true);
+
+    const boosted = activateFireBoost(state, 'left');
+    expect(boosted.ball.isFireball).toBe(true);
+    expect(boosted.fireBoostOwner).toBe('left');
+    expect(boosted.fireBoostTimerMs).toBe(PONG_CONFIG.fireBoostDurationMs);
+    expect(Math.abs(boosted.ball.vx)).toBeGreaterThan(Math.abs(state.ball.vx));
+    expect(boosted.boostReady.left).toBe(false);
   });
 });

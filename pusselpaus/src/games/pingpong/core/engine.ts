@@ -38,6 +38,7 @@ function launchBall(state: PongState): PongState {
       y: position.y,
       vx: Math.cos(angle) * PONG_CONFIG.ballBaseSpeed * direction,
       vy: Math.sin(angle) * PONG_CONFIG.ballBaseSpeed,
+      isFireball: false,
     },
   };
 }
@@ -50,6 +51,8 @@ function resetForServe(state: PongState, serveTo: PongSide, scorer: PongSide | n
     serveTo,
     serveTimerMs: PONG_CONFIG.serveDelayMs,
     lastScorer: scorer,
+    fireBoostOwner: null,
+    fireBoostTimerMs: 0,
     rallyHits: 0,
     paddles: {
       left: { ...state.paddles.left, y: centeredPaddleY(), velocity: 0 },
@@ -60,6 +63,7 @@ function resetForServe(state: PongState, serveTo: PongSide, scorer: PongSide | n
       y: position.y,
       vx: 0,
       vy: 0,
+      isFireball: false,
     },
   };
 }
@@ -146,16 +150,66 @@ function reflectFromPaddle(state: PongState, side: PongSide, paddleY: number, ne
   const correctedX = side === 'left'
     ? paddleRight
     : paddleLeft - PONG_CONFIG.ballSize;
+  const nextCharge = Math.min(PONG_CONFIG.fireBoostChargeHits, state.boostCharge[side] + 1);
 
   return {
     ...state,
     rallyHits: state.rallyHits + 1,
     bestRally: Math.max(state.bestRally, state.rallyHits + 1),
+    boostCharge: {
+      left: side === 'left' ? nextCharge : 0,
+      right: side === 'right' ? nextCharge : 0,
+    },
+    boostReady: {
+      left: side === 'left' ? state.boostReady.left || nextCharge >= PONG_CONFIG.fireBoostChargeHits : state.boostReady.left,
+      right: side === 'right' ? state.boostReady.right || nextCharge >= PONG_CONFIG.fireBoostChargeHits : state.boostReady.right,
+    },
     ball: {
       x: correctedX,
       y: clamp(nextY, 0, PONG_CONFIG.height - PONG_CONFIG.ballSize),
       vx: Math.cos(angle) * speed * direction,
       vy: Math.sin(angle) * speed,
+      isFireball: false,
+    },
+    fireBoostOwner: null,
+    fireBoostTimerMs: 0,
+  };
+}
+
+function canActivateFireBoost(state: PongState, side: PongSide): boolean {
+  if (state.status !== 'playing') return false;
+  if (!state.boostReady[side]) return false;
+  if (state.ball.isFireball) return false;
+  if (side === 'left') {
+    return state.ball.vx > 0 && state.ball.x <= PONG_CONFIG.width * 0.72;
+  }
+  return state.ball.vx < 0 && state.ball.x >= PONG_CONFIG.width * 0.28;
+}
+
+export function activateFireBoost(state: PongState, side: PongSide): PongState {
+  if (!canActivateFireBoost(state, side)) return state;
+
+  const currentSpeed = Math.sqrt((state.ball.vx ** 2) + (state.ball.vy ** 2));
+  const boostedSpeed = Math.max(PONG_CONFIG.fireBoostMinSpeed, Math.min(PONG_CONFIG.fireBoostMaxSpeed, currentSpeed * 1.9));
+  const velocityScale = currentSpeed > 0 ? boostedSpeed / currentSpeed : 1;
+
+  return {
+    ...state,
+    fireBoostOwner: side,
+    fireBoostTimerMs: PONG_CONFIG.fireBoostDurationMs,
+    boostReady: {
+      ...state.boostReady,
+      [side]: false,
+    },
+    boostCharge: {
+      ...state.boostCharge,
+      [side]: 0,
+    },
+    ball: {
+      ...state.ball,
+      vx: state.ball.vx * velocityScale,
+      vy: state.ball.vy * velocityScale,
+      isFireball: true,
     },
   };
 }
@@ -170,12 +224,16 @@ export function createInitialPongState(mode: PongMode = 'cpu', cpuLevel: PongCpu
       left: { y: centeredPaddleY(), velocity: 0 },
       right: { y: centeredPaddleY(), velocity: 0 },
     },
-    ball: { x: position.x, y: position.y, vx: 0, vy: 0 },
+    ball: { x: position.x, y: position.y, vx: 0, vy: 0, isFireball: false },
     score: { left: 0, right: 0 },
     serveTo: 'left',
     serveTimerMs: PONG_CONFIG.serveDelayMs,
     winner: null,
     lastScorer: null,
+    boostReady: { left: false, right: false },
+    boostCharge: { left: 0, right: 0 },
+    fireBoostOwner: null,
+    fireBoostTimerMs: 0,
     rallyHits: 0,
     bestRally: 0,
     elapsedMs: 0,
@@ -222,6 +280,8 @@ export function stepPong(state: PongState, rawInputs: PongInputs, dtMs: number):
   let nextY = state.ball.y + state.ball.vy * (dtMs / 1000);
   let nextVx = state.ball.vx;
   let nextVy = state.ball.vy;
+  const nextFireBoostTimerMs = Math.max(0, state.fireBoostTimerMs - dtMs);
+  const fireballActive = state.ball.isFireball && nextFireBoostTimerMs > 0;
 
   if (nextY <= 0) {
     nextY = 0;
@@ -234,11 +294,14 @@ export function stepPong(state: PongState, rawInputs: PongInputs, dtMs: number):
   let movedState: PongState = {
     ...withPaddles,
     elapsedMs: state.elapsedMs + dtMs,
+    fireBoostTimerMs: nextFireBoostTimerMs,
+    fireBoostOwner: fireballActive ? state.fireBoostOwner : null,
     ball: {
       x: nextX,
       y: nextY,
       vx: nextVx,
       vy: nextVy,
+      isFireball: fireballActive,
     },
   };
 
