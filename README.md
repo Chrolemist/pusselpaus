@@ -1,1 +1,1 @@
-🌐 **Spela spelen live här:** [pusselpaus.se](https://pusselpaus.se)
+🎮 **Är du sugen på lite pussel och har tid över?** [pusselpaus.se](https://pusselpaus.se)
