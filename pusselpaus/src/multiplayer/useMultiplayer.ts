@@ -60,17 +60,22 @@ export function useMultiplayer() {
   const [matches, setMatches] = useState<MultiplayerMatchView[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const isJoinedPlayerStatus = useCallback(
+    (status: string | null | undefined) => status === 'accepted' || status === 'matched',
+    [],
+  );
+
   /* ── single-match enforcement ── */
 
   const hasBlockingMatch = useCallback(
     (exceptMatchId?: string) =>
       matches.some((entry) => {
-        if (entry.me?.status !== 'accepted') return false;
+        if (!isJoinedPlayerStatus(entry.me?.status)) return false;
         if (exceptMatchId && entry.match.id === exceptMatchId) return false;
         const s = entry.match.status;
         return s === 'waiting' || s === 'starting' || s === 'in_progress';
       }),
-    [matches],
+    [matches, isJoinedPlayerStatus],
   );
 
   /* ── data loading (with concurrency guard) ── */
@@ -363,14 +368,14 @@ export function useMultiplayer() {
       (m) => m.me?.status === 'invited' && m.match.status === 'waiting',
     );
     const waiting = matches.filter(
-      (m) => m.me?.status === 'accepted' && m.match.status === 'waiting',
+      (m) => isJoinedPlayerStatus(m.me?.status) && m.match.status === 'waiting',
     );
     const starting = matches.filter(
-      (m) => m.me?.status === 'accepted' && m.match.status === 'starting',
+      (m) => isJoinedPlayerStatus(m.me?.status) && m.match.status === 'starting',
     );
     const active = matches.filter(
       (m) =>
-        m.me?.status === 'accepted' &&
+        isJoinedPlayerStatus(m.me?.status) &&
         m.match.status === 'in_progress' &&
         !m.me?.submitted,
     );
@@ -378,7 +383,7 @@ export function useMultiplayer() {
       .filter((m) => m.match.status === 'completed')
       .slice(0, 10);
     return { incoming, waiting, starting, active, completed };
-  }, [matches]);
+  }, [matches, isJoinedPlayerStatus]);
 
   return {
     loading,
