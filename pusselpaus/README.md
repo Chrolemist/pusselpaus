@@ -7,6 +7,34 @@ For multiplayer structure and future live games, follow [docs/multiplayer-archit
 
 The important rule is that every new game should stay route-lazy and keep heavy UI, audio, and tutorial code inside the game module instead of the app shell.
 
+## Supabase Migrations
+
+This workspace has the frontend app in `pusselpaus/` and the Supabase folder one level above it.
+
+If you are standing in `c:\pusselpaus\pusselpaus`, use these commands:
+
+```powershell
+Push-Location ..
+npx supabase migration list
+npx supabase db push
+Pop-Location
+```
+
+What this does:
+
+- `migration list` shows which migrations exist locally and remotely.
+- `db push` applies the local migrations that are still missing in the linked remote project.
+
+Example from the Ping Pong multiplayer fix:
+
+- Added `supabase/migrations/20260307155000_allow_pingpong_match_creation.sql`
+- Ran `npx supabase migration list`
+- Confirmed `20260307155000` existed only locally
+- Ran `npx supabase db push`
+- Ran `npx supabase migration list` again and confirmed it existed both locally and remotely
+
+If `supabase` is not installed globally, use `npx supabase ...` as above. In this repo that worked with the local CLI dependency from the root `package.json`.
+
 # React + TypeScript + Vite
 
 This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.

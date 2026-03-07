@@ -9,6 +9,7 @@ import { useFriends } from '../../hooks/useFriends';
 import { useMultiplayer } from '../../multiplayer';
 import { levelProgress } from '../../core/xp';
 import { displaySkin } from '../../core/skin';
+import type { MatchConfig } from '../../multiplayer';
 import {
   Coins,
   Store,
@@ -42,6 +43,8 @@ export default function TopBar() {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState('');
   const [notices, setNotices] = useState<NoticeItem[]>([]);
+  const [inviteActionMessage, setInviteActionMessage] = useState<string | null>(null);
+  const [processingInviteId, setProcessingInviteId] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const seenInitialRef = useRef(false);
   const prevFriendCountRef = useRef(0);
@@ -51,6 +54,42 @@ export default function TopBar() {
   const incomingInviteCount = mp.grouped.incoming.length;
   const totalBadge = incomingFriendCount + incomingInviteCount;
   const latestIncomingFriend = friends.find((f) => f.status === 'pending' && !f.isSender)?.friend ?? null;
+  const latestIncomingInvite = mp.grouped.incoming[0] ?? null;
+
+  const flashInviteActionMessage = useCallback((message: string) => {
+    setInviteActionMessage(message);
+    window.setTimeout(() => setInviteActionMessage(null), 3500);
+  }, []);
+
+  const goToInviteMatch = useCallback((entry: (typeof mp.grouped.incoming)[number]) => {
+    const gameId = entry.match.game_id;
+    mp.setActiveMatch(gameId, entry.match.id, {
+      config: (entry.match.config as MatchConfig | null) ?? undefined,
+      configSeed: entry.match.config_seed ?? undefined,
+      showOverlay: true,
+    });
+    setShowMatches(false);
+    setMenuOpen(false);
+    navigate(mp.gamePath(gameId));
+  }, [mp, navigate]);
+
+  const acceptIncomingInvite = useCallback(async (entry: (typeof mp.grouped.incoming)[number]) => {
+    setProcessingInviteId(entry.match.id);
+    const err = await mp.acceptInvite(entry.match.id);
+    setProcessingInviteId(null);
+    if (err) {
+      flashInviteActionMessage(err);
+      return;
+    }
+    goToInviteMatch(entry);
+  }, [flashInviteActionMessage, goToInviteMatch, mp]);
+
+  const declineIncomingInvite = useCallback(async (entry: (typeof mp.grouped.incoming)[number]) => {
+    setProcessingInviteId(entry.match.id);
+    const err = await mp.declineInvite(entry.match.id);
+    setProcessingInviteId(null);
+    flashInviteActionMessage(err ?? 'Inbjudan nekad');
+  }, [flashInviteActionMessage, mp]);
 
   const pushNotice = (kind: NoticeItem['kind'], message: string) => {
     const id = Date.now() + Math.floor(Math.random() * 1000);
@@ -302,10 +341,78 @@ export default function TopBar() {
         )}
       </AnimatePresence>
 
-      {incomingFriendCount > 0 && !showFriends && (
+      {incomingInviteCount > 0 && latestIncomingInvite && !showMatches && (
         <AnimatePresence>
           <motion.div
             className="pointer-events-none fixed inset-x-3 top-16 z-50 flex justify-center"
+            initial={{ opacity: 0, y: -18, scale: 0.96 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -10, scale: 0.98 }}
+            transition={{ type: 'spring', stiffness: 320, damping: 24 }}
+          >
+            <motion.div
+              className="pointer-events-auto flex w-full max-w-lg items-center gap-3 rounded-2xl border border-emerald-300/25 bg-gradient-to-r from-emerald-500/25 via-cyan-500/15 to-surface-card/95 px-4 py-3 shadow-2xl shadow-emerald-500/10 ring-1 ring-white/10 backdrop-blur-lg"
+              animate={{ boxShadow: ['0 0 0 rgba(0,0,0,0)', '0 0 28px rgba(16,185,129,0.22)', '0 0 0 rgba(0,0,0,0)'] }}
+              transition={{ duration: 1.8, repeat: Infinity, ease: 'easeInOut' }}
+            >
+              <div className="flex h-11 w-11 items-center justify-center rounded-full bg-white/10 text-xl shadow-inner shadow-black/30">
+                <Swords className="h-5 w-5 text-emerald-200" />
+              </div>
+
+              <div className="min-w-0 flex-1">
+                <p className="text-[11px] font-extrabold uppercase tracking-[0.18em] text-emerald-200">
+                  Multiplayer-inbjudan
+                </p>
+                <p className="truncate text-sm font-semibold text-white">
+                  {(() => {
+                    const host = latestIncomingInvite.players.find((player) => player.player.user_id === latestIncomingInvite.match.host_id)?.profile;
+                    const hostName = host?.username ?? 'En spelare';
+                    return `${hostName} bjöd in dig till ${mp.gameLabel(latestIncomingInvite.match.game_id)}`;
+                  })()}
+                </p>
+                <p className="text-xs text-text-muted">
+                  {incomingInviteCount > 1
+                    ? `${incomingInviteCount} inbjudningar väntar. Du kan gå direkt till nedräkningen här.`
+                    : 'Acceptera direkt och hoppa till matchnedräkningen.'}
+                </p>
+                {inviteActionMessage && (
+                  <p className="mt-1 text-xs font-medium text-amber-200">{inviteActionMessage}</p>
+                )}
+              </div>
+
+              <div className="flex shrink-0 items-center gap-2">
+                <button
+                  onClick={() => void declineIncomingInvite(latestIncomingInvite)}
+                  disabled={processingInviteId === latestIncomingInvite.match.id}
+                  className="rounded-xl bg-red-500/15 px-3 py-2 text-xs font-bold text-red-300 transition hover:bg-red-500/30 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Neka
+                </button>
+                <button
+                  onClick={() => void acceptIncomingInvite(latestIncomingInvite)}
+                  disabled={processingInviteId === latestIncomingInvite.match.id}
+                  className="rounded-xl bg-emerald-400 px-3 py-2 text-xs font-bold text-slate-950 shadow-lg shadow-emerald-500/20 transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {processingInviteId === latestIncomingInvite.match.id ? 'Ansluter...' : 'Acceptera'}
+                </button>
+                {incomingInviteCount > 1 && (
+                  <button
+                    onClick={() => setShowMatches(true)}
+                    className="rounded-xl bg-white/10 px-3 py-2 text-xs font-bold text-white transition hover:bg-white/20"
+                  >
+                    Visa alla
+                  </button>
+                )}
+              </div>
+            </motion.div>
+          </motion.div>
+        </AnimatePresence>
+      )}
+
+      {incomingFriendCount > 0 && !showFriends && (
+        <AnimatePresence>
+          <motion.div
+            className={`pointer-events-none fixed inset-x-3 z-50 flex justify-center ${incomingInviteCount > 0 && !showMatches ? 'top-36' : 'top-16'}`}
             initial={{ opacity: 0, y: -18, scale: 0.96 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -10, scale: 0.98 }}
@@ -375,7 +482,7 @@ export default function TopBar() {
                   onClick={() => setShowMatches(true)}
                   className="rounded-md bg-accent/20 px-2 py-1 text-xs font-semibold text-accent hover:bg-accent/40"
                 >
-                  Joina
+                  Öppna
                 </button>
               )}
             </div>
