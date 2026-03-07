@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { startTransition, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import confetti from 'canvas-confetti';
 import { AnimatePresence, motion } from 'motion/react';
@@ -42,6 +42,28 @@ function multiplayerInputFromKeys(keys: Record<string, boolean>): PongControlSta
   };
 }
 
+function emptyControl(): PongControlState {
+  return { up: false, down: false };
+}
+
+function mergeControlStates(a: PongControlState, b: PongControlState): PongControlState {
+  return {
+    up: a.up || b.up,
+    down: a.down || b.down,
+  };
+}
+
+function controlFromPointerTarget(targetY: number | null, paddleY: number): PongControlState {
+  if (targetY == null) return emptyControl();
+
+  const paddleCenter = paddleY + PONG_CONFIG.paddleHeight / 2;
+  const delta = targetY - paddleCenter;
+  const deadzone = 12;
+
+  if (Math.abs(delta) <= deadzone) return emptyControl();
+  return delta < 0 ? { up: true, down: false } : { up: false, down: true };
+}
+
 export default function PingPongPage() {
   const [cpuLevel, setCpuLevel] = useState<PongCpuLevel>('medium');
   const [state, setState] = useState<PongState>(() => createInitialPongState('cpu', 'medium'));
@@ -63,7 +85,10 @@ export default function PingPongPage() {
   const trailIdRef = useRef(0);
   const trailSampleAtRef = useRef(0);
   const arenaFocusRef = useRef<HTMLDivElement | null>(null);
+  const arenaSurfaceRef = useRef<HTMLDivElement | null>(null);
   const stagingResetRef = useRef<(() => void) | null>(null);
+  const pointerTargetRef = useRef<Record<PongSide, number | null>>({ left: null, right: null });
+  const activePointerIdRef = useRef<number | null>(null);
   const [isPortraitMobile, setIsPortraitMobile] = useState(false);
   const [isArenaFocusMode, setIsArenaFocusMode] = useState(false);
   const { submitResult: submitMatchResult } = useMultiplayerGame('pingpong');
@@ -77,11 +102,29 @@ export default function PingPongPage() {
     localInput: multiplayerInput,
   });
   const gameState = isRealtimeMatch ? (realtimeMatch.liveState ?? state) : state;
+  const gameStateRef = useRef(gameState);
 
   const pushState = (nextState: PongState) => {
     stateRef.current = nextState;
     setState(nextState);
   };
+
+  const controlledSide: PongSide = isRealtimeMatch ? (realtimeMatch.localSide ?? 'left') : 'left';
+
+  const syncRealtimeControl = useCallback(() => {
+    const keysControl = multiplayerInputFromKeys(pressedKeysRef.current);
+    const latestState = gameStateRef.current;
+    const paddleY = latestState.paddles[controlledSide].y;
+    const pointerControl = controlFromPointerTarget(pointerTargetRef.current[controlledSide], paddleY);
+    const nextControl = mergeControlStates(keysControl, pointerControl);
+
+    setMultiplayerInput((current) => {
+      if (current.up === nextControl.up && current.down === nextControl.down) {
+        return current;
+      }
+      return nextControl;
+    });
+  }, [controlledSide]);
 
   const resetLocalGameState = useCallback((nextState: PongState) => {
     stateRef.current = nextState;
@@ -108,6 +151,11 @@ export default function PingPongPage() {
   useEffect(() => {
     stateRef.current = state;
   }, [state]);
+
+  useEffect(() => {
+    gameStateRef.current = gameState;
+    syncRealtimeControl();
+  }, [gameState, syncRealtimeControl]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -166,11 +214,11 @@ export default function PingPongPage() {
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       pressedKeysRef.current[event.key.toLowerCase()] = true;
-      setMultiplayerInput(multiplayerInputFromKeys(pressedKeysRef.current));
+      syncRealtimeControl();
     };
     const onKeyUp = (event: KeyboardEvent) => {
       pressedKeysRef.current[event.key.toLowerCase()] = false;
-      setMultiplayerInput(multiplayerInputFromKeys(pressedKeysRef.current));
+      syncRealtimeControl();
     };
 
     window.addEventListener('keydown', onKeyDown);
@@ -179,7 +227,7 @@ export default function PingPongPage() {
       window.removeEventListener('keydown', onKeyDown);
       window.removeEventListener('keyup', onKeyUp);
     };
-  }, []);
+  }, [syncRealtimeControl]);
 
   useEffect(() => {
     if (isRealtimeMatch) return;
@@ -189,10 +237,10 @@ export default function PingPongPage() {
     let accumulator = 0;
 
     const readInputs = (): PongInputs => ({
-      left: {
+      left: mergeControlStates({
         up: !!pressedKeysRef.current.w,
         down: !!pressedKeysRef.current.s,
-      },
+      }, controlFromPointerTarget(pointerTargetRef.current.left, stateRef.current.paddles.left.y)),
       right: {
         up: !!pressedKeysRef.current.arrowup,
         down: !!pressedKeysRef.current.arrowdown,
@@ -216,15 +264,19 @@ export default function PingPongPage() {
         stateRef.current = nextState;
         setState(nextState);
 
-        if (nextState.status === 'playing' && now - trailSampleAtRef.current >= 34) {
+        if (nextState.status === 'playing' && now - trailSampleAtRef.current >= 52) {
           trailSampleAtRef.current = now;
-          setTrail((previousTrail) => {
-            const nextTrail = [...previousTrail, { id: trailIdRef.current++, x: nextState.ball.x, y: nextState.ball.y }];
-            return nextTrail.slice(-7);
+          startTransition(() => {
+            setTrail((previousTrail) => {
+              const nextTrail = [...previousTrail, { id: trailIdRef.current++, x: nextState.ball.x, y: nextState.ball.y }];
+              return nextTrail.slice(-5);
+            });
           });
         } else if (nextState.status !== 'playing') {
           trailSampleAtRef.current = 0;
-          setTrail((previousTrail) => (previousTrail.length > 0 ? [] : previousTrail));
+          startTransition(() => {
+            setTrail((previousTrail) => (previousTrail.length > 0 ? [] : previousTrail));
+          });
         }
       }
 
@@ -493,7 +545,49 @@ export default function PingPongPage() {
               ref={arenaFocusRef}
               className={isArenaFocusMode ? 'relative flex h-dvh w-screen items-center justify-center bg-[#020617]' : 'rounded-[28px] border border-cyan-400/15 bg-[#07111f] p-3 shadow-inner shadow-cyan-500/5'}
             >
-              <div className={isArenaFocusMode ? 'relative aspect-[16/9] w-full overflow-hidden bg-[radial-gradient(circle_at_center,rgba(56,189,248,0.08),transparent_32%),linear-gradient(180deg,#08101b_0%,#0a1424_100%)]' : 'relative aspect-[16/9] overflow-hidden rounded-[22px] border border-white/8 bg-[radial-gradient(circle_at_center,rgba(56,189,248,0.08),transparent_32%),linear-gradient(180deg,#08101b_0%,#0a1424_100%)]'} style={isArenaFocusMode ? { maxHeight: '100dvh' } : undefined}>
+              <div
+                ref={arenaSurfaceRef}
+                className={isArenaFocusMode ? 'relative aspect-[16/9] w-full overflow-hidden bg-[radial-gradient(circle_at_center,rgba(56,189,248,0.08),transparent_32%),linear-gradient(180deg,#08101b_0%,#0a1424_100%)]' : 'relative aspect-[16/9] overflow-hidden rounded-[22px] border border-white/8 bg-[radial-gradient(circle_at_center,rgba(56,189,248,0.08),transparent_32%),linear-gradient(180deg,#08101b_0%,#0a1424_100%)]'}
+                style={isArenaFocusMode ? { maxHeight: '100dvh' } : undefined}
+                onPointerDown={(event) => {
+                  if (!arenaSurfaceRef.current) return;
+
+                  activePointerIdRef.current = event.pointerId;
+                  event.currentTarget.setPointerCapture(event.pointerId);
+                  const rect = arenaSurfaceRef.current.getBoundingClientRect();
+                  const relativeY = ((event.clientY - rect.top) / rect.height) * PONG_CONFIG.height;
+                  pointerTargetRef.current[controlledSide] = Math.max(0, Math.min(PONG_CONFIG.height, relativeY));
+                  syncRealtimeControl();
+                }}
+                onPointerMove={(event) => {
+                  if (!arenaSurfaceRef.current) return;
+                  if (event.pointerType !== 'mouse' && activePointerIdRef.current !== event.pointerId) return;
+
+                  const rect = arenaSurfaceRef.current.getBoundingClientRect();
+                  const relativeY = ((event.clientY - rect.top) / rect.height) * PONG_CONFIG.height;
+                  pointerTargetRef.current[controlledSide] = Math.max(0, Math.min(PONG_CONFIG.height, relativeY));
+                  syncRealtimeControl();
+                }}
+                onPointerUp={(event) => {
+                  if (activePointerIdRef.current === event.pointerId) {
+                    activePointerIdRef.current = null;
+                  }
+                  pointerTargetRef.current[controlledSide] = null;
+                  syncRealtimeControl();
+                }}
+                onPointerCancel={(event) => {
+                  if (activePointerIdRef.current === event.pointerId) {
+                    activePointerIdRef.current = null;
+                  }
+                  pointerTargetRef.current[controlledSide] = null;
+                  syncRealtimeControl();
+                }}
+                onPointerLeave={(event) => {
+                  if (event.pointerType !== 'mouse') return;
+                  pointerTargetRef.current[controlledSide] = null;
+                  syncRealtimeControl();
+                }}
+              >
                 {isArenaFocusMode && (
                   <button
                     onClick={() => {
