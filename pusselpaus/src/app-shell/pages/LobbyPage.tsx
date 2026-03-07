@@ -30,10 +30,10 @@ function gameModeBadge(game: (typeof games)[number]): { label: string; tone: str
     };
   }
 
-  const { minPlayers, maxPlayers } = game.multiplayer;
-  const playerRange = minPlayers === maxPlayers
-    ? `1-${maxPlayers}`
-    : `${minPlayers}-${maxPlayers}`;
+  const { maxPlayers } = game.multiplayer;
+  const playerRange = maxPlayers == null
+    ? '1+'
+    : `1-${maxPlayers}`;
 
   return {
     label: `Multiplayer ${playerRange}`,

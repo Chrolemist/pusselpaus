@@ -216,6 +216,28 @@ export function useMultiplayer() {
     };
   }, [user, debouncedReload]);
 
+  useEffect(() => {
+    if (!user) return;
+
+    const refreshNow = () => {
+      void loadMatches();
+    };
+
+    const intervalId = window.setInterval(() => {
+      if (document.visibilityState !== 'visible') return;
+      void loadMatches();
+    }, 3000);
+
+    window.addEventListener('focus', refreshNow);
+    document.addEventListener('visibilitychange', refreshNow);
+
+    return () => {
+      window.clearInterval(intervalId);
+      window.removeEventListener('focus', refreshNow);
+      document.removeEventListener('visibilitychange', refreshNow);
+    };
+  }, [user, loadMatches]);
+
   /* ── actions ── */
 
   const createMatch = useCallback(

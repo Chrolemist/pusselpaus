@@ -21,8 +21,8 @@ export interface MultiplayerConfig {
   rankBy: 'time' | 'score';
   /** Minimum accepted players required for the match to proceed */
   minPlayers: number;
-  /** Maximum players the match supports */
-  maxPlayers: number;
+  /** Maximum players the match supports. Omit when the current flow has no strict frontend cap. */
+  maxPlayers?: number;
 }
 
 export interface GameDefinition {
@@ -84,7 +84,6 @@ export const games: GameDefinition[] = [
       ],
       rankBy: 'time',
       minPlayers: 2,
-      maxPlayers: 2,
     },
   },
   {
@@ -106,7 +105,6 @@ export const games: GameDefinition[] = [
       ],
       rankBy: 'time',
       minPlayers: 2,
-      maxPlayers: 2,
     },
   },
   {
@@ -123,7 +121,6 @@ export const games: GameDefinition[] = [
       difficulties: [{ value: 'easy', label: 'Standard' }],
       rankBy: 'score',
       minPlayers: 2,
-      maxPlayers: 2,
     },
     getStats: () => {
       const s = loadRytmRushStats();

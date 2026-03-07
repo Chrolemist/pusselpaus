@@ -229,7 +229,9 @@ export default function StagingScreen({
       const status = entry.match.status;
       const mePlayer = entry.players.find((p) => p.player.user_id === user?.id);
       const iForfeited = mePlayer?.player.forfeited === true;
-      const activePlayerCount = entry.players.filter((p) => p.player.forfeited !== true).length;
+      const activePlayerCount = entry.players.filter(
+        (p) => p.player.forfeited !== true && (p.player.status === 'accepted' || p.player.status === 'matched'),
+      ).length;
 
       // Stale match: completed, cancelled, or I forfeited — clear and go to staging
       if (status === 'completed' || status === 'cancelled' || iForfeited) {
@@ -383,7 +385,9 @@ export default function StagingScreen({
   const activeMatchConfig = activeEntry?.match.config;
   const activeMatchHostId = activeEntry?.match.host_id;
   const isHostForActiveMatch = activeMatchHostId === user?.id;
-  const activeNonForfeitedPlayers = activeEntry?.players.filter((p) => p.player.forfeited !== true) ?? [];
+  const activeNonForfeitedPlayers = activeEntry?.players.filter(
+    (p) => p.player.forfeited !== true && (p.player.status === 'accepted' || p.player.status === 'matched'),
+  ) ?? [];
   const meForfeited = activeEntry?.players.find((p) => p.player.user_id === user?.id)?.player.forfeited === true;
   const mePlayer = activeEntry?.players.find((p) => p.player.user_id === user?.id);
   const meReadyFromServer = (() => {
@@ -674,8 +678,10 @@ export default function StagingScreen({
       if (entry.match.game_id !== gameId) return false;
       const status = entry.match.status;
       if (status !== 'waiting' && status !== 'starting' && status !== 'in_progress') return false;
-      const nonForfeitedPlayers = entry.players.filter((p) => p.player.forfeited !== true);
-      if (nonForfeitedPlayers.length < 2) return false;
+      const activePlayers = entry.players.filter(
+        (p) => p.player.forfeited !== true && (p.player.status === 'accepted' || p.player.status === 'matched'),
+      );
+      if (activePlayers.length < 2) return false;
       return entry.me?.status === 'accepted' || entry.me?.status === 'matched';
     });
 
@@ -905,7 +911,9 @@ export default function StagingScreen({
     if (!activeEntry || !isMatchmade) return;
     if (phase !== 'match-found' && phase !== 'waiting' && phase !== 'countdown') return;
 
-    const players = activeEntry.players.filter((p) => p.player.forfeited !== true);
+    const players = activeEntry.players.filter(
+      (p) => p.player.forfeited !== true && (p.player.status === 'accepted' || p.player.status === 'matched'),
+    );
     const total = players.length;
     const ready = players.filter((p) => p.player.ready === true).length;
 
