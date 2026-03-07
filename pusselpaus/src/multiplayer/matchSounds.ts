@@ -108,4 +108,39 @@ export function disposeMatchSounds(): void {
   synth?.dispose();
   synth = null;
   audioReady = false;
+
+  if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+    window.speechSynthesis.cancel();
+  }
+}
+
+const COUNTDOWN_WORDS: Record<number, string> = {
+  1: 'Ett',
+  2: 'Två',
+  3: 'Tre',
+};
+
+/**
+ * Short spoken cue for the final countdown.
+ * Uses browser speech synthesis when available.
+ */
+export async function playCountdownVoice(secondsLeft: number): Promise<void> {
+  if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
+  const text = COUNTDOWN_WORDS[secondsLeft];
+  if (!text) return;
+
+  const utterance = new SpeechSynthesisUtterance(text);
+  utterance.lang = 'sv-SE';
+  utterance.rate = 1;
+  utterance.pitch = 1;
+  utterance.volume = 0.9;
+
+  const voices = window.speechSynthesis.getVoices();
+  const preferredVoice = voices.find((voice) => voice.lang.toLowerCase().startsWith('sv'))
+    ?? voices.find((voice) => voice.lang.toLowerCase().startsWith('en'))
+    ?? null;
+  if (preferredVoice) utterance.voice = preferredVoice;
+
+  window.speechSynthesis.cancel();
+  window.speechSynthesis.speak(utterance);
 }
