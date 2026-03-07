@@ -213,11 +213,39 @@ export default function PingPongPage() {
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      pressedKeysRef.current[event.key.toLowerCase()] = true;
+      const key = event.key.toLowerCase();
+      const code = event.code.toLowerCase();
+
+      if (code === 'space' || key === ' ') {
+        event.preventDefault();
+        if (!event.repeat) {
+          const preferredSide = gameStateRef.current.ball.vx >= 0 ? 'left' : 'right';
+          triggerFireBoost(preferredSide);
+        }
+        return;
+      }
+
+      if (code === 'arrowup' || code === 'arrowdown') {
+        event.preventDefault();
+      }
+
+      pressedKeysRef.current[key] = true;
       syncRealtimeControl();
     };
     const onKeyUp = (event: KeyboardEvent) => {
-      pressedKeysRef.current[event.key.toLowerCase()] = false;
+      const key = event.key.toLowerCase();
+      const code = event.code.toLowerCase();
+
+      if (code === 'space' || key === ' ') {
+        event.preventDefault();
+        return;
+      }
+
+      if (code === 'arrowup' || code === 'arrowdown') {
+        event.preventDefault();
+      }
+
+      pressedKeysRef.current[key] = false;
       syncRealtimeControl();
     };
 
