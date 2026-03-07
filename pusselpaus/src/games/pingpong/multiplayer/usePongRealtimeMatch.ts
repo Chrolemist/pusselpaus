@@ -62,7 +62,7 @@ export function usePongRealtimeMatch({ enabled, config, localInput, matchId, see
   const [liveState, setLiveState] = useState<PongState | null>(null);
   const [participants, setParticipants] = useState<RealtimeParticipant[]>([]);
   const transportRef = useRef(createSupabaseBroadcastTransport<Record<string, unknown>, Record<string, unknown>>());
-  const latestLocalInputRef = useRef<PongRealtimeInput>({ up: false, down: false, boostNonce: 0 });
+  const latestLocalInputRef = useRef<PongRealtimeInput>({ up: false, down: false, targetY: null, boostNonce: 0 });
   const remoteInputsRef = useRef(new Map<string, PongRealtimeInput>());
   const currentStateRef = useRef<PongState | null>(null);
   const tickRef = useRef(0);
@@ -77,8 +77,9 @@ export function usePongRealtimeMatch({ enabled, config, localInput, matchId, see
       ...latestLocalInputRef.current,
       up: localInput.up,
       down: localInput.down,
+      targetY: localInput.targetY ?? null,
     };
-  }, [localInput.down, localInput.up]);
+  }, [localInput.down, localInput.targetY, localInput.up]);
 
   const localParticipant = useMemo(
     () => participants.find((participant) => participant.userId === user?.id) ?? null,
@@ -270,10 +271,12 @@ export function usePongRealtimeMatch({ enabled, config, localInput, matchId, see
           left: {
             up: leftInput?.up ?? false,
             down: leftInput?.down ?? false,
+            targetY: leftInput?.targetY ?? null,
           },
           right: {
             up: rightInput?.up ?? false,
             down: rightInput?.down ?? false,
+            targetY: rightInput?.targetY ?? null,
           },
         };
 

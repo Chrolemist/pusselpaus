@@ -43,13 +43,14 @@ function multiplayerInputFromKeys(keys: Record<string, boolean>): PongControlSta
 }
 
 function emptyControl(): PongControlState {
-  return { up: false, down: false };
+  return { up: false, down: false, targetY: null };
 }
 
 function mergeControlStates(a: PongControlState, b: PongControlState): PongControlState {
   return {
     up: a.up || b.up,
     down: a.down || b.down,
+    targetY: b.targetY ?? a.targetY ?? null,
   };
 }
 
@@ -60,15 +61,20 @@ function controlFromPointerTarget(targetY: number | null, paddleY: number): Pong
   const delta = targetY - paddleCenter;
   const deadzone = 4;
 
-  if (Math.abs(delta) <= deadzone) return emptyControl();
-  return delta < 0 ? { up: true, down: false } : { up: false, down: true };
+  if (Math.abs(delta) <= deadzone) {
+    return { up: false, down: false, targetY };
+  }
+
+  return delta < 0
+    ? { up: true, down: false, targetY }
+    : { up: false, down: true, targetY };
 }
 
 export default function PingPongPage() {
   const [cpuLevel, setCpuLevel] = useState<PongCpuLevel>('medium');
   const [state, setState] = useState<PongState>(() => createInitialPongState('cpu', 'medium'));
   const [session, setSession] = useState<StagingResult | null>(null);
-  const [multiplayerInput, setMultiplayerInput] = useState<PongControlState>({ up: false, down: false });
+  const [multiplayerInput, setMultiplayerInput] = useState<PongControlState>({ up: false, down: false, targetY: null });
   const [trail, setTrail] = useState<Array<{ id: number; x: number; y: number }>>([]);
   const [leftImpact, setLeftImpact] = useState(0);
   const [rightImpact, setRightImpact] = useState(0);
@@ -116,10 +122,10 @@ export default function PingPongPage() {
     const latestState = gameStateRef.current;
     const paddleY = latestState.paddles[controlledSide].y;
     const pointerControl = controlFromPointerTarget(pointerTargetRef.current[controlledSide], paddleY);
-    const nextControl = mergeControlStates(keysControl, pointerControl);
+    const nextControl = mergeControlStates({ ...keysControl, targetY: null }, pointerControl);
 
     setMultiplayerInput((current) => {
-      if (current.up === nextControl.up && current.down === nextControl.down) {
+      if (current.up === nextControl.up && current.down === nextControl.down && current.targetY === nextControl.targetY) {
         return current;
       }
       return nextControl;
@@ -268,10 +274,12 @@ export default function PingPongPage() {
       left: mergeControlStates({
         up: !!pressedKeysRef.current.w,
         down: !!pressedKeysRef.current.s,
+        targetY: null,
       }, controlFromPointerTarget(pointerTargetRef.current.left, stateRef.current.paddles.left.y)),
       right: {
         up: !!pressedKeysRef.current.arrowup,
         down: !!pressedKeysRef.current.arrowdown,
+        targetY: null,
       },
     });
 

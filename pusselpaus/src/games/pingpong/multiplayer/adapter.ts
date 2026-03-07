@@ -19,6 +19,7 @@ export const pongRealtimeAdapter: RealtimeGameAdapter<PongRealtimeConfig, PongRe
     return {
       up: input.up,
       down: input.down,
+      targetY: input.targetY ?? null,
       boostNonce: input.boostNonce,
     };
   },
@@ -26,6 +27,7 @@ export const pongRealtimeAdapter: RealtimeGameAdapter<PongRealtimeConfig, PongRe
     return {
       up: normalizeBoolean(payload.up),
       down: normalizeBoolean(payload.down),
+      targetY: typeof payload.targetY === 'number' ? payload.targetY : null,
       boostNonce: typeof payload.boostNonce === 'number' ? payload.boostNonce : 0,
     };
   },

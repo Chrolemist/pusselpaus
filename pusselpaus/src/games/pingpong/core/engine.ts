@@ -16,7 +16,7 @@ function centeredBall() {
 }
 
 function emptyControl(): PongControlState {
-  return { up: false, down: false };
+  return { up: false, down: false, targetY: null };
 }
 
 function serveAngle(seed: number): number {
@@ -95,6 +95,11 @@ function controlDirection(control: PongControlState): number {
   return control.up ? -1 : 1;
 }
 
+function targetPaddleY(control: PongControlState): number | null {
+  if (typeof control.targetY !== 'number' || Number.isNaN(control.targetY)) return null;
+  return clamp(control.targetY - PONG_CONFIG.paddleHeight / 2, 0, PONG_CONFIG.height - PONG_CONFIG.paddleHeight);
+}
+
 function deriveCpuControl(state: PongState): PongControlState {
   if (state.status === 'finished') return emptyControl();
   const preset = PONG_CPU_PRESETS[state.cpuLevel];
@@ -115,6 +120,18 @@ function deriveCpuControl(state: PongState): PongControlState {
 }
 
 function movePaddle(y: number, control: PongControlState, dtMs: number, speed: number): { y: number; velocity: number } {
+  const directTargetY = targetPaddleY(control);
+  if (directTargetY != null) {
+    const maxStep = speed * (dtMs / 1000);
+    const delta = directTargetY - y;
+    const clampedDelta = clamp(delta, -maxStep, maxStep);
+    const nextY = clamp(y + clampedDelta, 0, PONG_CONFIG.height - PONG_CONFIG.paddleHeight);
+    return {
+      y: nextY,
+      velocity: dtMs > 0 ? clampedDelta / (dtMs / 1000) : 0,
+    };
+  }
+
   const direction = controlDirection(control);
   const velocity = direction * speed;
   const nextY = clamp(y + velocity * (dtMs / 1000), 0, PONG_CONFIG.height - PONG_CONFIG.paddleHeight);

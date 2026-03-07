@@ -47,6 +47,7 @@ export const PONG_CPU_PRESETS: Record<PongCpuLevel, { paddleSpeed: number; deadz
 export interface PongControlState {
   up: boolean;
   down: boolean;
+  targetY?: number | null;
 }
 
 export interface PongInputs {
