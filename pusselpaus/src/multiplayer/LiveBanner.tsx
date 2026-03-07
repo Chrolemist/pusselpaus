@@ -865,7 +865,6 @@ export default function LiveBanner({ gameId }: Props) {
                 <button
                   onClick={async () => {
                     if (!live.match) return;
-                    if (!window.confirm('Vill du ge upp matchen?')) return;
                     await mpForfeitMatch(live.match.id);
                     clearActiveMatch(gameId);
                   }}

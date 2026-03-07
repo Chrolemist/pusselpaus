@@ -56,7 +56,7 @@ export interface MatchFoundOverlayProps {
   onDecline: () => void;
   /** Whether to show the overlay */
   visible: boolean;
-  /** When true, no auto-decline timer (used for friend-invite flow where user already accepted) */
+  /** When true, timeout is display-only and will not auto-decline. */
   noTimeout?: boolean;
   /** Enable overlay sounds (match found / accept / countdown tick) */
   enableSounds?: boolean;
@@ -129,8 +129,9 @@ export default function MatchFoundOverlay({
       };
     }
 
-    // No countdown for friend-invite flow
-    if (noTimeout || anyDeclined) {
+    // Friend invites have no deadline. Matchmade flow may still show a synced
+    // visual timer without auto-declining when `noTimeout` is true.
+    if ((noTimeout && !deadlineAt) || anyDeclined) {
       mpDebug('MatchFoundOverlay', 'countdown:skipped_noTimeout');
       return;
     }
@@ -179,7 +180,7 @@ export default function MatchFoundOverlay({
 
       if (seconds <= 0) {
         if (timerRef.current) clearInterval(timerRef.current);
-        if (!declinedRef.current && !allAccepted && !meAccepted) {
+        if (!noTimeout && !declinedRef.current && !allAccepted && !meAccepted) {
           declinedRef.current = true;
           mpDebug('MatchFoundOverlay', 'countdown:expired_decline');
           onDeclineRef.current();
@@ -280,8 +281,8 @@ export default function MatchFoundOverlay({
               Acceptera för att spela
             </motion.p>
 
-            {/* ── Countdown ring (only for timed matches) ── */}
-            {!noTimeout && (
+            {/* ── Countdown ring ── */}
+            {(!noTimeout || !!deadlineAt) && (
             <motion.div
               className="relative flex items-center justify-center"
               initial={{ scale: 0.5, opacity: 0 }}
@@ -334,8 +335,8 @@ export default function MatchFoundOverlay({
             </motion.div>
             )}
 
-            {/* ── Pulsing indicator for friend-invite (noTimeout) ── */}
-            {noTimeout && (
+            {/* ── Pulsing indicator for indefinite friend-invite wait ── */}
+            {noTimeout && !deadlineAt && (
               <motion.div
                 className="flex flex-col items-center gap-2"
                 initial={{ scale: 0.5, opacity: 0 }}

@@ -1405,28 +1405,29 @@ export default function StagingScreen({
   /* ── Countdown overlay ── */
   if (phase === 'countdown') {
     return (
-      <div className="flex min-h-dvh flex-col items-center justify-center gap-4 px-4">
-        <p className="text-sm uppercase tracking-widest text-text-muted">
+      <div className="fixed inset-0 z-[9999] flex min-h-dvh flex-col items-center justify-center gap-5 bg-surface/92 px-4 backdrop-blur-lg">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_45%,rgba(99,102,241,0.18)_0%,transparent_68%)]" />
+        <p className="relative z-10 text-sm uppercase tracking-widest text-text-muted">
           {label}
         </p>
         <motion.p
           key={countdownValue}
-          className="text-8xl font-extrabold text-brand-light"
-          initial={{ scale: 2, opacity: 0 }}
+          className="relative z-10 text-8xl font-extrabold text-brand-light drop-shadow-[0_0_24px_rgba(99,102,241,0.45)] sm:text-9xl"
+          initial={{ scale: 1.7, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           exit={{ scale: 0.5, opacity: 0 }}
-          transition={{ duration: 0.35 }}
+          transition={{ duration: 0.28 }}
         >
           {countdownValue > 0 ? countdownValue : 'KÖR!'}
         </motion.p>
-        <p className="text-xs text-text-muted">Alla spelare startar samtidigt</p>
+        <p className="relative z-10 text-center text-sm text-text-muted">Gemensam start. Alla spelare går in samtidigt.</p>
 
         {activeEntry && (
-          <div className="mt-4 flex gap-3">
+          <div className="relative z-10 mt-2 flex gap-3 rounded-2xl bg-white/5 px-4 py-3 ring-1 ring-white/10">
             {activeEntry.players.map(({ player, profile }) => (
-              <div key={player.id} className="flex flex-col items-center gap-1">
+              <div key={player.id} className="flex min-w-[72px] flex-col items-center gap-1">
                 <span className="text-2xl">{displaySkin(profile?.skin)}</span>
-                <span className="text-[11px] text-text-muted">
+                <span className="max-w-[72px] truncate text-[11px] text-text-muted">
                   {profile?.username ?? 'Spelare'}
                 </span>
                 <LevelBadge level={profile?.level} />
@@ -1440,7 +1441,7 @@ export default function StagingScreen({
 
   /* ── Match-found overlay (matchmaking ready-up) ── */
   if (phase === 'match-found') {
-    const acceptDeadlineAt = !isMatchmade && activeEntry?.match.created_at
+    const acceptDeadlineAt = activeEntry?.match.created_at
       ? new Date(new Date(activeEntry.match.created_at).getTime() + 15_000).toISOString()
       : null;
 
