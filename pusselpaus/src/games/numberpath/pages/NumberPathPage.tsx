@@ -9,7 +9,7 @@ import PathGrid from '../components/PathGrid';
 import { useNumberPath } from '../hooks/useNumberPath';
 import type { Difficulty } from '../core/types';
 import { DIFFICULTY_LABELS, GRID_LABELS } from '../core/types';
-import { LiveBanner as MultiplayerLiveBanner, StagingScreen, type StagingResult } from '../../../multiplayer';
+import { LiveBanner as MultiplayerLiveBanner, MULTIPLAYER_REPLAY_EVENT, StagingScreen, type StagingResult } from '../../../multiplayer';
 
 /* ── helpers ── */
 
@@ -37,6 +37,19 @@ export default function NumberPathPage() {
     }
     if (game.phase !== 'won') confettiFired.current = false;
   }, [game.phase]);
+
+  useEffect(() => {
+    const handleReplay = (event: Event) => {
+      const replayEvent = event as CustomEvent<{ gameId?: string }>;
+      if (replayEvent.detail?.gameId !== 'numberpath') return;
+      stagingResetRef.current?.();
+    };
+
+    window.addEventListener(MULTIPLAYER_REPLAY_EVENT, handleReplay as EventListener);
+    return () => {
+      window.removeEventListener(MULTIPLAYER_REPLAY_EVENT, handleReplay as EventListener);
+    };
+  }, []);
 
   /* ── StagingScreen callback ── */
   const handleStart = useCallback(

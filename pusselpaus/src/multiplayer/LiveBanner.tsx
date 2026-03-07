@@ -11,7 +11,7 @@ import { AnimatePresence, motion } from 'motion/react';
 import confetti from 'canvas-confetti';
 import { displaySkin } from '../core/skin';
 
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Swords, Trophy, Zap, Clock, Coins, Medal, Crown, X } from 'lucide-react';
 import { useLiveMatch, type LivePlayer } from './useLiveMatch';
@@ -19,6 +19,7 @@ import { mpTickMatchStart, mpForfeitMatch } from './api';
 import { clearActiveMatch } from './activeMatch';
 import { gameLabel } from './useMultiplayer';
 import { playCountdownTick, playCountdownVoice } from './matchSounds';
+import { dispatchMultiplayerReplay } from './replay';
 import LevelBadge from '../components/LevelBadge';
 import type { MultiplayerMatch } from '../lib/database.types';
 
@@ -264,9 +265,10 @@ interface ResultsOverlayProps {
   myUserId: string | null;
   onClose: () => void;
   onReplay: () => void;
+  onGoLobby: () => void;
 }
 
-function ResultsOverlay({ gameId, label, match, rows, myUserId, onClose, onReplay }: ResultsOverlayProps) {
+function ResultsOverlay({ gameId, label, match, rows, myUserId, onClose, onReplay, onGoLobby }: ResultsOverlayProps) {
   const meRow = rows.find((row) => row.player.player.user_id === myUserId) ?? null;
   const winnerName = rows.find((row) => row.player.player.user_id === match.winner_id)?.player.profile?.username ?? null;
   const podiumRows = podiumOrder(rows);
@@ -288,6 +290,17 @@ function ResultsOverlay({ gameId, label, match, rows, myUserId, onClose, onRepla
     return () => window.clearTimeout(burst);
   }, [rows.length]);
 
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        onClose();
+      }
+    };
+
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [onClose]);
+
   return (
     <AnimatePresence>
       <motion.div
@@ -295,6 +308,11 @@ function ResultsOverlay({ gameId, label, match, rows, myUserId, onClose, onRepla
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
+        onClick={(event) => {
+          if (event.target === event.currentTarget) {
+            onClose();
+          }
+        }}
       >
         <motion.div
           className="relative w-full max-w-4xl overflow-hidden rounded-[28px] border border-white/10 bg-[#0f1121] shadow-2xl"
@@ -481,16 +499,12 @@ function ResultsOverlay({ gameId, label, match, rows, myUserId, onClose, onRepla
                 >
                   Spela igen
                 </button>
-                <Link
-                  to="/"
-                  onClick={() => {
-                    clearActiveMatch(gameId);
-                    onClose();
-                  }}
+                <button
+                  onClick={onGoLobby}
                   className="rounded-xl bg-white/5 px-4 py-2 text-sm font-semibold text-text-muted ring-1 ring-white/10 transition hover:bg-white/10 hover:text-white"
                 >
                   Till lobby
-                </Link>
+                </button>
                 <button
                   onClick={onClose}
                   className="rounded-xl bg-brand px-4 py-2 text-sm font-bold text-white shadow-lg shadow-brand/25 transition hover:brightness-110"
@@ -514,7 +528,7 @@ export default function LiveBanner({ gameId }: Props) {
   const live = useLiveMatch(gameId);
   const [nowMs, setNowMs] = useState(() => Date.now());
   const [dismissedMatchId, setDismissedMatchId] = useState<string | null>(null);
-  const location = useLocation();
+  const navigate = useNavigate();
   const lastTimeoutTickRef = useRef<number | null>(null);
 
   useEffect(() => {
@@ -727,11 +741,15 @@ export default function LiveBanner({ gameId }: Props) {
           onReplay={() => {
             clearActiveMatch(gameId);
             setDismissedMatchId(live.match?.id ?? null);
-            window.location.assign(location.pathname);
+            dispatchMultiplayerReplay(gameId);
           }}
           onClose={() => {
+            setDismissedMatchId(live.match?.id ?? null);
+          }}
+          onGoLobby={() => {
             clearActiveMatch(gameId);
             setDismissedMatchId(live.match?.id ?? null);
+            navigate('/');
           }}
         />
       )}

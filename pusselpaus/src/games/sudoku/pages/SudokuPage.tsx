@@ -11,7 +11,7 @@ import { useSudoku } from '../hooks/useSudoku';
 import SudokuBoard from '../components/SudokuBoard';
 import Numpad from '../components/Numpad';
 import Timer from '../components/Timer';
-import { LiveBanner as MultiplayerLiveBanner, StagingScreen, type StagingResult } from '../../../multiplayer';
+import { LiveBanner as MultiplayerLiveBanner, MULTIPLAYER_REPLAY_EVENT, StagingScreen, type StagingResult } from '../../../multiplayer';
 
 interface TutorialTarget {
   index: number;
@@ -99,6 +99,7 @@ export default function SudokuPage() {
   const [tutorialFeedback, setTutorialFeedback] = useState<string | null>(null);
   const tutorialDriverRef = useRef<Driver | null>(null);
   const confettiFired = useRef(false);
+  const stagingResetRef = useRef<(() => void) | null>(null);
 
   /* fire confetti on win */
   useEffect(() => {
@@ -114,6 +115,19 @@ export default function SudokuPage() {
     return () => {
       tutorialDriverRef.current?.destroy();
       tutorialDriverRef.current = null;
+    };
+  }, []);
+
+  useEffect(() => {
+    const handleReplay = (event: Event) => {
+      const replayEvent = event as CustomEvent<{ gameId?: string }>;
+      if (replayEvent.detail?.gameId !== 'sudoku') return;
+      stagingResetRef.current?.();
+    };
+
+    window.addEventListener(MULTIPLAYER_REPLAY_EVENT, handleReplay as EventListener);
+    return () => {
+      window.removeEventListener(MULTIPLAYER_REPLAY_EVENT, handleReplay as EventListener);
     };
   }, []);
 
@@ -266,6 +280,7 @@ export default function SudokuPage() {
       defaultDifficulty="medium"
       hasSavedGame={!!loadGame()}
       onResume={resumeGame}
+      resetRef={stagingResetRef}
     >
       {/* ── Game view (only rendered after StagingScreen calls onStart) ── */}
       {state ? (

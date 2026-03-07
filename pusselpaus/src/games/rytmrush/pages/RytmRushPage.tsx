@@ -16,7 +16,7 @@ import {
 import { playWinJingle } from '../audio/rhythmAudio';
 import { useCoinRewards } from '../../../hooks/useCoinRewards';
 import { useServerGameStats } from '../../../hooks/useServerGameStats';
-import { useMultiplayerGame, LiveBanner as MultiplayerLiveBanner, StagingScreen, type StagingResult } from '../../../multiplayer';
+import { useMultiplayerGame, LiveBanner as MultiplayerLiveBanner, MULTIPLAYER_REPLAY_EVENT, StagingScreen, type StagingResult } from '../../../multiplayer';
 
 /* ── Page component ── */
 
@@ -75,6 +75,20 @@ export default function RytmRushPage() {
       window.removeEventListener('keyup', onKeyUp);
     };
   }, [onKeyDown, onKeyUp]);
+
+  useEffect(() => {
+    const handleReplay = (event: Event) => {
+      const replayEvent = event as CustomEvent<{ gameId?: string }>;
+      if (replayEvent.detail?.gameId !== 'rytmrush') return;
+      engine.setPhase('menu');
+      stagingResetRef.current?.();
+    };
+
+    window.addEventListener(MULTIPLAYER_REPLAY_EVENT, handleReplay as EventListener);
+    return () => {
+      window.removeEventListener(MULTIPLAYER_REPLAY_EVENT, handleReplay as EventListener);
+    };
+  }, [engine]);
 
   /* ── Confetti + jingle on results ── */
   useEffect(() => {

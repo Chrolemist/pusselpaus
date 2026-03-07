@@ -36,6 +36,7 @@ export { default as StagingScreen } from './StagingScreen';
 export type { StagingResult } from './StagingScreen';
 export { default as MatchFoundOverlay } from './MatchFoundOverlay';
 export type { MatchPlayer, MatchFoundOverlayProps } from './MatchFoundOverlay';
+export { MULTIPLAYER_REPLAY_EVENT, dispatchMultiplayerReplay } from './replay';
 
 // Matchmaking
 export { useMatchmaking } from './useMatchmaking';
