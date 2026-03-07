@@ -3,6 +3,7 @@
 Use this folder as a copy base when you add a new game.
 
 Project-wide architecture rules live in `docs/adding-games.md`.
+Platform contract rules live in `docs/game-platform-architecture.md`.
 
 ## Suggested steps
 
@@ -12,6 +13,8 @@ Project-wide architecture rules live in `docs/adding-games.md`.
 4. Keep storage keys unique per game.
 5. Register the game in `src/game-registry/index.ts`.
 6. Keep the game route lazy and avoid pulling game-specific code into `App.tsx` or other shell components.
+
+If the new game is turn-based and you want a multiplayer-ready starting point, use `src/games/_turn-based-template` instead of this generic template.
 
 ## Folder structure
 

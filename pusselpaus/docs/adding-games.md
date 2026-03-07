@@ -4,6 +4,8 @@ This project is already set up so new games can be added without bloating the fi
 
 Follow this pattern when you add a game.
 
+For the platform-level contract strategy, also read `docs/game-platform-architecture.md`.
+
 ## Rules
 
 1. Keep every game behind a lazy route.
@@ -21,6 +23,8 @@ Copy `src/games/_template` and keep the same structure:
 - `components/` for game-local UI
 - `audio/` for game-local sound code
 - `hooks/` for game-local React hooks
+
+For a turn-based multiplayer-first game, use `src/games/_turn-based-template` as the copy base instead of the generic template.
 
 ## Registration Checklist
 
