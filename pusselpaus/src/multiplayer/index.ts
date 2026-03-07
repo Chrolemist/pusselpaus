@@ -45,4 +45,4 @@ export { matchmakeJoin, matchmakeLeave, matchmakePoll } from './matchmakingApi';
 export type { MatchmakeResult } from './matchmakingApi';
 
 // Audio
-export { playMatchFound, playAcceptTick, playCountdownTick, disposeMatchSounds } from './matchSounds';
+export { playMatchFound, playAcceptTick, playCountdownTick, playRematchStart, disposeMatchSounds } from './matchSounds';

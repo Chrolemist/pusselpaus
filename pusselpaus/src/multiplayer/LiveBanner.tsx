@@ -18,13 +18,14 @@ import { useLiveMatch, type LivePlayer } from './useLiveMatch';
 import { mpTickMatchStart, mpForfeitMatch, mpRequestRematch } from './api';
 import { clearActiveMatch, getActiveMatchPayload, setActiveMatchPayload } from './activeMatch';
 import { gameLabel } from './useMultiplayer';
-import { playCountdownTick, playCountdownVoice } from './matchSounds';
+import { playCountdownTick, playCountdownVoice, playRematchStart } from './matchSounds';
 import { dispatchMultiplayerReplay } from './replay';
 import LevelBadge from '../components/LevelBadge';
 import type { MultiplayerMatch } from '../lib/database.types';
 import { supabase } from '../lib/supabaseClient';
 
 const AFK_TIMEOUT_SECONDS = 180;
+const REMATCH_TIMEOUT_SECONDS = 20;
 
 interface MatchResultRow {
   player: LivePlayer;
@@ -48,6 +49,25 @@ function formatRemaining(totalSeconds: number): string {
   const m = Math.floor(safe / 60);
   const s = safe % 60;
   return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+}
+
+function toTimestampMs(value: string | null | undefined): number | null {
+  if (!value) return null;
+  const parsed = new Date(value).getTime();
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function isActiveRematchRequest(requested: boolean, requestedAt: string | null | undefined, nowMs: number): boolean {
+  if (!requested) return false;
+  const requestedAtMs = toTimestampMs(requestedAt);
+  if (requestedAtMs == null) return true;
+  return requestedAtMs + REMATCH_TIMEOUT_SECONDS * 1000 > nowMs;
+}
+
+function getRematchExpiryMs(requestedAt: string | null | undefined): number | null {
+  const requestedAtMs = toTimestampMs(requestedAt);
+  if (requestedAtMs == null) return null;
+  return requestedAtMs + REMATCH_TIMEOUT_SECONDS * 1000;
 }
 
 function getWinnerBonus(gameId: string): number {
@@ -282,13 +302,15 @@ interface ResultsOverlayProps {
   rematchRequested: boolean;
   rematchReadyCount: number;
   rematchTotalCount: number;
+  rematchSecondsLeft: number | null;
+  rematchStatusText: string | null;
   rematchBusy: boolean;
   onClose: () => void;
   onReplay: () => void;
   onGoLobby: () => void;
 }
 
-function ResultsOverlay({ gameId, label, match, rows, myUserId, rematchRequested, rematchReadyCount, rematchTotalCount, rematchBusy, onClose, onReplay, onGoLobby }: ResultsOverlayProps) {
+function ResultsOverlay({ gameId, label, match, rows, myUserId, rematchRequested, rematchReadyCount, rematchTotalCount, rematchSecondsLeft, rematchStatusText, rematchBusy, onClose, onReplay, onGoLobby }: ResultsOverlayProps) {
   const meRow = rows.find((row) => row.player.player.user_id === myUserId) ?? null;
   const winnerName = rows.find((row) => row.player.player.user_id === match.winner_id)?.player.profile?.username ?? null;
   const podiumRows = podiumOrder(rows);
@@ -507,11 +529,19 @@ function ResultsOverlay({ gameId, label, match, rows, myUserId, rematchRequested
             </div>
 
             <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-white/10 pt-4">
-              <p className="text-xs text-text-muted">
-                {gameId === 'rytmrush'
-                  ? 'Placering sorteras på överlevnadstid, sedan poäng.'
-                  : 'Placering sorteras på snabbaste sluttid.'}
-              </p>
+              <div className="space-y-1">
+                <p className="text-xs text-text-muted">
+                  {gameId === 'rytmrush'
+                    ? 'Placering sorteras på överlevnadstid, sedan poäng.'
+                    : 'Placering sorteras på snabbaste sluttid.'}
+                </p>
+                {rematchStatusText && (
+                  <p className="text-xs font-semibold text-brand-light">
+                    {rematchStatusText}
+                    {rematchRequested && rematchSecondsLeft != null ? ` ${formatRemaining(rematchSecondsLeft)} kvar.` : ''}
+                  </p>
+                )}
+              </div>
               <div className="flex gap-2">
                 <button
                   onClick={onReplay}
@@ -521,7 +551,7 @@ function ResultsOverlay({ gameId, label, match, rows, myUserId, rematchRequested
                   {rematchBusy
                     ? 'Startar...'
                     : rematchRequested
-                      ? `Väntar på spelare (${rematchReadyCount}/${rematchTotalCount})`
+                      ? `Väntar (${rematchReadyCount}/${rematchTotalCount})`
                       : 'Spela igen'}
                 </button>
                 <button
@@ -556,15 +586,42 @@ export default function LiveBanner({ gameId }: Props) {
   const [requestingRematch, setRequestingRematch] = useState(false);
   const navigate = useNavigate();
   const lastTimeoutTickRef = useRef<number | null>(null);
+  const lastRematchStartIdRef = useRef<string | null>(null);
 
-  const rematchTotalCount = useMemo(
-    () => live.acceptedPlayers.filter((entry) => !entry.player.forfeited).length,
+  const rematchPlayers = useMemo(
+    () => live.acceptedPlayers.filter((entry) => !entry.player.forfeited),
     [live.acceptedPlayers],
+  );
+  const rematchTotalCount = rematchPlayers.length;
+  const activeRematchPlayers = useMemo(
+    () => rematchPlayers.filter((entry) => isActiveRematchRequest(entry.player.rematch_requested, entry.player.rematch_requested_at, nowMs)),
+    [nowMs, rematchPlayers],
   );
   const rematchReadyCount = useMemo(
-    () => live.acceptedPlayers.filter((entry) => !entry.player.forfeited && entry.player.rematch_requested).length,
-    [live.acceptedPlayers],
+    () => activeRematchPlayers.length,
+    [activeRematchPlayers],
   );
+  const rematchRequested = live.me
+    ? isActiveRematchRequest(live.me.rematch_requested, live.me.rematch_requested_at, nowMs)
+    : false;
+  const rematchExpiryMs = useMemo(() => {
+    const candidates = activeRematchPlayers
+      .map((entry) => getRematchExpiryMs(entry.player.rematch_requested_at))
+      .filter((value): value is number => value != null);
+    if (!candidates.length) return null;
+    return Math.min(...candidates);
+  }, [activeRematchPlayers]);
+  const rematchSecondsLeft = rematchExpiryMs == null
+    ? null
+    : Math.max(0, Math.ceil((rematchExpiryMs - nowMs) / 1000));
+  const rematchStatusText = useMemo(() => {
+    if (live.match?.status !== 'completed' || rematchTotalCount <= 1) return null;
+    if (live.me?.rematch_match_id) return 'Alla redo. Rematch startar nu.';
+    if (requestingRematch) return 'Skapar snabb rematch...';
+    if (rematchRequested) return `Du är redo. Väntar på motståndaren (${rematchReadyCount}/${rematchTotalCount}).`;
+    if (rematchReadyCount > 0) return `Motståndaren är redo. Tryck på Spela igen (${rematchReadyCount}/${rematchTotalCount}).`;
+    return 'Tryck på Spela igen om ni vill hoppa direkt in i nästa match.';
+  }, [live.match?.status, live.me?.rematch_match_id, rematchReadyCount, rematchRequested, rematchTotalCount, requestingRematch]);
 
   useEffect(() => {
     if (live.match?.status !== 'completed') {
@@ -634,6 +691,9 @@ export default function LiveBanner({ gameId }: Props) {
   useEffect(() => {
     const rematchMatchId = live.me?.rematch_match_id;
     if (!rematchMatchId) return;
+    if (lastRematchStartIdRef.current === rematchMatchId) return;
+    lastRematchStartIdRef.current = rematchMatchId;
+    void playRematchStart();
     if (getActiveMatchPayload(gameId)?.matchId === rematchMatchId) return;
 
     let cancelled = false;
@@ -660,6 +720,12 @@ export default function LiveBanner({ gameId }: Props) {
       cancelled = true;
     };
   }, [gameId, live.match?.id, live.me?.rematch_match_id]);
+
+  useEffect(() => {
+    if (live.match?.status !== 'completed') {
+      lastRematchStartIdRef.current = null;
+    }
+  }, [live.match?.status, live.match?.id]);
 
   if (!live.isActive || !live.match) return null;
 
@@ -809,9 +875,11 @@ export default function LiveBanner({ gameId }: Props) {
           match={live.match}
           rows={resultRows}
           myUserId={live.me?.user_id ?? null}
-          rematchRequested={live.me?.rematch_requested === true}
+          rematchRequested={rematchRequested}
           rematchReadyCount={rematchReadyCount}
           rematchTotalCount={rematchTotalCount}
+          rematchSecondsLeft={rematchSecondsLeft}
+          rematchStatusText={rematchStatusText}
           rematchBusy={requestingRematch}
           onReplay={() => {
             const currentMatchId = live.match?.id;

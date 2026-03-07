@@ -346,6 +346,8 @@ export interface MpRequestRematchResult {
   rematchMatchId?: string | null;
   started_at?: string | null;
   startedAt?: string | null;
+  expires_at?: string | null;
+  expiresAt?: string | null;
   config_seed?: number | null;
   configSeed?: number | null;
   config?: MatchConfig | null;
@@ -356,6 +358,7 @@ function normalizeRematchResult(value: unknown): MpRequestRematchResult | null {
   const row = pickRpcRow(value);
   if (!row) return null;
   const startedCandidate = readField(row, ['started_at', 'startedAt']);
+  const expiresCandidate = readField(row, ['expires_at', 'expiresAt']);
   const rematchIdCandidate = readField(row, ['rematch_match_id', 'rematchMatchId']);
   const configSeedCandidate = readField(row, ['config_seed', 'configSeed']);
   const configCandidate = readField(row, ['config']);
@@ -367,6 +370,7 @@ function normalizeRematchResult(value: unknown): MpRequestRematchResult | null {
     total_count: toNumber(readField(row, ['total_count', 'totalCount'])),
     rematch_match_id: typeof rematchIdCandidate === 'string' ? rematchIdCandidate : null,
     started_at: typeof startedCandidate === 'string' ? startedCandidate : null,
+    expires_at: typeof expiresCandidate === 'string' ? expiresCandidate : null,
     config_seed: toNumber(configSeedCandidate),
     config: configCandidate && typeof configCandidate === 'object' ? (configCandidate as MatchConfig) : null,
     stake: toNumber(readField(row, ['stake'])),

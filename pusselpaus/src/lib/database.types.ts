@@ -272,6 +272,7 @@ export interface Database {
           survived_seconds: number | null;
           submitted_at: string | null;
           rematch_requested: boolean;
+          rematch_requested_at: string | null;
           rematch_match_id: string | null;
           created_at: string;
         };
@@ -290,6 +291,7 @@ export interface Database {
           survived_seconds?: number | null;
           submitted_at?: string | null;
           rematch_requested?: boolean;
+          rematch_requested_at?: string | null;
           rematch_match_id?: string | null;
           created_at?: string;
         };
@@ -308,6 +310,7 @@ export interface Database {
           survived_seconds?: number | null;
           submitted_at?: string | null;
           rematch_requested?: boolean;
+          rematch_requested_at?: string | null;
           rematch_match_id?: string | null;
           created_at?: string;
         };

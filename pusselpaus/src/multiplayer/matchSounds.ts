@@ -103,6 +103,19 @@ export async function playCountdownTick(): Promise<void> {
   s.triggerAttackRelease('C4', '32n', Tone.now(), 0.2);
 }
 
+/**
+ * Bright confirm sting when both players are locked for a rematch.
+ */
+export async function playRematchStart(): Promise<void> {
+  if (!(await ensureAudio())) return;
+  const s = getSynth();
+  const now = Tone.now();
+
+  s.triggerAttackRelease('G4', '16n', now, 0.32);
+  s.triggerAttackRelease('B4', '16n', now + 0.08, 0.38);
+  s.triggerAttackRelease(['D5', 'G5'], '8n', now + 0.18, 0.46);
+}
+
 /** Clean up synth (call on unmount if desired). */
 export function disposeMatchSounds(): void {
   synth?.dispose();
