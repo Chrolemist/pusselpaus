@@ -3,6 +3,7 @@
 ## Add New Games Safely
 
 When you add more games, follow [docs/adding-games.md](docs/adding-games.md).
+For multiplayer structure and future live games, follow [docs/multiplayer-architecture.md](docs/multiplayer-architecture.md).
 
 The important rule is that every new game should stay route-lazy and keep heavy UI, audio, and tutorial code inside the game module instead of the app shell.
 

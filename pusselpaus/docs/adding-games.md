@@ -89,6 +89,7 @@ If a new game gets multiplayer support:
 2. Reuse the shared multiplayer shell instead of creating a separate match flow.
 3. Prevent solo rewards from also firing in multiplayer mode.
 4. Keep any new match-specific assets or tutorial flows lazy.
+5. If the game is truly live, build on top of `src/multiplayer/realtime` rather than adding transport logic to the existing async match shell.
 
 ## Current Architecture Baseline
 
