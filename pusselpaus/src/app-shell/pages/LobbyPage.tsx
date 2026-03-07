@@ -44,6 +44,17 @@ function gameModeBadge(game: (typeof games)[number]): { label: string; tone: str
 export default function LobbyPage() {
   const { isGuest, exitGuestMode } = useAuth();
   const availableGames = games;
+  const buildStamp = (() => {
+    const parsed = new Date(__APP_BUILD__);
+    if (Number.isNaN(parsed.getTime())) return __APP_BUILD__;
+    return new Intl.DateTimeFormat('sv-SE', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+    }).format(parsed);
+  })();
 
   return (
     <div className="flex min-h-full flex-col items-center justify-center px-4 py-10">
@@ -119,6 +130,10 @@ export default function LobbyPage() {
           <Store className="h-4 w-4" /> Skinshop
         </Link>
       )}
+
+      <p className="mt-4 text-center text-xs font-medium tracking-[0.18em] text-text-muted/80 uppercase">
+        v{__APP_VERSION__} • {buildStamp}
+      </p>
     </div>
   );
 }
