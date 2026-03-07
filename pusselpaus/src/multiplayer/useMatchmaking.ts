@@ -37,7 +37,7 @@ export interface MatchmakingState {
   reset: () => void;
 }
 
-const POLL_INTERVAL = 2000; // 2s
+const POLL_INTERVAL = 1000; // Faster queue discovery keeps clients closer to the same server timeline.
 
 export function useMatchmaking(gameId: string): MatchmakingState {
   const [status, setStatus] = useState<MatchmakingStatus>('idle');

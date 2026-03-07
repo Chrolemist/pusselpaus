@@ -128,6 +128,9 @@ export default function StagingScreen({
   const [serverReadyCount, setServerReadyCount] = useState<number | null>(null);
   const [serverTotalCount, setServerTotalCount] = useState<number | null>(null);
   const [serverAllReady, setServerAllReady] = useState<boolean | null>(null);
+  const [serverMatchStatus, setServerMatchStatus] = useState<string | null>(null);
+  const [serverStartedAt, setServerStartedAt] = useState<string | null>(null);
+  const [serverMeReady, setServerMeReady] = useState<boolean | null>(null);
 
   useEffect(() => {
     mpDebug('StagingScreen', 'phase:changed', {
@@ -157,6 +160,9 @@ export default function StagingScreen({
         setServerReadyCount(null);
         setServerTotalCount(null);
         setServerAllReady(null);
+        setServerMatchStatus(null);
+        setServerStartedAt(null);
+        setServerMeReady(null);
         setSelectedFriends([]);
         setMessage(null);
         // Also leave matchmaking queue if active
@@ -379,6 +385,9 @@ export default function StagingScreen({
     setServerReadyCount(null);
     setServerTotalCount(null);
     setServerAllReady(null);
+    setServerMatchStatus(null);
+    setServerStartedAt(null);
+    setServerMeReady(null);
     if (countdownTimerRef.current) {
       window.clearInterval(countdownTimerRef.current);
       countdownTimerRef.current = null;
@@ -409,7 +418,9 @@ export default function StagingScreen({
     if (!mePlayer) return false;
     return mePlayer.player.ready === true;
   })();
-  const meReadyForActiveMatch = matchFoundAcceptedLocal || meReadyFromServer;
+  const effectiveActiveMatchStatus = serverMatchStatus ?? activeMatchStatus;
+  const effectiveActiveMatchStartedAt = serverStartedAt ?? activeMatchStartedAt;
+  const meReadyForActiveMatch = matchFoundAcceptedLocal || serverMeReady === true || meReadyFromServer;
 
   useEffect(() => {
     if (!activeMatchId || !activeMatchMatchId) return;
@@ -447,7 +458,9 @@ export default function StagingScreen({
       gameId,
       matchId: activeMatchMatchId,
       status: activeMatchStatus,
+      effectiveStatus: effectiveActiveMatchStatus,
       startedAt: activeMatchStartedAt ?? null,
+      effectiveStartedAt: effectiveActiveMatchStartedAt ?? null,
       meForfeited,
       players: activeEntry?.players.map((p) => ({
         userId: p.player.user_id,
@@ -455,7 +468,7 @@ export default function StagingScreen({
         forfeited: p.player.forfeited,
       })) ?? [],
     });
-  }, [gameId, activeMatchMatchId, activeMatchStatus, activeMatchStartedAt, meForfeited, activeEntry]);
+  }, [gameId, activeMatchMatchId, activeMatchStatus, effectiveActiveMatchStatus, activeMatchStartedAt, effectiveActiveMatchStartedAt, meForfeited, activeEntry]);
 
   const startGameOnce = useCallback(
     (matchId: string, source: 'in_progress') => {
@@ -481,13 +494,13 @@ export default function StagingScreen({
   );
 
   useEffect(() => {
-    if (!activeMatchStatus || !activeMatchMatchId) return;
+    if (!effectiveActiveMatchStatus || !activeMatchMatchId) return;
 
     const hasDeclinedPlayer = activeEntry?.players.some((p) => p.player.status === 'declined') === true;
 
     if (
       hasDeclinedPlayer
-      && (activeMatchStatus === 'waiting' || activeMatchStatus === 'starting' || activeMatchStatus === 'cancelled')
+      && (effectiveActiveMatchStatus === 'waiting' || effectiveActiveMatchStatus === 'starting' || effectiveActiveMatchStatus === 'cancelled')
       && declineHandledForMatchRef.current !== activeMatchMatchId
     ) {
       declineHandledForMatchRef.current = activeMatchMatchId;
@@ -508,7 +521,7 @@ export default function StagingScreen({
       return;
     }
 
-    if (activeMatchStatus === 'completed') {
+    if (effectiveActiveMatchStatus === 'completed') {
       mpDebug('StagingScreen', 'status_effect:completed_keep_playing_for_results', {
         gameId,
         matchId: activeMatchMatchId,
@@ -518,11 +531,11 @@ export default function StagingScreen({
     }
 
     // Cancelled matches and forfeits should still clean up immediately.
-    if (activeMatchStatus === 'cancelled' || meForfeited) {
+    if (effectiveActiveMatchStatus === 'cancelled' || meForfeited) {
       mpDebug('StagingScreen', 'status_effect:cleanup_to_staging', {
         gameId,
         matchId: activeMatchMatchId,
-        status: activeMatchStatus,
+        status: effectiveActiveMatchStatus,
         meForfeited,
       });
       clearActiveMatch(gameId);
@@ -532,18 +545,18 @@ export default function StagingScreen({
       return;
     }
 
-    if (activeMatchStatus === 'starting') {
+    if (effectiveActiveMatchStatus === 'starting') {
       if (gameStartedForMatchRef.current === activeMatchMatchId) return;
 
       // Start the countdown
-      const startedAt = activeMatchStartedAt
-        ? new Date(activeMatchStartedAt).getTime()
+      const startedAt = effectiveActiveMatchStartedAt
+        ? new Date(effectiveActiveMatchStartedAt).getTime()
         : null;
 
       mpDebug('StagingScreen', 'status_effect:starting', {
         gameId,
         matchId: activeMatchMatchId,
-        startedAt: activeMatchStartedAt ?? null,
+        startedAt: effectiveActiveMatchStartedAt ?? null,
       });
 
       if (startedAt) {
@@ -616,7 +629,7 @@ export default function StagingScreen({
       }
     }
 
-    if (activeMatchStatus === 'in_progress') {
+    if (effectiveActiveMatchStatus === 'in_progress') {
       if (countdownTimerRef.current) {
         window.clearInterval(countdownTimerRef.current);
         countdownTimerRef.current = null;
@@ -632,7 +645,7 @@ export default function StagingScreen({
       });
       startGameOnce(activeMatchMatchId, 'in_progress');
     }
-  }, [activeEntry, activeMatchStatus, activeMatchStartedAt, activeMatchMatchId, activeMatchHostId, isHostForActiveMatch, meForfeited, gameId, isMatchmade, meReadyForActiveMatch, serverAllReady, serverTotalCount, startGameOnce]);
+  }, [activeEntry, activeMatchStatus, effectiveActiveMatchStatus, activeMatchStartedAt, effectiveActiveMatchStartedAt, activeMatchMatchId, activeMatchHostId, isHostForActiveMatch, meForfeited, gameId, startGameOnce]);
 
   useEffect(() => {
     return () => {
@@ -750,20 +763,20 @@ export default function StagingScreen({
     setActiveMatchId(existingMatch.match.id);
     setIsMatchmade(true);
     setIsInviteOverlay(false);
-    setMatchFoundAcceptedLocal(false);
+    setMatchFoundAcceptedLocal(existingMatch.me?.ready === true);
 
     if (existingMatch.match.status === 'waiting') {
       setPhase('match-found');
       return;
     }
     if (existingMatch.match.status === 'starting') {
-      setPhase(matchFoundAcceptedLocal ? 'countdown' : 'match-found');
+      setPhase('countdown');
       return;
     }
     if (existingMatch.match.status === 'in_progress') {
-      setPhase(matchFoundAcceptedLocal ? 'playing' : 'match-found');
+      setPhase('playing');
     }
-  }, [phase, activeMatchId, mp.matches, gameId, mm.status, matchFoundAcceptedLocal]);
+  }, [phase, activeMatchId, mp.matches, gameId, mm.status]);
 
   /* ── Overlay: derive MatchPlayer[] from activeEntry ── */
   const overlayPlayers = useMemo<MatchPlayer[]>(() => {
@@ -851,6 +864,9 @@ export default function StagingScreen({
     setServerReadyCount(null);
     setServerTotalCount(null);
     setServerAllReady(null);
+    setServerMatchStatus(null);
+    setServerStartedAt(null);
+    setServerMeReady(null);
     setPhase('staging');
 
     if (!matchId) {
@@ -981,7 +997,51 @@ export default function StagingScreen({
     }
   }, [activeEntry, isMatchmade, phase, gameId]);
 
-  // (ready_state RPC polling removed — player row counts are the single source of truth)
+  useEffect(() => {
+    if (!activeMatchId) return;
+    if (phase !== 'match-found' && phase !== 'waiting' && phase !== 'countdown') return;
+
+    let cancelled = false;
+
+    const syncReadyState = async () => {
+      const { error, data } = await mpRef.current.readyState(activeMatchId);
+      if (cancelled || error || !data) return;
+
+      mpDebug('StagingScreen', 'pregame:ready_state_snapshot', {
+        gameId,
+        matchId: activeMatchId,
+        status: data.status ?? null,
+        readyCount: data.ready_count ?? null,
+        totalCount: data.total_count ?? null,
+        allReady: data.all_ready ?? null,
+        meReady: data.me_ready ?? null,
+        startedAt: data.started_at ?? null,
+      });
+
+      setServerMatchStatus(data.status ?? null);
+      setServerStartedAt(data.started_at ?? null);
+      setServerMeReady(data.me_ready ?? null);
+
+      if (typeof data.ready_count === 'number') {
+        setServerReadyCount(data.ready_count);
+      }
+      if (typeof data.total_count === 'number') {
+        setServerTotalCount(data.total_count);
+        setServerAllReady(data.total_count > 0 && (data.ready_count ?? 0) >= data.total_count);
+      }
+      if (data.me_ready === true) {
+        setMatchFoundAcceptedLocal(true);
+      }
+    };
+
+    void syncReadyState();
+    const timer = window.setInterval(syncReadyState, 500);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [activeMatchId, phase, gameId]);
 
   // Safety net: after accepting in matchmade flow, keep probing
   // server-authoritative start until backend transitions.
@@ -992,7 +1052,7 @@ export default function StagingScreen({
     if (!isHostForActiveMatch) return;
     if (phase !== 'match-found' && phase !== 'waiting') return;
     if (serverAllReady !== true && !allPlayersReady) return;
-    if (activeMatchStatus === 'starting' || activeMatchStatus === 'in_progress') return;
+    if (effectiveActiveMatchStatus === 'starting' || effectiveActiveMatchStatus === 'in_progress') return;
 
     const timer = window.setInterval(async () => {
       mpDebug('StagingScreen', 'accept:start_probe_request', {
@@ -1006,10 +1066,10 @@ export default function StagingScreen({
         matchId: activeMatchId,
         error: err,
       });
-    }, 1200);
+    }, 500);
 
     return () => window.clearInterval(timer);
-  }, [activeMatchId, activeMatchStatus, allPlayersReady, gameId, isHostForActiveMatch, isMatchmade, phase, serverAllReady]);
+  }, [activeMatchId, effectiveActiveMatchStatus, allPlayersReady, gameId, isHostForActiveMatch, isMatchmade, phase, serverAllReady]);
 
   // Safety net: keep pre-game state in sync even if realtime updates are delayed.
   useEffect(() => {
@@ -1193,6 +1253,9 @@ export default function StagingScreen({
     setServerReadyCount(null);
     setServerTotalCount(null);
     setServerAllReady(null);
+    setServerMatchStatus(null);
+    setServerStartedAt(null);
+    setServerMeReady(null);
     setPhase('staging');
     await mp.refresh();
   }, [activeMatchId, gameId, mp, flash]);
