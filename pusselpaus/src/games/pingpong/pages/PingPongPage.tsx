@@ -2,21 +2,27 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import confetti from 'canvas-confetti';
 import { AnimatePresence, motion } from 'motion/react';
-import { ArrowLeft, Play, RotateCcw, Swords, Cpu, TimerReset, Maximize2, Minimize2 } from 'lucide-react';
-import { PONG_CONFIG, PONG_CPU_PRESETS, type PongControlState, type PongCpuLevel, type PongInputs, type PongMode, type PongSide, type PongState } from '../core/types';
+import { ArrowLeft, Play, Maximize2, Minimize2 } from 'lucide-react';
+import { PONG_CONFIG, type PongControlState, type PongCpuLevel, type PongInputs, type PongSide, type PongState } from '../core/types';
 import { activateFireBoost, createInitialPongState, startPongMatch, stepPong } from '../core/engine';
 import { playFireBoost, playPaddleHit, playScoreBurst, playServePulse, playVictoryFanfare, playWallBounce } from '../audio/pingPongAudio';
 import { LiveBanner as MultiplayerLiveBanner, MULTIPLAYER_REPLAY_EVENT, StagingScreen, type StagingResult, useMultiplayerGame } from '../../../multiplayer';
 import { usePongRealtimeMatch } from '../multiplayer';
 
-function winnerLabel(side: PongSide | null): string {
-  if (side === 'left') return 'Vänster spelare vann';
-  if (side === 'right') return 'Höger spelare vann';
-  return 'Ingen vinnare än';
+const PINGPONG_SOLO_DIFFICULTIES: Array<{ value: PongCpuLevel; label: string }> = [
+  { value: 'easy', label: 'Latt' },
+  { value: 'medium', label: 'Medel' },
+  { value: 'hard', label: 'Svar' },
+];
+
+function isPongCpuLevel(value: string | undefined): value is PongCpuLevel {
+  return value === 'easy' || value === 'medium' || value === 'hard';
 }
 
-function formatSeconds(ms: number): string {
-  return `${Math.max(0, Math.floor(ms / 1000))}s`;
+function winnerLabel(side: PongSide | null): string {
+  if (side === 'left') return 'Vanster spelare vann';
+  if (side === 'right') return 'Hoger spelare vann';
+  return 'Ingen vinnare an';
 }
 
 function sideAccent(side: PongSide | null): string {
@@ -26,7 +32,7 @@ function sideAccent(side: PongSide | null): string {
 }
 
 function sideLabel(side: PongSide): string {
-  return side === 'left' ? 'Vänster' : 'Höger';
+  return side === 'left' ? 'Vanster' : 'Hoger';
 }
 
 function multiplayerInputFromKeys(keys: Record<string, boolean>): PongControlState {
@@ -37,7 +43,6 @@ function multiplayerInputFromKeys(keys: Record<string, boolean>): PongControlSta
 }
 
 export default function PingPongPage() {
-  const [mode, setMode] = useState<PongMode>('cpu');
   const [cpuLevel, setCpuLevel] = useState<PongCpuLevel>('medium');
   const [state, setState] = useState<PongState>(() => createInitialPongState('cpu', 'medium'));
   const [session, setSession] = useState<StagingResult | null>(null);
@@ -89,44 +94,33 @@ export default function PingPongPage() {
   }, []);
 
   const handleStart = useCallback((result: StagingResult) => {
+    const nextCpuLevel = isPongCpuLevel(result.difficulty) ? result.difficulty : 'medium';
     setSession(result);
-    setMode(result.multiplayer ? 'versus' : 'cpu');
-    setCpuLevel('medium');
+    setCpuLevel(nextCpuLevel);
 
     const nextState = result.multiplayer
-      ? createInitialPongState('versus', 'medium')
-      : createInitialPongState('cpu', 'medium');
+      ? startPongMatch('versus', nextCpuLevel)
+      : startPongMatch('cpu', nextCpuLevel);
 
     resetLocalGameState(nextState);
   }, [resetLocalGameState]);
-
-  useEffect(() => {
-    if (isRealtimeMatch) return;
-
-    const nextState = createInitialPongState(mode, cpuLevel);
-    stateRef.current = nextState;
-    previousStateRef.current = nextState;
-    setState(nextState);
-    setTrail([]);
-    trailSampleAtRef.current = 0;
-    confettiFiredRef.current = false;
-  }, [cpuLevel, isRealtimeMatch, mode]);
 
   useEffect(() => {
     stateRef.current = state;
   }, [state]);
 
   useEffect(() => {
-    if (!isRealtimeMatch) return;
-    setTrail([]);
-    trailSampleAtRef.current = 0;
-  }, [isRealtimeMatch]);
-
-  useEffect(() => {
     if (typeof window === 'undefined') return;
 
     const media = window.matchMedia('(max-width: 900px) and (orientation: portrait)');
-    const update = () => setIsPortraitMobile(media.matches);
+    const update = () => {
+      const matches = media.matches;
+      setIsPortraitMobile(matches);
+
+      if (!matches && arenaFocusRef.current && document.fullscreenElement === arenaFocusRef.current) {
+        void document.exitFullscreen().catch(() => undefined);
+      }
+    };
 
     update();
     media.addEventListener('change', update);
@@ -153,15 +147,6 @@ export default function PingPongPage() {
       document.body.style.overflow = '';
     };
   }, [isArenaFocusMode]);
-
-  useEffect(() => {
-    if (!isPortraitMobile && isArenaFocusMode) {
-      setIsArenaFocusMode(false);
-      if (document.fullscreenElement) {
-        void document.exitFullscreen().catch(() => undefined);
-      }
-    }
-  }, [isArenaFocusMode, isPortraitMobile]);
 
   useEffect(() => {
     const handleReplay = (event: Event) => {
@@ -222,8 +207,7 @@ export default function PingPongPage() {
       let changed = false;
 
       while (accumulator >= PONG_CONFIG.fixedStepMs) {
-        const inputs = readInputs();
-        nextState = stepPong(nextState, inputs, PONG_CONFIG.fixedStepMs);
+        nextState = stepPong(nextState, readInputs(), PONG_CONFIG.fixedStepMs);
         changed = true;
         accumulator -= PONG_CONFIG.fixedStepMs;
       }
@@ -234,13 +218,13 @@ export default function PingPongPage() {
 
         if (nextState.status === 'playing' && now - trailSampleAtRef.current >= 34) {
           trailSampleAtRef.current = now;
-          setTrail((prev) => {
-            const next = [...prev, { id: trailIdRef.current++, x: nextState.ball.x, y: nextState.ball.y }];
-            return next.slice(-7);
+          setTrail((previousTrail) => {
+            const nextTrail = [...previousTrail, { id: trailIdRef.current++, x: nextState.ball.x, y: nextState.ball.y }];
+            return nextTrail.slice(-7);
           });
         } else if (nextState.status !== 'playing') {
           trailSampleAtRef.current = 0;
-          setTrail((prev) => (prev.length > 0 ? [] : prev));
+          setTrail((previousTrail) => (previousTrail.length > 0 ? [] : previousTrail));
         }
       }
 
@@ -255,13 +239,24 @@ export default function PingPongPage() {
     const previous = previousStateRef.current;
     if (previous === gameState) return;
 
+    let animationFrameId: number | undefined;
+    let resetScoreFlashTimeout: number | undefined;
+
+    const scheduleVisualUpdate = (callback: () => void) => {
+      animationFrameId = window.requestAnimationFrame(callback);
+    };
+
     const scoreChanged = previous.score.left !== gameState.score.left || previous.score.right !== gameState.score.right;
     if (scoreChanged) {
       const scorer: PongSide = gameState.score.left > previous.score.left ? 'left' : 'right';
-      setScoreFlashSide(scorer);
-      setScoreFlashTick((tick) => tick + 1);
+      scheduleVisualUpdate(() => {
+        setScoreFlashSide(scorer);
+        setScoreFlashTick((tick) => tick + 1);
+      });
       playScoreBurst();
-      window.setTimeout(() => setScoreFlashSide((current) => (current === scorer ? null : current)), 380);
+      resetScoreFlashTimeout = window.setTimeout(() => {
+        setScoreFlashSide((current) => (current === scorer ? null : current));
+      }, 380);
     }
 
     const paddleHit = previous.status === 'playing'
@@ -271,11 +266,13 @@ export default function PingPongPage() {
       && Math.abs(gameState.ball.vx) > 0;
     if (paddleHit) {
       const side: PongSide = gameState.ball.vx > 0 ? 'left' : 'right';
-      if (side === 'left') {
-        setLeftImpact((value) => value + 1);
-      } else {
-        setRightImpact((value) => value + 1);
-      }
+      scheduleVisualUpdate(() => {
+        if (side === 'left') {
+          setLeftImpact((value) => value + 1);
+        } else {
+          setRightImpact((value) => value + 1);
+        }
+      });
       playPaddleHit();
     }
 
@@ -285,12 +282,16 @@ export default function PingPongPage() {
       && Math.abs(previous.ball.vy) > 0
       && Math.abs(gameState.ball.vy) > 0;
     if (wallBounce) {
-      setWallImpact((value) => value + 1);
+      scheduleVisualUpdate(() => {
+        setWallImpact((value) => value + 1);
+      });
       playWallBounce();
     }
 
     if (!previous.ball.isFireball && gameState.ball.isFireball) {
-      setFireBoostFlashTick((tick) => tick + 1);
+      scheduleVisualUpdate(() => {
+        setFireBoostFlashTick((tick) => tick + 1);
+      });
       playFireBoost();
     }
 
@@ -330,6 +331,15 @@ export default function PingPongPage() {
     }
 
     previousStateRef.current = gameState;
+
+    return () => {
+      if (animationFrameId !== undefined) {
+        window.cancelAnimationFrame(animationFrameId);
+      }
+      if (resetScoreFlashTimeout !== undefined) {
+        window.clearTimeout(resetScoreFlashTimeout);
+      }
+    };
   }, [gameState, isRealtimeMatch, realtimeMatch.localSide, submitMatchResult]);
 
   const leftPaddleStyle = useMemo(() => ({
@@ -362,7 +372,6 @@ export default function PingPongPage() {
   const rightMomentum = Math.min(1, Math.abs(gameState.paddles.right.velocity) / PONG_CONFIG.paddleSpeed);
   const leftScoring = scoreFlashSide === 'left';
   const rightScoring = scoreFlashSide === 'right';
-  const cpuPreset = PONG_CPU_PRESETS[cpuLevel];
   const leftBoostPercent = Math.min(100, (gameState.boostCharge.left / PONG_CONFIG.fireBoostChargeHits) * 100);
   const rightBoostPercent = Math.min(100, (gameState.boostCharge.right / PONG_CONFIG.fireBoostChargeHits) * 100);
 
@@ -417,6 +426,8 @@ export default function PingPongPage() {
     <StagingScreen
       gameId="pingpong"
       onStart={handleStart}
+      soloDifficulties={PINGPONG_SOLO_DIFFICULTIES}
+      soloDefaultDifficulty="medium"
       resetRef={stagingResetRef}
     >
       <div className={isArenaFocusMode ? 'fixed inset-0 z-50 flex bg-[#020617]' : 'flex min-h-full flex-col items-center gap-6 px-4 py-8'}>
@@ -427,7 +438,7 @@ export default function PingPongPage() {
             </Link>
 
             <div className="rounded-full bg-white/5 px-3 py-1 text-xs font-semibold uppercase tracking-[0.24em] text-brand-light ring-1 ring-white/10">
-              {isRealtimeMatch ? 'Ping Pong Live' : 'Ping Pong Prototype'}
+              {isRealtimeMatch ? 'Ping Pong Live' : 'Ping Pong'}
             </div>
           </div>
         )}
@@ -439,55 +450,30 @@ export default function PingPongPage() {
                 <h1 className="text-3xl font-extrabold text-white">🏓 Ping Pong</h1>
                 <p className="mt-2 max-w-2xl text-sm leading-6 text-text-muted">
                   {isRealtimeMatch
-                    ? 'Live-duell ovanpå samma deterministiska kärna. Hosten simulerar matchen och båda klienterna synkar input och snapshots.'
-                    : 'Första versionen är byggd som en ren fixed-tick-kärna med separata inputs per sida. Det gör att vi kan lägga på riktig realtime multiplayer senare utan att skriva om spelreglerna.'}
+                    ? 'Live-duell ovanpa samma deterministiska karna.'
+                    : `CPU-niva: ${cpuLevel === 'easy' ? 'Latt' : cpuLevel === 'medium' ? 'Medel' : 'Svar'}`}
                 </p>
               </div>
 
-              <div className="grid gap-2 sm:grid-cols-2 lg:w-[360px]">
-                <button
-                  onClick={() => setMode('cpu')}
-                  disabled={isRealtimeMatch}
-                  className={`flex items-center justify-center gap-2 rounded-2xl px-4 py-3 text-sm font-semibold transition ${mode === 'cpu' ? 'bg-brand text-white shadow-lg shadow-brand/25' : 'bg-white/5 text-text-muted ring-1 ring-white/10 hover:text-white'} ${isRealtimeMatch ? 'cursor-not-allowed opacity-45' : ''}`}
-                >
-                  <Cpu className="h-4 w-4" /> Solo mot CPU
-                </button>
-                <button
-                  onClick={() => setMode('versus')}
-                  disabled={isRealtimeMatch}
-                  className={`flex items-center justify-center gap-2 rounded-2xl px-4 py-3 text-sm font-semibold transition ${mode === 'versus' ? 'bg-brand text-white shadow-lg shadow-brand/25' : 'bg-white/5 text-text-muted ring-1 ring-white/10 hover:text-white'} ${isRealtimeMatch ? 'cursor-not-allowed opacity-45' : ''}`}
-                >
-                  <Swords className="h-4 w-4" /> 2 spelare lokalt
-                </button>
+              <div className="flex flex-wrap items-center justify-end gap-2 lg:w-[360px]">
                 {!isRealtimeMatch && (
-                  <>
-                    <button
-                      onClick={() => {
-                        const nextState = startPongMatch(mode, cpuLevel);
-                        resetLocalGameState(nextState);
-                      }}
-                      className="flex items-center justify-center gap-2 rounded-2xl bg-emerald-500/90 px-4 py-3 text-sm font-bold text-white shadow-lg shadow-emerald-500/20 transition hover:brightness-110"
-                    >
-                      <Play className="h-4 w-4" /> Starta match
-                    </button>
-                    <button
-                      onClick={() => {
-                        resetLocalGameState(createInitialPongState(mode, cpuLevel));
-                      }}
-                      className="flex items-center justify-center gap-2 rounded-2xl bg-white/5 px-4 py-3 text-sm font-semibold text-text-muted ring-1 ring-white/10 transition hover:text-white"
-                    >
-                      <RotateCcw className="h-4 w-4" /> Nollställ
-                    </button>
-                  </>
+                  <div className="rounded-full bg-white/5 px-3 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-white/75 ring-1 ring-white/10">
+                    Singleplayer
+                  </div>
+                )}
+                {isRealtimeMatch && realtimeMatch.localSide && (
+                  <div className="rounded-full bg-white/5 px-3 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-white/75 ring-1 ring-white/10">
+                    Din sida: {sideLabel(realtimeMatch.localSide)}
+                  </div>
                 )}
                 {isPortraitMobile && (
                   <button
                     onClick={() => {
                       void enterArenaFocusMode();
                     }}
-                    className={`flex items-center justify-center gap-2 rounded-2xl bg-white/5 px-4 py-3 text-sm font-semibold text-text-muted ring-1 ring-white/10 transition hover:text-white ${isRealtimeMatch ? 'sm:col-span-2' : 'sm:col-span-2'}`}
+                    className="flex items-center justify-center gap-2 rounded-2xl bg-white/5 px-4 py-3 text-sm font-semibold text-text-muted ring-1 ring-white/10 transition hover:text-white"
                   >
-                    <Maximize2 className="h-4 w-4" /> Helskärmsbana
+                    <Maximize2 className="h-4 w-4" /> Helskarmsbana
                   </button>
                 )}
               </div>
@@ -507,7 +493,7 @@ export default function PingPongPage() {
                     }}
                     className="absolute right-3 top-3 z-30 inline-flex items-center gap-2 rounded-full border border-white/10 bg-slate-950/70 px-3 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-white/80 backdrop-blur"
                   >
-                    <Minimize2 className="h-3.5 w-3.5" /> Stäng
+                    <Minimize2 className="h-3.5 w-3.5" /> Stang
                   </button>
                 )}
 
@@ -539,7 +525,7 @@ export default function PingPongPage() {
                     animate={leftScoring ? { scale: [1, 1.22, 1], y: [0, -8, 0] } : { scale: 1, y: 0 }}
                     transition={{ duration: 0.35 }}
                   >
-                    <p className="text-[11px] uppercase tracking-[0.28em] text-cyan-300/80">Vänster</p>
+                    <p className="text-[11px] uppercase tracking-[0.28em] text-cyan-300/80">Vanster</p>
                     <p className={`mt-1 text-5xl font-extrabold ${leftScoring ? 'text-cyan-300 drop-shadow-[0_0_18px_rgba(34,211,238,0.55)]' : 'text-white'}`}>{gameState.score.left}</p>
                   </motion.div>
                   <motion.div
@@ -547,7 +533,7 @@ export default function PingPongPage() {
                     animate={rightScoring ? { scale: [1, 1.22, 1], y: [0, -8, 0] } : { scale: 1, y: 0 }}
                     transition={{ duration: 0.35 }}
                   >
-                    <p className="text-[11px] uppercase tracking-[0.28em] text-fuchsia-300/80">Höger</p>
+                    <p className="text-[11px] uppercase tracking-[0.28em] text-fuchsia-300/80">Hoger</p>
                     <p className={`mt-1 text-5xl font-extrabold ${rightScoring ? 'text-fuchsia-300 drop-shadow-[0_0_18px_rgba(232,121,249,0.55)]' : 'text-white'}`}>{gameState.score.right}</p>
                   </motion.div>
                 </div>
@@ -674,7 +660,7 @@ export default function PingPongPage() {
                     animate={{ opacity: [0.5, 1, 0.5], y: 0 }}
                     transition={{ duration: 1, repeat: Infinity, ease: 'easeInOut' }}
                   >
-                    Serve {gameState.serveTo === 'left' ? 'vänster' : 'höger'}
+                    Serve {gameState.serveTo === 'left' ? 'vanster' : 'hoger'}
                   </motion.div>
                 )}
 
@@ -689,8 +675,8 @@ export default function PingPongPage() {
                       <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-orange-200">Fire Boost</p>
                       <p className="mt-1 text-xs text-text-muted">
                         {gameState.ball.isFireball
-                          ? `${gameState.fireBoostOwner ? sideLabel(gameState.fireBoostOwner) : 'Någon'} skickade iväg ett eldklot.`
-                          : 'Tryck direkt på bollen för att aktivera boost.'}
+                          ? `${gameState.fireBoostOwner ? sideLabel(gameState.fireBoostOwner) : 'Nagon'} skickade ivag ett eldklot.`
+                          : 'Tryck direkt pa bollen for att aktivera boost.'}
                       </p>
                     </motion.div>
                   </div>
@@ -710,18 +696,16 @@ export default function PingPongPage() {
                         {gameState.status === 'ready'
                           ? 'Tryck starta match'
                           : gameState.status === 'serving'
-                            ? `Bollen går om ${Math.ceil(gameState.serveTimerMs / 1000)}`
+                            ? `Bollen gar om ${Math.ceil(gameState.serveTimerMs / 1000)}`
                             : winnerLabel(gameState.winner)}
                       </p>
-                      <p className="mt-2 text-sm text-text-muted">
-                        {gameState.status === 'finished'
-                          ? (isRealtimeMatch ? 'Scoreboard och rematch styrs nu av multiplayerflödet.' : 'Redo för nästa iteration: samma kärna kan senare matas med nätverksinputs i stället för tangentbord.')
-                          : 'Spelet körs redan på samma tick-modell som en framtida realtime-match.'}
-                      </p>
+                      {gameState.status === 'finished' && isRealtimeMatch && (
+                        <p className="mt-2 text-sm text-text-muted">Resultatet visas i livepanelen.</p>
+                      )}
                       {!isRealtimeMatch && (
                         <button
                           onClick={() => {
-                            resetLocalGameState(startPongMatch(mode, cpuLevel));
+                            resetLocalGameState(startPongMatch('cpu', cpuLevel));
                           }}
                           className="mt-4 inline-flex items-center gap-2 rounded-2xl bg-white px-4 py-2 text-sm font-bold text-slate-900 transition hover:brightness-105"
                         >
@@ -736,61 +720,19 @@ export default function PingPongPage() {
 
             {!isArenaFocusMode && (
               <div className="space-y-4">
-                <div className="rounded-[24px] bg-white/5 p-4 ring-1 ring-white/10">
-                  <p className="text-xs font-semibold uppercase tracking-[0.24em] text-brand-light">Status</p>
-                  <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
-                    <div className="rounded-2xl bg-black/20 px-3 py-3">
-                      <p className="text-xs text-text-muted">Läge</p>
-                      <p className="mt-1 font-bold text-white">{isRealtimeMatch ? 'Live duel' : mode === 'cpu' ? 'CPU duel' : 'Local versus'}</p>
-                    </div>
-                    <div className="rounded-2xl bg-black/20 px-3 py-3">
-                      <p className="text-xs text-text-muted">CPU-nivå</p>
-                      <p className="mt-1 font-bold text-white">{isRealtimeMatch ? 'Av' : mode === 'cpu' ? (cpuLevel === 'easy' ? 'Lätt' : cpuLevel === 'medium' ? 'Medel' : 'Svår') : 'Av'}</p>
-                    </div>
-                    <div className="rounded-2xl bg-black/20 px-3 py-3">
-                      <p className="text-xs text-text-muted">Status</p>
-                      <p className="mt-1 font-bold text-white">{gameState.status}</p>
-                    </div>
-                    <div className="rounded-2xl bg-black/20 px-3 py-3">
-                      <p className="text-xs text-text-muted">Bästa rally</p>
-                      <p className="mt-1 font-bold text-white">{gameState.bestRally}</p>
-                    </div>
-                    <div className="rounded-2xl bg-black/20 px-3 py-3 col-span-2">
-                      <p className="text-xs text-text-muted">Matchtid</p>
-                      <p className="mt-1 font-bold text-white">{formatSeconds(gameState.elapsedMs)}</p>
-                    </div>
-                    {isRealtimeMatch && (
-                      <>
-                        <div className="rounded-2xl bg-black/20 px-3 py-3">
-                          <p className="text-xs text-text-muted">Din sida</p>
-                          <p className="mt-1 font-bold text-white">{realtimeMatch.localSide ? sideLabel(realtimeMatch.localSide) : 'Väntar...'}</p>
-                        </div>
-                        <div className="rounded-2xl bg-black/20 px-3 py-3">
-                          <p className="text-xs text-text-muted">Anslutning</p>
-                          <p className="mt-1 font-bold text-white">{realtimeMatch.connection.connected ? `${realtimeMatch.connectedPlayers}/2 online` : 'Återansluter'}</p>
-                        </div>
-                      </>
-                    )}
-                  </div>
-                </div>
-
-                {!isRealtimeMatch && mode === 'cpu' && (
+                {isRealtimeMatch && (
                   <div className="rounded-[24px] bg-white/5 p-4 ring-1 ring-white/10">
-                    <p className="text-xs font-semibold uppercase tracking-[0.24em] text-brand-light">CPU-nivå</p>
-                    <div className="mt-3 grid grid-cols-3 gap-2">
-                      {(['easy', 'medium', 'hard'] as const).map((level) => (
-                        <button
-                          key={level}
-                          onClick={() => setCpuLevel(level)}
-                          className={`rounded-2xl px-3 py-3 text-sm font-semibold transition ${cpuLevel === level ? 'bg-brand text-white shadow-lg shadow-brand/25' : 'bg-black/20 text-text-muted ring-1 ring-white/10 hover:text-white'}`}
-                        >
-                          {level === 'easy' ? 'Lätt' : level === 'medium' ? 'Medel' : 'Svår'}
-                        </button>
-                      ))}
+                    <p className="text-xs font-semibold uppercase tracking-[0.24em] text-brand-light">Live</p>
+                    <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
+                      <div className="rounded-2xl bg-black/20 px-3 py-3">
+                        <p className="text-xs text-text-muted">Din sida</p>
+                        <p className="mt-1 font-bold text-white">{realtimeMatch.localSide ? sideLabel(realtimeMatch.localSide) : 'Vantar...'}</p>
+                      </div>
+                      <div className="rounded-2xl bg-black/20 px-3 py-3">
+                        <p className="text-xs text-text-muted">Anslutning</p>
+                        <p className="mt-1 font-bold text-white">{realtimeMatch.connection.connected ? `${realtimeMatch.connectedPlayers}/2 online` : 'Ateransluter'}</p>
+                      </div>
                     </div>
-                    <p className="mt-3 text-xs text-text-muted">
-                      Botten använder fart {cpuPreset.paddleSpeed}, deadzone {cpuPreset.deadzone} och felmarginal {cpuPreset.trackingError}.
-                    </p>
                   </div>
                 )}
 
@@ -799,7 +741,7 @@ export default function PingPongPage() {
                   <div className="mt-3 space-y-3 text-sm text-text-muted">
                     <div className="rounded-2xl bg-black/20 px-3 py-3">
                       <div className="flex items-center justify-between text-xs text-text-muted">
-                        <span>Vänster laddning</span>
+                        <span>Vanster laddning</span>
                         <span>{gameState.boostReady.left ? 'Redo' : `${gameState.boostCharge.left}/${PONG_CONFIG.fireBoostChargeHits}`}</span>
                       </div>
                       <div className="mt-2 h-2 overflow-hidden rounded-full bg-white/10">
@@ -808,34 +750,12 @@ export default function PingPongPage() {
                     </div>
                     <div className="rounded-2xl bg-black/20 px-3 py-3">
                       <div className="flex items-center justify-between text-xs text-text-muted">
-                        <span>Höger laddning</span>
+                        <span>Hoger laddning</span>
                         <span>{gameState.boostReady.right ? 'Redo' : `${gameState.boostCharge.right}/${PONG_CONFIG.fireBoostChargeHits}`}</span>
                       </div>
                       <div className="mt-2 h-2 overflow-hidden rounded-full bg-white/10">
                         <div className={`h-full rounded-full ${gameState.boostReady.right ? 'bg-gradient-to-r from-orange-300 via-orange-400 to-red-500' : 'bg-gradient-to-r from-fuchsia-400 to-orange-400'}`} style={{ width: `${gameState.boostReady.right ? 100 : rightBoostPercent}%` }} />
                       </div>
-                    </div>
-                    <div className="rounded-2xl bg-black/20 px-3 py-3">
-                      <p className="font-semibold text-white">Så funkar det</p>
-                      <p className="mt-1">Försvara dig tillräckligt länge, bygg laddning och tryck sedan direkt på bollen med mus eller touch för att skicka ett eldklot mot motståndaren.</p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="rounded-[24px] bg-white/5 p-4 ring-1 ring-white/10">
-                  <p className="text-xs font-semibold uppercase tracking-[0.24em] text-brand-light">Kontroller</p>
-                  <div className="mt-3 space-y-3 text-sm text-text-muted">
-                    <div className="rounded-2xl bg-black/20 px-3 py-3">
-                      <p className="font-semibold text-white">Din paddel</p>
-                      <p className="mt-1">{isRealtimeMatch ? 'W/S eller piltangenter styr din sida i live-duellen.' : 'W upp, S ner på vänster sida.'}</p>
-                    </div>
-                    <div className="rounded-2xl bg-black/20 px-3 py-3">
-                      <p className="font-semibold text-white">Motståndare</p>
-                      <p className="mt-1">{isRealtimeMatch ? 'Motståndarens input kommer in via realtime-synk.' : 'Piltangenter i versus-läge, AI i solo-läge.'}</p>
-                    </div>
-                    <div className="rounded-2xl bg-black/20 px-3 py-3">
-                      <p className="flex items-center gap-2 font-semibold text-white"><TimerReset className="h-4 w-4 text-brand-light" /> Nästa arkitektursteg</p>
-                      <p className="mt-1">Nu finns host-auktoritativ realtime-grund. Nästa steg är att finslipa reconnect, latency-visning och resultatinlämning hela vägen genom liveflödet.</p>
                     </div>
                   </div>
                 </div>

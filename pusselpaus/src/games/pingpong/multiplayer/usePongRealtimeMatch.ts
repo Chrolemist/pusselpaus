@@ -4,7 +4,7 @@ import type { MultiplayerMatch, MultiplayerMatchPlayer } from '../../../lib/data
 import { supabase } from '../../../lib/supabaseClient';
 import { createSupabaseBroadcastTransport } from '../../../multiplayer/realtime/supabaseBroadcastTransport';
 import type { RealtimeConnectionState, RealtimeParticipant, RealtimeSnapshotEnvelope } from '../../../multiplayer';
-import { activateFireBoost, createInitialPongState, stepPong } from '../core/engine';
+import { activateFireBoost, startPongMatch, stepPong } from '../core/engine';
 import { PONG_CONFIG, type PongControlState, type PongInputs, type PongSide, type PongState } from '../core/types';
 import { pongRealtimeAdapter } from './adapter';
 import type { PongRealtimeConfig, PongRealtimeInput } from './types';
@@ -144,12 +144,13 @@ export function usePongRealtimeMatch({ enabled, config, localInput, matchId, see
       });
 
       if (nextParticipants[0]?.userId === user.id) {
-        currentStateRef.current = hostInitialState;
-        setLiveState(hostInitialState);
+        const startedState = startPongMatch('versus', hostInitialState.cpuLevel);
+        currentStateRef.current = startedState;
+        setLiveState(startedState);
       } else {
-        const idleState = createInitialPongState('versus', 'medium');
-        currentStateRef.current = idleState;
-        setLiveState(idleState);
+        const pendingState = startPongMatch('versus', hostInitialState.cpuLevel);
+        currentStateRef.current = pendingState;
+        setLiveState(pendingState);
       }
 
       setConnection(transport.getConnectionState?.() ?? EMPTY_CONNECTION);

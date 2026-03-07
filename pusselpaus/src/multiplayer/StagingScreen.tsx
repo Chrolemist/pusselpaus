@@ -20,7 +20,7 @@ import { motion } from 'motion/react';
 import { ArrowLeft, Users, Search, Clock, X, Check } from 'lucide-react';
 import { useAuth } from '../auth';
 import { useFriends } from '../hooks/useFriends';
-import { games } from '../game-registry';
+import { games, type MultiplayerDifficulty } from '../game-registry';
 import LevelBadge from '../components/LevelBadge';
 import {
   useMultiplayer,
@@ -66,6 +66,10 @@ interface StagingScreenProps {
   onStart: (result: StagingResult) => void;
   /** Default difficulty to pre-select */
   defaultDifficulty?: string;
+  /** Optional solo-only difficulty options shown before pressing Start */
+  soloDifficulties?: MultiplayerDifficulty[];
+  /** Optional default solo difficulty */
+  soloDefaultDifficulty?: string;
   /** If the game has a saved/resumed state, skip staging */
   hasSavedGame?: boolean;
   /** Called when user wants to resume a saved game */
@@ -81,6 +85,8 @@ export default function StagingScreen({
   gameId,
   onStart,
   defaultDifficulty,
+  soloDifficulties,
+  soloDefaultDifficulty,
   hasSavedGame,
   onResume,
   resetRef,
@@ -95,6 +101,7 @@ export default function StagingScreen({
   const gameDef = useMemo(() => games.find((g) => g.id === gameId), [gameId]);
   const label = gameLabel(gameId);
   const difficulties = gameDef?.multiplayer?.difficulties ?? [];
+  const visibleSoloDifficulties = soloDifficulties ?? difficulties;
 
   /* ── State machine: 'staging' → 'inviting' → 'waiting' → 'countdown' → 'playing' ── */
   /*                   'staging' → 'queuing' → 'match-found' → 'waiting' → ...           */
@@ -102,6 +109,9 @@ export default function StagingScreen({
   const [phase, setPhase] = useState<Phase>('staging');
   const [difficulty, setDifficulty] = useState(
     defaultDifficulty ?? difficulties[0]?.value ?? 'medium',
+  );
+  const [soloDifficulty, setSoloDifficulty] = useState(
+    soloDefaultDifficulty ?? soloDifficulties?.[0]?.value ?? defaultDifficulty ?? difficulties[0]?.value ?? 'medium',
   );
   const [selectedFriends, setSelectedFriends] = useState<string[]>([]);
   const [countdownValue, setCountdownValue] = useState(5);
@@ -966,10 +976,10 @@ export default function StagingScreen({
     clearActiveMatch(gameId);
     onStart({
       multiplayer: false,
-      difficulty,
+      difficulty: soloDifficulties ? soloDifficulty : difficulty,
     });
     setPhase('playing');
-  }, [gameId, difficulty, onStart]);
+  }, [gameId, difficulty, onStart, soloDifficulties, soloDifficulty]);
 
   /* ── Create multiplayer match ── */
   const handleCreateMatch = useCallback(async () => {
@@ -1288,14 +1298,14 @@ export default function StagingScreen({
       )}
 
       {/* Difficulty picker */}
-      {difficulties.length > 1 && phase === 'staging' && !hasPendingActiveMatchRestore && (
+      {visibleSoloDifficulties.length > 1 && phase === 'staging' && !hasPendingActiveMatchRestore && (
         <div className="flex gap-2">
-          {difficulties.map((d) => (
+          {visibleSoloDifficulties.map((d) => (
             <button
               key={d.value}
-              onClick={() => setDifficulty(d.value)}
+              onClick={() => setSoloDifficulty(d.value)}
               className={`rounded-xl px-4 py-2 text-sm font-semibold transition ${
-                difficulty === d.value
+                soloDifficulty === d.value
                   ? 'bg-brand text-white shadow-lg'
                   : 'bg-surface-card text-text-muted ring-1 ring-white/10 hover:ring-brand/40'
               }`}
