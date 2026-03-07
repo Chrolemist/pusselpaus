@@ -212,6 +212,16 @@ function timeoutTone(seconds: number | null) {
       label: 'Gemensam sluttid',
     };
   }
+  if (seconds <= 5) {
+    return {
+      text: 'text-red-200',
+      glow: 'shadow-red-500/45',
+      ring: 'ring-red-300/45',
+      bar: 'from-red-600 via-red-500 to-amber-300',
+      pulse: true,
+      label: 'Final countdown',
+    };
+  }
   if (seconds <= 10) {
     return {
       text: 'text-red-300',
@@ -552,6 +562,11 @@ export default function LiveBanner({ gameId }: Props) {
     if (lastTimeoutTickRef.current === timeoutRemaining) return;
     lastTimeoutTickRef.current = timeoutRemaining;
     void playCountdownTick();
+    if (timeoutRemaining <= 5) {
+      window.setTimeout(() => {
+        void playCountdownTick();
+      }, 120);
+    }
   }, [live.match?.status, timeoutRemaining]);
 
   if (!live.isActive || !live.match) return null;
@@ -587,8 +602,8 @@ export default function LiveBanner({ gameId }: Props) {
             {hasPendingPlayers && timeoutRemaining !== null && (
               <motion.div
                 className={`mb-3 overflow-hidden rounded-2xl bg-black/25 p-3 ring-1 ${timeoutUi.ring} shadow-lg ${timeoutUi.glow}`}
-                animate={timeoutUi.pulse ? { scale: [1, 1.015, 1], opacity: [1, 0.96, 1] } : { scale: 1, opacity: 1 }}
-                transition={timeoutUi.pulse ? { duration: 0.9, repeat: Infinity, ease: 'easeInOut' } : { duration: 0.2 }}
+                animate={timeoutUi.pulse ? { scale: timeoutRemaining != null && timeoutRemaining <= 5 ? [1, 1.03, 0.995, 1] : [1, 1.015, 1], opacity: [1, 0.96, 1] } : { scale: 1, opacity: 1 }}
+                transition={timeoutUi.pulse ? { duration: timeoutRemaining != null && timeoutRemaining <= 5 ? 0.55 : 0.9, repeat: Infinity, ease: 'easeInOut' } : { duration: 0.2 }}
               >
                 <div className="mb-2 flex items-center justify-between gap-3">
                   <div>
@@ -599,11 +614,15 @@ export default function LiveBanner({ gameId }: Props) {
                     key={timeoutRemaining}
                     className={`rounded-xl bg-white/5 px-3 py-2 text-right ring-1 ring-white/10 ${timeoutUi.text}`}
                     initial={{ scale: 1.08, opacity: 0.7 }}
-                    animate={{ scale: 1, opacity: 1 }}
-                    transition={{ duration: 0.2 }}
+                    animate={timeoutRemaining != null && timeoutRemaining <= 5
+                      ? { scale: [1.18, 0.98, 1.1], opacity: [0.82, 1, 1] }
+                      : { scale: 1, opacity: 1 }}
+                    transition={{ duration: timeoutRemaining != null && timeoutRemaining <= 5 ? 0.45 : 0.2 }}
                   >
                     <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-text-muted">Tid kvar</p>
-                    <p className="text-2xl font-extrabold tabular-nums">{formatRemaining(timeoutRemaining)}</p>
+                    <p className={`font-extrabold tabular-nums ${timeoutRemaining != null && timeoutRemaining <= 5 ? 'text-4xl sm:text-5xl leading-none drop-shadow-[0_0_12px_rgba(248,113,113,0.45)]' : 'text-2xl'}`}>
+                      {formatRemaining(timeoutRemaining)}
+                    </p>
                   </motion.div>
                 </div>
 
