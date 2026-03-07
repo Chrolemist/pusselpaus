@@ -20,6 +20,25 @@ export const PONG_CONFIG = {
 export type PongSide = 'left' | 'right';
 export type PongMode = 'cpu' | 'versus';
 export type PongStatus = 'ready' | 'serving' | 'playing' | 'finished';
+export type PongCpuLevel = 'easy' | 'medium' | 'hard';
+
+export const PONG_CPU_PRESETS: Record<PongCpuLevel, { paddleSpeed: number; deadzone: number; trackingError: number }> = {
+  easy: {
+    paddleSpeed: 420,
+    deadzone: 42,
+    trackingError: 38,
+  },
+  medium: {
+    paddleSpeed: 500,
+    deadzone: 28,
+    trackingError: 20,
+  },
+  hard: {
+    paddleSpeed: 590,
+    deadzone: 16,
+    trackingError: 10,
+  },
+} as const;
 
 export interface PongControlState {
   up: boolean;
@@ -50,6 +69,7 @@ export interface PongScoreState {
 
 export interface PongState {
   mode: PongMode;
+  cpuLevel: PongCpuLevel;
   status: PongStatus;
   paddles: {
     left: PongPaddleState;

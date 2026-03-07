@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import confetti from 'canvas-confetti';
 import { AnimatePresence, motion } from 'motion/react';
 import { ArrowLeft, Play, RotateCcw, Swords, Cpu, TimerReset } from 'lucide-react';
-import { PONG_CONFIG, type PongInputs, type PongMode, type PongSide, type PongState } from '../core/types';
+import { PONG_CONFIG, PONG_CPU_PRESETS, type PongCpuLevel, type PongInputs, type PongMode, type PongSide, type PongState } from '../core/types';
 import { createInitialPongState, startPongMatch, stepPong } from '../core/engine';
 import { playPaddleHit, playScoreBurst, playServePulse, playVictoryFanfare, playWallBounce } from '../audio/pingPongAudio';
 
@@ -25,7 +25,8 @@ function sideAccent(side: PongSide | null): string {
 
 export default function PingPongPage() {
   const [mode, setMode] = useState<PongMode>('cpu');
-  const [state, setState] = useState<PongState>(() => createInitialPongState('cpu'));
+  const [cpuLevel, setCpuLevel] = useState<PongCpuLevel>('medium');
+  const [state, setState] = useState<PongState>(() => createInitialPongState('cpu', 'medium'));
   const [trail, setTrail] = useState<Array<{ id: number; x: number; y: number }>>([]);
   const [leftImpact, setLeftImpact] = useState(0);
   const [rightImpact, setRightImpact] = useState(0);
@@ -46,14 +47,14 @@ export default function PingPongPage() {
   };
 
   useEffect(() => {
-    const nextState = createInitialPongState(mode);
+    const nextState = createInitialPongState(mode, cpuLevel);
     stateRef.current = nextState;
     previousStateRef.current = nextState;
     setState(nextState);
     setTrail([]);
     trailSampleAtRef.current = 0;
     confettiFiredRef.current = false;
-  }, [mode]);
+  }, [cpuLevel, mode]);
 
   useEffect(() => {
     stateRef.current = state;
@@ -224,6 +225,7 @@ export default function PingPongPage() {
   const rightMomentum = Math.min(1, Math.abs(state.paddles.right.velocity) / PONG_CONFIG.paddleSpeed);
   const leftScoring = scoreFlashSide === 'left';
   const rightScoring = scoreFlashSide === 'right';
+  const cpuPreset = PONG_CPU_PRESETS[cpuLevel];
 
   return (
     <div className="flex min-h-full flex-col items-center gap-6 px-4 py-8">
@@ -261,7 +263,7 @@ export default function PingPongPage() {
             </button>
             <button
               onClick={() => {
-                const nextState = startPongMatch(mode);
+                const nextState = startPongMatch(mode, cpuLevel);
                 previousStateRef.current = nextState;
                 setTrail([]);
                 trailSampleAtRef.current = 0;
@@ -273,7 +275,7 @@ export default function PingPongPage() {
             </button>
             <button
               onClick={() => {
-                const nextState = createInitialPongState(mode);
+                const nextState = createInitialPongState(mode, cpuLevel);
                 previousStateRef.current = nextState;
                 setTrail([]);
                 trailSampleAtRef.current = 0;
@@ -435,7 +437,7 @@ export default function PingPongPage() {
                     </p>
                     <button
                       onClick={() => {
-                        const nextState = startPongMatch(mode);
+                        const nextState = startPongMatch(mode, cpuLevel);
                         previousStateRef.current = nextState;
                         setTrail([]);
                         trailSampleAtRef.current = 0;
@@ -460,6 +462,10 @@ export default function PingPongPage() {
                   <p className="mt-1 font-bold text-white">{mode === 'cpu' ? 'CPU duel' : 'Local versus'}</p>
                 </div>
                 <div className="rounded-2xl bg-black/20 px-3 py-3">
+                  <p className="text-xs text-text-muted">CPU-nivå</p>
+                  <p className="mt-1 font-bold text-white">{mode === 'cpu' ? (cpuLevel === 'easy' ? 'Lätt' : cpuLevel === 'medium' ? 'Medel' : 'Svår') : 'Av'}</p>
+                </div>
+                <div className="rounded-2xl bg-black/20 px-3 py-3">
                   <p className="text-xs text-text-muted">Status</p>
                   <p className="mt-1 font-bold text-white">{state.status}</p>
                 </div>
@@ -467,12 +473,32 @@ export default function PingPongPage() {
                   <p className="text-xs text-text-muted">Bästa rally</p>
                   <p className="mt-1 font-bold text-white">{state.bestRally}</p>
                 </div>
-                <div className="rounded-2xl bg-black/20 px-3 py-3">
+                <div className="rounded-2xl bg-black/20 px-3 py-3 col-span-2">
                   <p className="text-xs text-text-muted">Matchtid</p>
                   <p className="mt-1 font-bold text-white">{formatSeconds(state.elapsedMs)}</p>
                 </div>
               </div>
             </div>
+
+            {mode === 'cpu' && (
+              <div className="rounded-[24px] bg-white/5 p-4 ring-1 ring-white/10">
+                <p className="text-xs font-semibold uppercase tracking-[0.24em] text-brand-light">CPU-nivå</p>
+                <div className="mt-3 grid grid-cols-3 gap-2">
+                  {(['easy', 'medium', 'hard'] as const).map((level) => (
+                    <button
+                      key={level}
+                      onClick={() => setCpuLevel(level)}
+                      className={`rounded-2xl px-3 py-3 text-sm font-semibold transition ${cpuLevel === level ? 'bg-brand text-white shadow-lg shadow-brand/25' : 'bg-black/20 text-text-muted ring-1 ring-white/10 hover:text-white'}`}
+                    >
+                      {level === 'easy' ? 'Lätt' : level === 'medium' ? 'Medel' : 'Svår'}
+                    </button>
+                  ))}
+                </div>
+                <p className="mt-3 text-xs text-text-muted">
+                  Botten använder fart {cpuPreset.paddleSpeed}, deadzone {cpuPreset.deadzone} och felmarginal {cpuPreset.trackingError}.
+                </p>
+              </div>
+            )}
 
             <div className="rounded-[24px] bg-white/5 p-4 ring-1 ring-white/10">
               <p className="text-xs font-semibold uppercase tracking-[0.24em] text-brand-light">Kontroller</p>

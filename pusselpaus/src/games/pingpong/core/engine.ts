@@ -1,4 +1,4 @@
-import { PONG_CONFIG, type PongControlState, type PongInputs, type PongMode, type PongSide, type PongState } from './types';
+import { PONG_CONFIG, PONG_CPU_PRESETS, type PongControlState, type PongCpuLevel, type PongInputs, type PongMode, type PongSide, type PongState } from './types';
 
 function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value));
@@ -93,10 +93,11 @@ function controlDirection(control: PongControlState): number {
 
 function deriveCpuControl(state: PongState): PongControlState {
   if (state.status === 'finished') return emptyControl();
+  const preset = PONG_CPU_PRESETS[state.cpuLevel];
   const paddleCenter = state.paddles.right.y + PONG_CONFIG.paddleHeight / 2;
   const trackingBall = state.status === 'playing' && state.ball.vx > 0;
   const trackingBias = trackingBall
-    ? Math.sin((state.ball.y + state.rallyHits * 17) / 57) * PONG_CONFIG.aiTrackingError
+    ? Math.sin((state.ball.y + state.rallyHits * 17) / 57) * preset.trackingError
     : 0;
   const targetY = state.status === 'serving'
     ? PONG_CONFIG.height / 2
@@ -105,7 +106,7 @@ function deriveCpuControl(state: PongState): PongControlState {
       : PONG_CONFIG.height / 2;
   const delta = targetY - paddleCenter;
 
-  if (Math.abs(delta) <= PONG_CONFIG.aiDeadzone) return emptyControl();
+  if (Math.abs(delta) <= preset.deadzone) return emptyControl();
   return delta < 0 ? { up: true, down: false } : { up: false, down: true };
 }
 
@@ -159,10 +160,11 @@ function reflectFromPaddle(state: PongState, side: PongSide, paddleY: number, ne
   };
 }
 
-export function createInitialPongState(mode: PongMode = 'cpu'): PongState {
+export function createInitialPongState(mode: PongMode = 'cpu', cpuLevel: PongCpuLevel = 'medium'): PongState {
   const position = centeredBall();
   return {
     mode,
+    cpuLevel,
     status: 'ready',
     paddles: {
       left: { y: centeredPaddleY(), velocity: 0 },
@@ -180,8 +182,8 @@ export function createInitialPongState(mode: PongMode = 'cpu'): PongState {
   };
 }
 
-export function startPongMatch(mode: PongMode): PongState {
-  return resetForServe(createInitialPongState(mode), 'left', null);
+export function startPongMatch(mode: PongMode, cpuLevel: PongCpuLevel = 'medium'): PongState {
+  return resetForServe(createInitialPongState(mode, cpuLevel), 'left', null);
 }
 
 export function stepPong(state: PongState, rawInputs: PongInputs, dtMs: number): PongState {
@@ -190,7 +192,7 @@ export function stepPong(state: PongState, rawInputs: PongInputs, dtMs: number):
     right: state.mode === 'cpu' ? deriveCpuControl(state) : rawInputs.right,
   };
   const leftSpeed = PONG_CONFIG.paddleSpeed;
-  const rightSpeed = state.mode === 'cpu' ? PONG_CONFIG.cpuPaddleSpeed : PONG_CONFIG.paddleSpeed;
+  const rightSpeed = state.mode === 'cpu' ? PONG_CPU_PRESETS[state.cpuLevel].paddleSpeed : PONG_CONFIG.paddleSpeed;
 
   const nextLeft = movePaddle(state.paddles.left.y, inputs.left, dtMs, leftSpeed);
   const nextRight = movePaddle(state.paddles.right.y, inputs.right, dtMs, rightSpeed);
