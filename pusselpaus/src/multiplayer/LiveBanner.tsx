@@ -357,7 +357,7 @@ function ResultsOverlay({ gameId, label, match, rows, myUserId, rematchRequested
         }}
       >
         <motion.div
-          className="relative w-full max-w-4xl overflow-hidden rounded-[28px] border border-white/10 bg-[#0f1121] shadow-2xl"
+          className="relative flex max-h-[calc(100vh-2rem)] w-full max-w-4xl flex-col overflow-hidden rounded-[28px] border border-white/10 bg-[#0f1121] shadow-2xl"
           style={{ boxShadow: `0 24px 80px ${theme.accentGlow}` }}
           initial={{ y: 28, scale: 0.96, opacity: 0 }}
           animate={{ y: 0, scale: 1, opacity: 1 }}
@@ -366,7 +366,7 @@ function ResultsOverlay({ gameId, label, match, rows, myUserId, rematchRequested
         >
           <div className={`absolute inset-0 bg-gradient-to-br ${theme.panelGradient}`} />
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.12),transparent_55%)]" />
-          <div className="relative z-10 p-6 sm:p-8">
+          <div className="relative z-10 min-h-0 flex-1 overflow-y-auto p-6 sm:p-8">
             <div className="flex items-start justify-between gap-4">
               <div>
                 <div className="flex flex-wrap items-center gap-2">
@@ -527,8 +527,10 @@ function ResultsOverlay({ gameId, label, match, rows, myUserId, rematchRequested
                 );
               })}
             </div>
+          </div>
 
-            <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-white/10 pt-4">
+          <div className="relative z-10 border-t border-white/10 bg-[#0f1121]/90 px-4 py-4 backdrop-blur-md sm:px-8 sm:py-5">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div className="space-y-1">
                 <p className="text-xs text-text-muted">
                   {gameId === 'rytmrush'
@@ -542,11 +544,11 @@ function ResultsOverlay({ gameId, label, match, rows, myUserId, rematchRequested
                   </p>
                 )}
               </div>
-              <div className="flex gap-2">
+              <div className="grid w-full grid-cols-1 gap-2 sm:flex sm:w-auto">
                 <button
                   onClick={onReplay}
                   disabled={rematchBusy}
-                  className="rounded-xl bg-success px-4 py-2 text-sm font-bold text-white shadow-lg shadow-success/20 transition hover:brightness-110"
+                  className="rounded-xl bg-success px-4 py-3 text-sm font-bold text-white shadow-lg shadow-success/20 transition hover:brightness-110"
                 >
                   {rematchBusy
                     ? 'Startar...'
@@ -556,13 +558,13 @@ function ResultsOverlay({ gameId, label, match, rows, myUserId, rematchRequested
                 </button>
                 <button
                   onClick={onGoLobby}
-                  className="rounded-xl bg-white/5 px-4 py-2 text-sm font-semibold text-text-muted ring-1 ring-white/10 transition hover:bg-white/10 hover:text-white"
+                  className="rounded-xl bg-white/5 px-4 py-3 text-sm font-semibold text-text-muted ring-1 ring-white/10 transition hover:bg-white/10 hover:text-white"
                 >
                   Till lobby
                 </button>
                 <button
                   onClick={onClose}
-                  className="rounded-xl bg-brand px-4 py-2 text-sm font-bold text-white shadow-lg shadow-brand/25 transition hover:brightness-110"
+                  className="rounded-xl bg-brand px-4 py-3 text-sm font-bold text-white shadow-lg shadow-brand/25 transition hover:brightness-110"
                 >
                   Stäng scoreboard
                 </button>
