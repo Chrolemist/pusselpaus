@@ -19,10 +19,11 @@ export function useLiveMatch(gameId: string) {
   const [match, setMatch] = useState<MultiplayerMatch | null>(null);
   const [players, setPlayers] = useState<LivePlayer[]>([]);
   const activePayload = useActiveMatchPayload(gameId);
+  const activeMatchId = activePayload?.matchId ?? null;
 
   const getActiveMatchId = useCallback((): string | null => {
-    return activePayload?.matchId ?? null;
-  }, [activePayload?.matchId]);
+    return activeMatchId;
+  }, [activeMatchId]);
 
   const refresh = useCallback(async () => {
     if (!user) {
@@ -91,6 +92,42 @@ export function useLiveMatch(gameId: string) {
       window.clearInterval(timer);
     };
   }, [refresh]);
+
+  useEffect(() => {
+    if (!user || !activeMatchId) return;
+
+    const channel = supabase
+      .channel(`mp-live-match:${user.id}:${activeMatchId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'multiplayer_match_players',
+          filter: `match_id=eq.${activeMatchId}`,
+        },
+        () => {
+          void refresh();
+        },
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'multiplayer_matches',
+          filter: `id=eq.${activeMatchId}`,
+        },
+        () => {
+          void refresh();
+        },
+      )
+      .subscribe();
+
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [activeMatchId, refresh, user]);
 
   const me = useMemo(
     () => players.find((p) => p.player.user_id === user?.id)?.player ?? null,

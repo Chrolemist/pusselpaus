@@ -18,7 +18,7 @@ import { useLiveMatch, type LivePlayer } from './useLiveMatch';
 import { mpTickMatchStart, mpForfeitMatch, mpRequestRematch } from './api';
 import { clearActiveMatch, getActiveMatchPayload, setActiveMatchPayload } from './activeMatch';
 import { gameLabel } from './useMultiplayer';
-import { playCountdownTick, playCountdownVoice, playRematchStart } from './matchSounds';
+import { playCountdownTick, playRematchStart } from './matchSounds';
 import { dispatchMultiplayerReplay } from './replay';
 import LevelBadge from '../components/LevelBadge';
 import type { MultiplayerMatch } from '../lib/database.types';
@@ -680,9 +680,6 @@ export default function LiveBanner({ gameId }: Props) {
     if (lastTimeoutTickRef.current === timeoutRemaining) return;
     lastTimeoutTickRef.current = timeoutRemaining;
     void playCountdownTick();
-    if (timeoutRemaining <= 3) {
-      void playCountdownVoice(timeoutRemaining);
-    }
     if (timeoutRemaining <= 5) {
       window.setTimeout(() => {
         void playCountdownTick();
