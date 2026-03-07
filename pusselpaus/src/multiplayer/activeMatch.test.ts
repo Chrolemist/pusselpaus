@@ -159,4 +159,25 @@ describe('matchmade flag', () => {
     expect(updated?.matchId).toBe('update-1');
     expect(updated?.showOverlay).toBeUndefined();
   });
+
+  it('expires stale matchmade payloads automatically', () => {
+    setActiveMatchPayload('sudoku', {
+      matchId: 'stale-mm',
+      setAt: new Date(Date.now() - 60_000).toISOString(),
+      matchmade: true,
+    });
+
+    expect(getActiveMatchPayload('sudoku')).toBeNull();
+    expect(localStorage.getItem(getActiveMatchKey('sudoku'))).toBeNull();
+  });
+
+  it('keeps fresh matchmade payloads', () => {
+    setActiveMatchPayload('sudoku', {
+      matchId: 'fresh-mm',
+      setAt: new Date().toISOString(),
+      matchmade: true,
+    });
+
+    expect(getActiveMatchPayload('sudoku')?.matchId).toBe('fresh-mm');
+  });
 });
