@@ -1,6 +1,6 @@
 /* ── useLiveMatch – polls a single active match for in-game display ── */
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useAuth } from '../auth';
 import { supabase } from '../lib/supabaseClient';
 import type { MultiplayerMatch, MultiplayerMatchPlayer, Profile } from '../lib/database.types';
@@ -20,12 +20,20 @@ export function useLiveMatch(gameId: string) {
   const [players, setPlayers] = useState<LivePlayer[]>([]);
   const activePayload = useActiveMatchPayload(gameId);
   const activeMatchId = activePayload?.matchId ?? null;
+  const activeMatchIdRef = useRef<string | null>(activeMatchId);
+  const refreshRequestIdRef = useRef(0);
+
+  useEffect(() => {
+    activeMatchIdRef.current = activeMatchId;
+  }, [activeMatchId]);
 
   const getActiveMatchId = useCallback((): string | null => {
     return activeMatchId;
   }, [activeMatchId]);
 
   const refresh = useCallback(async () => {
+    const requestId = ++refreshRequestIdRef.current;
+
     if (!user) {
       setMatch(null);
       setPlayers([]);
@@ -47,6 +55,10 @@ export function useLiveMatch(gameId: string) {
       .eq('id', matchId)
       .maybeSingle<MultiplayerMatch>();
 
+    if (refreshRequestIdRef.current !== requestId || activeMatchIdRef.current !== matchId) {
+      return;
+    }
+
     if (matchError || !matchRow) {
       setMatch(null);
       setPlayers([]);
@@ -67,6 +79,10 @@ export function useLiveMatch(gameId: string) {
       .from('profiles')
       .select('id, username, tag, skin, is_online, level')
       .in('id', userIds);
+
+    if (refreshRequestIdRef.current !== requestId || activeMatchIdRef.current !== matchId) {
+      return;
+    }
 
     const profileMap = new Map((profiles ?? []).map((p) => [p.id, p]));
     const merged: LivePlayer[] = (playerRows ?? []).map((p) => ({

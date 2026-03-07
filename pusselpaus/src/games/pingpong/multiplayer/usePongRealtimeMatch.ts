@@ -215,7 +215,7 @@ export function usePongRealtimeMatch({ enabled, config, localInput, matchId, see
     };
 
     void transport.sendInput(envelope);
-  }, [enabled, isHost, localInput.down, localInput.up, localParticipant, matchId, user?.id]);
+  }, [enabled, isHost, localInput.down, localInput.targetY, localInput.up, localParticipant, matchId, user?.id]);
 
   useEffect(() => {
     if (!enabled || !matchId || !user?.id || !isHost || !localParticipant) return;
@@ -298,7 +298,7 @@ export function usePongRealtimeMatch({ enabled, config, localInput, matchId, see
       if (changed) {
         currentStateRef.current = nextState;
         setLiveState(nextState);
-        const shouldSendSnapshot = tickRef.current === 1 || tickRef.current - lastSnapshotTickRef.current >= 3 || nextState.status !== previousStatus;
+        const shouldSendSnapshot = tickRef.current === 1 || tickRef.current - lastSnapshotTickRef.current >= 2 || nextState.status !== previousStatus;
         if (shouldSendSnapshot) {
           lastSnapshotTickRef.current = tickRef.current;
           void sendSnapshot(nextState);
