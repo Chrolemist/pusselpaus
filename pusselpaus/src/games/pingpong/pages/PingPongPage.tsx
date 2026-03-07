@@ -497,12 +497,6 @@ export default function PingPongPage() {
                   </button>
                 )}
 
-                {isRealtimeMatch && !isArenaFocusMode && (
-                  <div className="pointer-events-none absolute left-3 right-3 top-3 z-20">
-                    <MultiplayerLiveBanner gameId="pingpong" />
-                  </div>
-                )}
-
                 <motion.div
                   className="absolute rounded-full bg-white/10 blur-[80px]"
                   animate={{ opacity: gameState.status === 'playing' ? [0.2, 0.4, 0.2] : 0.12, scale: gameState.status === 'playing' ? [0.9, 1.08, 0.95] : 0.9 }}
@@ -720,6 +714,12 @@ export default function PingPongPage() {
 
             {!isArenaFocusMode && (
               <div className="space-y-4">
+                {isRealtimeMatch && (
+                  <div className="overflow-hidden rounded-[24px] bg-white/5 ring-1 ring-white/10">
+                    <MultiplayerLiveBanner gameId="pingpong" />
+                  </div>
+                )}
+
                 {isRealtimeMatch && (
                   <div className="rounded-[24px] bg-white/5 p-4 ring-1 ring-white/10">
                     <p className="text-xs font-semibold uppercase tracking-[0.24em] text-brand-light">Live</p>

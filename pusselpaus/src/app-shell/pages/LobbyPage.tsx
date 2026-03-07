@@ -1,7 +1,26 @@
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { games } from '../../game-registry';
 import { useAuth } from '../../auth';
 import { Puzzle, BarChart3, Store, Brain, User } from 'lucide-react';
+
+function LobbyGameIcon({ gameId, emoji, name }: { gameId: string; emoji: string; name: string }) {
+  const [hasImageError, setHasImageError] = useState(false);
+
+  if (hasImageError) {
+    return <span className="text-5xl">{emoji}</span>;
+  }
+
+  return (
+    <img
+      src={`/lobby-icons/${gameId}.png`}
+      alt={name}
+      className="h-16 w-16 rounded-2xl object-cover shadow-lg"
+      loading="lazy"
+      onError={() => setHasImageError(true)}
+    />
+  );
+}
 
 export default function LobbyPage() {
   const { isGuest, exitGuestMode } = useAuth();
@@ -39,7 +58,7 @@ export default function LobbyPage() {
               to={game.path}
               className="group relative flex flex-col items-center gap-3 rounded-2xl bg-surface-card p-6 shadow-lg ring-1 ring-white/10 transition hover:ring-brand/60 active:scale-[0.98]"
             >
-              <span className="text-5xl">{game.emoji}</span>
+              <LobbyGameIcon gameId={game.id} emoji={game.emoji} name={game.name} />
               <span className="text-xl font-semibold">{game.name}</span>
               <span className="text-sm text-text-muted text-center">
                 {game.description}
