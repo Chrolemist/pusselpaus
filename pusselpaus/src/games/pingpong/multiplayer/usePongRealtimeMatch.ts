@@ -218,6 +218,26 @@ export function usePongRealtimeMatch({ enabled, config, localInput, matchId, see
   }, [enabled, isHost, localInput.down, localInput.targetY, localInput.up, localParticipant, matchId, user?.id]);
 
   useEffect(() => {
+    if (!enabled || !matchId || !user?.id || !localParticipant) return;
+    if (isHost) return;
+
+    const transport = transportRef.current;
+    const intervalId = window.setInterval(() => {
+      void transport.sendInput({
+        matchId,
+        userId: user.id,
+        tick: tickRef.current,
+        sentAt: Date.now(),
+        input: pongRealtimeAdapter.serializeInput(latestLocalInputRef.current),
+      });
+    }, 100);
+
+    return () => {
+      window.clearInterval(intervalId);
+    };
+  }, [enabled, isHost, localParticipant, matchId, user?.id]);
+
+  useEffect(() => {
     if (!enabled || !matchId || !user?.id || !isHost || !localParticipant) return;
 
     const transport = transportRef.current;

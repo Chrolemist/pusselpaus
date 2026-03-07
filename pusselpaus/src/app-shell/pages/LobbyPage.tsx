@@ -4,10 +4,12 @@ import { games } from '../../game-registry';
 import { useAuth } from '../../auth';
 import { Puzzle, BarChart3, Store, Brain, User } from 'lucide-react';
 
+const AVAILABLE_LOBBY_ICONS = new Set(['pingpong']);
+
 function LobbyGameIcon({ gameId, emoji, name }: { gameId: string; emoji: string; name: string }) {
   const [hasImageError, setHasImageError] = useState(false);
 
-  if (hasImageError) {
+  if (hasImageError || !AVAILABLE_LOBBY_ICONS.has(gameId)) {
     return <span className="text-5xl">{emoji}</span>;
   }
 
