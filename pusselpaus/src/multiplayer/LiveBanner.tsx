@@ -52,12 +52,27 @@ function formatRemaining(totalSeconds: number): string {
 function getWinnerBonus(gameId: string): number {
   switch (gameId) {
     case 'numberpath':
-      return 40;
+      return 12;
     case 'sudoku':
     case 'rytmrush':
     default:
-      return 45;
+      return 12;
   }
+}
+
+function getPlacementReward(rank: number, gameId: string, hasStakePot: boolean): number {
+  if (hasStakePot) {
+    if (rank === 1) return 0;
+    if (rank === 2) return 2;
+    if (rank === 3) return 1;
+    return 0;
+  }
+
+  const winnerBonus = getWinnerBonus(gameId);
+  if (rank === 1) return winnerBonus;
+  if (rank === 2) return 4;
+  if (rank === 3) return 1;
+  return 0;
 }
 
 function getMatchTheme(gameId: string): MatchTheme {
@@ -110,7 +125,7 @@ function getSyncedFinishSeconds(match: MultiplayerMatch | null, player: LivePlay
 function buildResultRows(gameId: string, match: MultiplayerMatch, players: LivePlayer[]): MatchResultRow[] {
   const acceptedPlayers = players.filter((entry) => entry.player.status === 'accepted');
   const pot = acceptedPlayers.reduce((sum, entry) => sum + Math.max(0, entry.player.stake_locked ?? 0), 0);
-  const winnerBonus = pot > 0 ? pot : getWinnerBonus(gameId);
+  const hasStakePot = pot > 0;
 
   const sorted = [...acceptedPlayers].sort((a, b) => {
     const aForfeited = a.player.forfeited === true;
@@ -168,7 +183,7 @@ function buildResultRows(gameId: string, match: MultiplayerMatch, players: LiveP
       player: entry,
       rank: index + 1,
       coinsAwarded: match.winner_id
-        ? (isWinner ? winnerBonus : 0)
+        ? (isWinner && hasStakePot ? pot : getPlacementReward(index + 1, gameId, hasStakePot))
         : Math.max(0, entry.player.stake_locked ?? 0),
       statusLabel,
       statLabel,
