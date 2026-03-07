@@ -191,7 +191,7 @@ export default function StagingScreen({
           matchId: existing.matchId,
           status,
         });
-        setIsInviteOverlay(true);
+        setIsInviteOverlay(existing.matchmade ? false : true);
         setMatchFoundAcceptedLocal(false);
         setPhase('match-found');
         // Clear the flag so a page refresh goes to normal waiting
@@ -1024,8 +1024,8 @@ export default function StagingScreen({
         myId={user?.id ?? ''}
         onAccept={handleOverlayAccept}
         onDecline={handleOverlayDecline}
-        noTimeout={isInviteOverlay}
-        enableSounds={!isMatchmade}
+        noTimeout={isInviteOverlay && !isMatchmade}
+        enableSounds
       />
     );
   }
