@@ -3,7 +3,7 @@ export const PONG_CONFIG = {
   height: 540,
   paddleWidth: 18,
   paddleHeight: 104,
-  paddleInset: 34,
+  paddleInset: 68,
   ballSize: 18,
   maxScore: 5,
   paddleSpeed: 620,

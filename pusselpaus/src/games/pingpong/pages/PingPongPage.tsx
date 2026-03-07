@@ -58,7 +58,7 @@ function controlFromPointerTarget(targetY: number | null, paddleY: number): Pong
 
   const paddleCenter = paddleY + PONG_CONFIG.paddleHeight / 2;
   const delta = targetY - paddleCenter;
-  const deadzone = 12;
+  const deadzone = 4;
 
   if (Math.abs(delta) <= deadzone) return emptyControl();
   return delta < 0 ? { up: true, down: false } : { up: false, down: true };
