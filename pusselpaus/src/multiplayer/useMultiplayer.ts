@@ -12,7 +12,7 @@ import { useAuth } from '../auth';
 import { supabase } from '../lib/supabaseClient';
 import type { MultiplayerMatch, MultiplayerMatchPlayer, Profile } from '../lib/database.types';
 import { games } from '../game-registry';
-import { getActiveMatchKey } from './activeMatch';
+import { setActiveMatchPayload } from './activeMatch';
 import type { MatchConfig } from './types';
 import { mpDebug } from './debug';
 import {
@@ -397,16 +397,13 @@ export function useMultiplayer() {
       matchId: string,
       options?: { config?: MatchConfig; configSeed?: number; showOverlay?: boolean },
     ) => {
-      localStorage.setItem(
-        getActiveMatchKey(gameId),
-        JSON.stringify({
+      setActiveMatchPayload(gameId, {
           matchId,
           setAt: new Date().toISOString(),
           config: options?.config,
           configSeed: options?.configSeed,
           showOverlay: options?.showOverlay,
-        }),
-      );
+      });
     },
     [],
   );

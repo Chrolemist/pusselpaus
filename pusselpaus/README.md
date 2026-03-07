@@ -1,5 +1,29 @@
 # PusselPaus
 
+## Bump Version Number
+
+If you are standing in `c:\pusselpaus\pusselpaus`, use one of these:
+
+```powershell
+npm version patch --no-git-tag-version
+npm version minor --no-git-tag-version
+npm version major --no-git-tag-version
+```
+
+If you want to set an exact version manually:
+
+```powershell
+npm version 0.3.7 --no-git-tag-version
+```
+
+Then rebuild so the new version is baked into the frontend:
+
+```powershell
+npm run build
+```
+
+The lobby version label reads from `pusselpaus/package.json` during build via Vite, so the updated number will only appear after a new build/deploy.
+
 ## Add New Games Safely
 
 When you add more games, follow [docs/adding-games.md](docs/adding-games.md).

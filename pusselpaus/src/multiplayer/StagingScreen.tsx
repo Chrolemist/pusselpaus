@@ -1142,7 +1142,6 @@ export default function StagingScreen({
   /* ── Cancel match ── */
   const handleCancelMatch = useCallback(async () => {
     if (!activeMatchId) return;
-    if (!window.confirm('Avbryta matchen?')) return;
 
     mpDebug('StagingScreen', 'cancel:request', {
       gameId,
