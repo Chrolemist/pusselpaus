@@ -1,12 +1,17 @@
 import { Suspense, lazy } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './auth';
-import { LobbyPage, StatsOverviewPage, LoginPage, SkinShopPage, FriendsLeaderboardPage, TopBar } from './app-shell';
 import LevelUpOverlay from './app-shell/components/LevelUpOverlay';
 import CoinRewardOverlay from './app-shell/components/CoinRewardOverlay';
+import TopBar from './app-shell/components/TopBar';
 import { useHeartbeat } from './hooks/useHeartbeat';
 import { games } from './game-registry';
 
+const LobbyPage = lazy(() => import('./app-shell/pages/LobbyPage'));
+const StatsOverviewPage = lazy(() => import('./app-shell/pages/StatsOverviewPage'));
+const LoginPage = lazy(() => import('./app-shell/pages/LoginPage'));
+const SkinShopPage = lazy(() => import('./app-shell/pages/SkinShopPage'));
+const FriendsLeaderboardPage = lazy(() => import('./app-shell/pages/FriendsLeaderboardPage'));
 const DevMatchTestPage = lazy(() => import('./dev/DevMatchTestPage'));
 
 function AppRoutes() {

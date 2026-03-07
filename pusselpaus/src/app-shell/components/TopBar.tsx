@@ -1,6 +1,6 @@
 /* ── TopBar – mobile-first with hamburger menu ── */
 
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { Suspense, lazy, useState, useRef, useEffect, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'motion/react';
 import { useAuth } from '../../auth';
@@ -21,8 +21,8 @@ import {
   PenLine,
   BarChart3,
 } from 'lucide-react';
-import FriendsPanel from './FriendsPanel.tsx';
-import MatchInboxPanel from './MatchInboxPanel.tsx';
+const FriendsPanel = lazy(() => import('./FriendsPanel'));
+const MatchInboxPanel = lazy(() => import('./MatchInboxPanel'));
 
 type NoticeItem = {
   id: number;
@@ -345,8 +345,10 @@ export default function TopBar() {
         </AnimatePresence>
       )}
 
-      {showFriends && <FriendsPanel onClose={() => setShowFriends(false)} />}
-      {showMatches && <MatchInboxPanel onClose={() => setShowMatches(false)} />}
+      <Suspense fallback={null}>
+        {showFriends && <FriendsPanel onClose={() => setShowFriends(false)} />}
+        {showMatches && <MatchInboxPanel onClose={() => setShowMatches(false)} />}
+      </Suspense>
 
       {notices.length > 0 && (
         <div className="pointer-events-none fixed right-4 top-14 z-50 flex flex-col gap-2">

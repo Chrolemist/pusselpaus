@@ -9,6 +9,33 @@ export default defineConfig({
   define: {
     __APP_BUILD__: JSON.stringify(new Date().toISOString()),
   },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          const normalizedId = id.replace(/\\/g, '/')
+
+          if (!normalizedId.includes('node_modules')) return undefined
+
+          if (normalizedId.includes('@supabase/supabase-js')) return 'supabase-vendor'
+          if (
+            normalizedId.includes('/react/') ||
+            normalizedId.includes('/react-dom/') ||
+            normalizedId.includes('/react-router/') ||
+            normalizedId.includes('/react-router-dom/') ||
+            normalizedId.includes('/scheduler/') ||
+            normalizedId.includes('@remix-run/router')
+          ) return 'react-vendor'
+          if (normalizedId.includes('/tone/')) return 'tone-vendor'
+          if (normalizedId.includes('/lucide-react/')) return 'icons-vendor'
+          if (normalizedId.includes('/canvas-confetti/')) return 'effects-vendor'
+          if (normalizedId.includes('/driver.js/')) return 'tutorial-vendor'
+
+          return 'vendor'
+        },
+      },
+    },
+  },
   plugins: [
     react(),
     tailwindcss(),
