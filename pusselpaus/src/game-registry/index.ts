@@ -19,6 +19,10 @@ export interface MultiplayerConfig {
   difficulties: MultiplayerDifficulty[];
   /** How results are ranked: 'time' = lowest wins, 'score' = highest wins */
   rankBy: 'time' | 'score';
+  /** Minimum accepted players required for the match to proceed */
+  minPlayers: number;
+  /** Maximum players the match supports */
+  maxPlayers: number;
 }
 
 export interface GameDefinition {
@@ -56,6 +60,8 @@ export const games: GameDefinition[] = [
     multiplayer: {
       difficulties: [{ value: 'standard', label: 'Standard' }],
       rankBy: 'score',
+      minPlayers: 2,
+      maxPlayers: 2,
     },
   },
   {
@@ -77,6 +83,8 @@ export const games: GameDefinition[] = [
         { value: 'expert', label: 'Expert' },
       ],
       rankBy: 'time',
+      minPlayers: 2,
+      maxPlayers: 2,
     },
   },
   {
@@ -97,6 +105,8 @@ export const games: GameDefinition[] = [
         { value: 'hard', label: 'Svår' },
       ],
       rankBy: 'time',
+      minPlayers: 2,
+      maxPlayers: 2,
     },
   },
   {
@@ -112,6 +122,8 @@ export const games: GameDefinition[] = [
     multiplayer: {
       difficulties: [{ value: 'easy', label: 'Standard' }],
       rankBy: 'score',
+      minPlayers: 2,
+      maxPlayers: 2,
     },
     getStats: () => {
       const s = loadRytmRushStats();
