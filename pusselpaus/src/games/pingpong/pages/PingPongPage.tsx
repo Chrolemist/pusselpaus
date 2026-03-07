@@ -363,6 +363,14 @@ export default function PingPongPage() {
     height: `${(PONG_CONFIG.ballSize / PONG_CONFIG.height) * 100}%`,
   }), [gameState.ball.x, gameState.ball.y]);
 
+  const fireBoostHitboxStyle = useMemo(() => ({
+    left: `${(gameState.ball.x / PONG_CONFIG.width) * 100}%`,
+    top: `${(gameState.ball.y / PONG_CONFIG.height) * 100}%`,
+    width: `${(PONG_CONFIG.ballSize / PONG_CONFIG.width) * 280}%`,
+    height: `${(PONG_CONFIG.ballSize / PONG_CONFIG.height) * 280}%`,
+    transform: 'translate(-32%, -32%)',
+  }), [gameState.ball.x, gameState.ball.y]);
+
   const arenaGlowStyle = useMemo(() => ({
     left: `${(gameState.ball.x / PONG_CONFIG.width) * 100}%`,
     top: `${(gameState.ball.y / PONG_CONFIG.height) * 100}%`,
@@ -601,8 +609,23 @@ export default function PingPongPage() {
                   )}
                 </AnimatePresence>
 
+                <button
+                  type="button"
+                  aria-label="Aktivera Fire Boost"
+                  onPointerDown={() => {
+                    const preferredSide = gameState.ball.vx >= 0 ? 'left' : 'right';
+                    triggerFireBoost(preferredSide);
+                  }}
+                  className="absolute z-20 rounded-full border-0 bg-transparent p-0"
+                  style={{
+                    ...fireBoostHitboxStyle,
+                    cursor: (gameState.boostReady.left || gameState.boostReady.right) ? 'pointer' : 'default',
+                    touchAction: 'manipulation',
+                  }}
+                />
+
                 <motion.div
-                  className="absolute rounded-full bg-white shadow-[0_0_28px_rgba(255,255,255,0.4)]"
+                  className="pointer-events-none absolute rounded-full bg-white shadow-[0_0_28px_rgba(255,255,255,0.4)]"
                   animate={gameState.ball.isFireball
                     ? {
                         scale: [1, 1.28, 1.1],
@@ -612,15 +635,9 @@ export default function PingPongPage() {
                       ? { scale: [1, 1.06, 1], boxShadow: ['0 0 20px rgba(255,255,255,0.35)', '0 0 34px rgba(255,255,255,0.55)', '0 0 20px rgba(255,255,255,0.35)'] }
                       : { scale: 1 }}
                   transition={{ duration: 0.8, repeat: Infinity, ease: 'easeInOut' }}
-                  onPointerDown={() => {
-                    const preferredSide = gameState.ball.vx >= 0 ? 'left' : 'right';
-                    triggerFireBoost(preferredSide);
-                  }}
                   style={{
                     ...ballStyle,
                     background: gameState.ball.isFireball ? 'radial-gradient(circle at 30% 30%, #fff7ed 0%, #fdba74 18%, #f97316 45%, #dc2626 72%, #7f1d1d 100%)' : undefined,
-                    cursor: (gameState.boostReady.left || gameState.boostReady.right) ? 'pointer' : 'default',
-                    touchAction: 'manipulation',
                   }}
                 />
 
@@ -656,24 +673,6 @@ export default function PingPongPage() {
                   >
                     Serve {gameState.serveTo === 'left' ? 'vanster' : 'hoger'}
                   </motion.div>
-                )}
-
-                {(gameState.boostReady.left || gameState.boostReady.right || gameState.ball.isFireball) && (
-                  <div className="absolute inset-x-0 bottom-4 flex justify-center">
-                    <motion.div
-                      className="rounded-full border border-orange-300/25 bg-slate-950/78 px-4 py-2 text-center shadow-xl"
-                      key={`fire-status-${fireBoostFlashTick}-${gameState.fireBoostOwner ?? 'idle'}-${gameState.boostReady.left}-${gameState.boostReady.right}`}
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                    >
-                      <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-orange-200">Fire Boost</p>
-                      <p className="mt-1 text-xs text-text-muted">
-                        {gameState.ball.isFireball
-                          ? `${gameState.fireBoostOwner ? sideLabel(gameState.fireBoostOwner) : 'Nagon'} skickade ivag ett eldklot.`
-                          : 'Tryck direkt pa bollen for att aktivera boost.'}
-                      </p>
-                    </motion.div>
-                  </div>
                 )}
 
                 {gameState.status !== 'playing' && (
@@ -757,6 +756,21 @@ export default function PingPongPage() {
                         <div className={`h-full rounded-full ${gameState.boostReady.right ? 'bg-gradient-to-r from-orange-300 via-orange-400 to-red-500' : 'bg-gradient-to-r from-fuchsia-400 to-orange-400'}`} style={{ width: `${gameState.boostReady.right ? 100 : rightBoostPercent}%` }} />
                       </div>
                     </div>
+                    {(gameState.boostReady.left || gameState.boostReady.right || gameState.ball.isFireball) && (
+                      <motion.div
+                        className="rounded-2xl border border-orange-300/25 bg-slate-950/60 px-3 py-3 shadow-xl"
+                        key={`fire-status-${fireBoostFlashTick}-${gameState.fireBoostOwner ?? 'idle'}-${gameState.boostReady.left}-${gameState.boostReady.right}`}
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                      >
+                        <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-orange-200">Fire Boost</p>
+                        <p className="mt-1 text-xs text-text-muted">
+                          {gameState.ball.isFireball
+                            ? `${gameState.fireBoostOwner ? sideLabel(gameState.fireBoostOwner) : 'Nagon'} skickade ivag ett eldklot.`
+                            : 'Tryck pa bollen eller strax runt den for att aktivera boost.'}
+                        </p>
+                      </motion.div>
+                    )}
                   </div>
                 </div>
               </div>
