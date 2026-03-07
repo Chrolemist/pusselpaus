@@ -547,8 +547,8 @@ export default function PingPongPage() {
             >
               <div
                 ref={arenaSurfaceRef}
-                className={isArenaFocusMode ? 'relative aspect-[16/9] w-full overflow-hidden bg-[radial-gradient(circle_at_center,rgba(56,189,248,0.08),transparent_32%),linear-gradient(180deg,#08101b_0%,#0a1424_100%)]' : 'relative aspect-[16/9] overflow-hidden rounded-[22px] border border-white/8 bg-[radial-gradient(circle_at_center,rgba(56,189,248,0.08),transparent_32%),linear-gradient(180deg,#08101b_0%,#0a1424_100%)]'}
-                style={isArenaFocusMode ? { maxHeight: '100dvh' } : undefined}
+                className={isArenaFocusMode ? 'relative aspect-[16/9] w-full touch-none overflow-hidden bg-[radial-gradient(circle_at_center,rgba(56,189,248,0.08),transparent_32%),linear-gradient(180deg,#08101b_0%,#0a1424_100%)]' : 'relative aspect-[16/9] touch-none overflow-hidden rounded-[22px] border border-white/8 bg-[radial-gradient(circle_at_center,rgba(56,189,248,0.08),transparent_32%),linear-gradient(180deg,#08101b_0%,#0a1424_100%)]'}
+                style={isArenaFocusMode ? { maxHeight: '100dvh', touchAction: 'none' } : { touchAction: 'none' }}
                 onPointerDown={(event) => {
                   if (!arenaSurfaceRef.current) return;
 
@@ -769,7 +769,7 @@ export default function PingPongPage() {
                   </motion.div>
                 )}
 
-                {gameState.status !== 'playing' && (
+                {(gameState.status === 'ready' || gameState.status === 'finished') && (
                   <div className="absolute inset-0 flex items-center justify-center bg-slate-950/35 backdrop-blur-[2px]">
                     <motion.div
                       className="rounded-[26px] border border-white/10 bg-slate-950/80 px-6 py-5 text-center shadow-2xl"
@@ -777,14 +777,12 @@ export default function PingPongPage() {
                       animate={{ scale: 1, opacity: 1 }}
                     >
                       <p className={`text-xs font-semibold uppercase tracking-[0.28em] ${gameState.status === 'finished' ? sideAccent(gameState.winner) : 'text-brand-light'}`}>
-                        {gameState.status === 'ready' ? 'Redo' : gameState.status === 'serving' ? 'Serve' : 'Match slut'}
+                        {gameState.status === 'ready' ? 'Redo' : 'Match slut'}
                       </p>
                       <p className="mt-2 text-2xl font-extrabold text-white">
                         {gameState.status === 'ready'
                           ? 'Tryck starta match'
-                          : gameState.status === 'serving'
-                            ? `Bollen gar om ${Math.ceil(gameState.serveTimerMs / 1000)}`
-                            : winnerLabel(gameState.winner)}
+                          : winnerLabel(gameState.winner)}
                       </p>
                       {gameState.status === 'finished' && isRealtimeMatch && (
                         <p className="mt-2 text-sm text-text-muted">Resultatet visas i livepanelen.</p>
