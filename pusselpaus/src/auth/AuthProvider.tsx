@@ -26,6 +26,8 @@ interface AuthState {
   isGuest: boolean;
   /** Sign in with Google OAuth */
   signInWithGoogle: () => Promise<void>;
+  /** Sign in with Discord OAuth */
+  signInWithDiscord: () => Promise<void>;
   /** Sign out */
   signOut: () => Promise<void>;
   /** Enter guest mode (local only) */
@@ -224,6 +226,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
+  const signInWithDiscord = useCallback(async () => {
+    await supabase.auth.signInWithOAuth({
+      provider: 'discord',
+      options: { redirectTo: window.location.origin },
+    });
+  }, []);
+
   const signOut = useCallback(async () => {
     const userId = session?.user?.id;
 
@@ -289,6 +298,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     loading,
     isGuest,
     signInWithGoogle,
+    signInWithDiscord,
     signOut,
     enterGuestMode,
     exitGuestMode,
