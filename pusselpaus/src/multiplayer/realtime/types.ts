@@ -49,7 +49,9 @@ export interface RealtimeTransport<TInput, TState, TEvent = Record<string, unkno
   connect(args: { matchId: string; gameId: string; userId: string }): Promise<void>;
   disconnect(): Promise<void>;
   sendInput(envelope: RealtimeInputEnvelope<TInput>): Promise<void>;
+  sendSnapshot?(snapshot: RealtimeSnapshotEnvelope<TState>): Promise<void>;
   sendEvent?(envelope: RealtimeEventEnvelope<TEvent>): Promise<void>;
+  onInput(handler: (envelope: RealtimeInputEnvelope<TInput>) => void): () => void;
   onSnapshot(handler: (snapshot: RealtimeSnapshotEnvelope<TState>) => void): () => void;
   onEvent?(handler: (event: RealtimeEventEnvelope<TEvent>) => void): () => void;
   onPresence?(handler: (participants: RealtimeParticipant[]) => void): () => void;

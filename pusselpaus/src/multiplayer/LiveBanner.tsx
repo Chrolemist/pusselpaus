@@ -23,9 +23,14 @@ import { dispatchMultiplayerReplay } from './replay';
 import LevelBadge from '../components/LevelBadge';
 import type { MultiplayerMatch } from '../lib/database.types';
 import { supabase } from '../lib/supabaseClient';
+import { games } from '../game-registry';
 
 const AFK_TIMEOUT_SECONDS = 180;
 const REMATCH_TIMEOUT_SECONDS = 20;
+
+function rankMode(gameId: string): 'time' | 'score' {
+  return games.find((game) => game.id === gameId)?.multiplayer?.rankBy ?? 'time';
+}
 
 interface MatchResultRow {
   player: LivePlayer;
@@ -147,13 +152,14 @@ function buildResultRows(gameId: string, match: MultiplayerMatch, players: LiveP
   const acceptedPlayers = players.filter((entry) => entry.player.status === 'accepted');
   const pot = acceptedPlayers.reduce((sum, entry) => sum + Math.max(0, entry.player.stake_locked ?? 0), 0);
   const hasStakePot = pot > 0;
+  const scoreRanked = rankMode(gameId) === 'score';
 
   const sorted = [...acceptedPlayers].sort((a, b) => {
     const aForfeited = a.player.forfeited === true;
     const bForfeited = b.player.forfeited === true;
     if (aForfeited !== bForfeited) return aForfeited ? 1 : -1;
 
-    if (gameId === 'rytmrush') {
+    if (scoreRanked) {
       const survivedDiff = (b.player.survived_seconds ?? -1) - (a.player.survived_seconds ?? -1);
       if (survivedDiff !== 0) return survivedDiff;
       const scoreDiff = (b.player.score ?? -1) - (a.player.score ?? -1);
@@ -183,10 +189,16 @@ function buildResultRows(gameId: string, match: MultiplayerMatch, players: LiveP
       statusLabel = 'AFK / gav upp';
       statLabel = 'Nådde inte mål';
       detailLabel = finishOffset ? `Timeout efter ${finishOffset}` : 'Ingen sluttid registrerad';
-    } else if (gameId === 'rytmrush') {
-      statusLabel = isWinner ? 'Vann rytmduellen' : 'Match avslutad';
-      statLabel = `Överlevde ${formatRemaining(Math.max(0, Math.round(entry.player.survived_seconds ?? 0)))}`;
-      detailLabel = `Poäng ${formatScore(entry.player.score)}`;
+    } else if (scoreRanked) {
+      statusLabel = gameId === 'pingpong'
+        ? (isWinner ? 'Vann duellen' : 'Match avslutad')
+        : (isWinner ? 'Vann rytmduellen' : 'Match avslutad');
+      statLabel = gameId === 'pingpong'
+        ? `Poäng ${formatScore(entry.player.score)}`
+        : `Överlevde ${formatRemaining(Math.max(0, Math.round(entry.player.survived_seconds ?? 0)))}`;
+      detailLabel = gameId === 'pingpong'
+        ? (finishOffset ? `Avgjord efter ${finishOffset}` : null)
+        : `Poäng ${formatScore(entry.player.score)}`;
     } else {
       const syncedFinishSeconds = getSyncedFinishSeconds(match, entry.player);
       statusLabel = isWinner ? 'Snabbast i mål' : 'Klarade banan';

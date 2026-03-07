@@ -53,6 +53,10 @@ export const games: GameDefinition[] = [
     description: 'Snabb duell byggd för framtida realtime multiplayer',
     path: '/pingpong',
     PlayPage: lazy(() => import('../games/pingpong/pages/PingPongPage')),
+    multiplayer: {
+      difficulties: [{ value: 'standard', label: 'Standard' }],
+      rankBy: 'score',
+    },
   },
   {
     id: 'sudoku',

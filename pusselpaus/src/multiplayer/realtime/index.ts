@@ -10,3 +10,5 @@ export type {
   RealtimeTransport,
   RealtimeGameAdapter,
 } from './types';
+
+export { createSupabaseBroadcastTransport } from './supabaseBroadcastTransport';
