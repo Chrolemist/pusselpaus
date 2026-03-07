@@ -92,6 +92,7 @@ export default function StagingScreen({
   resetRef,
   children,
 }: StagingScreenProps) {
+  const PREGAME_REFRESH_INTERVAL_MS = 350;
   const { user } = useAuth();
   const { friends } = useFriends();
   const mp = useMultiplayer();
@@ -534,11 +535,6 @@ export default function StagingScreen({
     if (activeMatchStatus === 'starting') {
       if (gameStartedForMatchRef.current === activeMatchMatchId) return;
 
-      if (isMatchmade && (!meReadyForActiveMatch || serverAllReady !== true || (serverTotalCount ?? 0) < 2)) {
-        setPhase('match-found');
-        return;
-      }
-
       // Start the countdown
       const startedAt = activeMatchStartedAt
         ? new Date(activeMatchStartedAt).getTime()
@@ -621,11 +617,6 @@ export default function StagingScreen({
     }
 
     if (activeMatchStatus === 'in_progress') {
-      if (isMatchmade && (!meReadyForActiveMatch || serverAllReady !== true || (serverTotalCount ?? 0) < 2)) {
-        setPhase('match-found');
-        return;
-      }
-
       if (countdownTimerRef.current) {
         window.clearInterval(countdownTimerRef.current);
         countdownTimerRef.current = null;
@@ -1027,10 +1018,10 @@ export default function StagingScreen({
 
     const timer = window.setInterval(() => {
       void mpRef.current.refresh();
-    }, 1200);
+    }, PREGAME_REFRESH_INTERVAL_MS);
 
     return () => window.clearInterval(timer);
-  }, [activeMatchId, phase]);
+  }, [activeMatchId, phase, PREGAME_REFRESH_INTERVAL_MS]);
 
   /* ── Solo start ── */
   const handleSoloStart = useCallback(() => {

@@ -27,6 +27,9 @@ import {
   mpCancelMatch,
 } from './api';
 
+const MATCH_RELOAD_DEBOUNCE_MS = 120;
+const MATCH_POLL_INTERVAL_MS = 1000;
+
 /* ── helpers derived from game-registry ── */
 
 const gameMap = new Map(games.map((g) => [g.id, g]));
@@ -181,7 +184,7 @@ export function useMultiplayer() {
   const reloadTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const debouncedReload = useCallback(() => {
     if (reloadTimerRef.current) clearTimeout(reloadTimerRef.current);
-    reloadTimerRef.current = setTimeout(() => void loadMatches(), 500);
+    reloadTimerRef.current = setTimeout(() => void loadMatches(), MATCH_RELOAD_DEBOUNCE_MS);
   }, [loadMatches]);
 
   useEffect(() => {
@@ -226,7 +229,7 @@ export function useMultiplayer() {
     const intervalId = window.setInterval(() => {
       if (document.visibilityState !== 'visible') return;
       void loadMatches();
-    }, 3000);
+    }, MATCH_POLL_INTERVAL_MS);
 
     window.addEventListener('focus', refreshNow);
     document.addEventListener('visibilitychange', refreshNow);

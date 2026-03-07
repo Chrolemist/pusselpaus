@@ -98,7 +98,9 @@ export default function MatchFoundOverlay({
   const onDeclineRef = useRef(onDecline);
   useEffect(() => { onDeclineRef.current = onDecline; }, [onDecline]);
 
-  const acceptedCount = acceptedCountOverride ?? players.filter((p) => p.accepted).length;
+  const localAcceptedCount = players.filter((p) => p.accepted).length;
+  const meAccepted = hasAccepted || players.find((p) => p.id === myId)?.accepted;
+  const acceptedCount = Math.max(acceptedCountOverride ?? 0, localAcceptedCount);
   const totalCount = totalCountOverride ?? players.length;
   const allAccepted = totalCount > 0 && acceptedCount >= totalCount;
   const anyDeclined = players.some((p) => p.declined === true);
@@ -177,7 +179,7 @@ export default function MatchFoundOverlay({
 
       if (seconds <= 0) {
         if (timerRef.current) clearInterval(timerRef.current);
-        if (!declinedRef.current && !allAccepted) {
+        if (!declinedRef.current && !allAccepted && !meAccepted) {
           declinedRef.current = true;
           mpDebug('MatchFoundOverlay', 'countdown:expired_decline');
           onDeclineRef.current();
@@ -190,7 +192,7 @@ export default function MatchFoundOverlay({
       mpDebug('MatchFoundOverlay', 'countdown:cleanup_interval');
       if (timerRef.current) clearInterval(timerRef.current);
     };
-  }, [visible, timeLimit, noTimeout, anyDeclined, enableSounds, players.length, deadlineAt, totalCount, allAccepted]);
+  }, [visible, timeLimit, noTimeout, anyDeclined, enableSounds, players.length, deadlineAt, totalCount, allAccepted, meAccepted]);
 
   /* ── Accept blip when new players accept ── */
   useEffect(() => {
@@ -224,8 +226,6 @@ export default function MatchFoundOverlay({
   /* ── Derived values ── */
   const progress = secondsLeft / timeLimit;          // 1 → 0
   const dashOffset = RING_CIRCUMFERENCE * (1 - progress);
-  const meAccepted = hasAccepted || players.find((p) => p.id === myId)?.accepted;
-
   /* ── Urgency color for countdown ring ── */
   const ringColor =
     secondsLeft <= 3
