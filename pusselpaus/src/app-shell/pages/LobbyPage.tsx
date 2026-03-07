@@ -22,6 +22,25 @@ function LobbyGameIcon({ gameId, emoji, name }: { gameId: string; emoji: string;
   );
 }
 
+function gameModeBadge(game: (typeof games)[number]): { label: string; tone: string } {
+  if (!game.multiplayer) {
+    return {
+      label: 'Singleplayer',
+      tone: 'border-white/10 bg-white/8 text-white/85',
+    };
+  }
+
+  const { minPlayers, maxPlayers } = game.multiplayer;
+  const playerRange = minPlayers === maxPlayers
+    ? `1-${maxPlayers}`
+    : `${minPlayers}-${maxPlayers}`;
+
+  return {
+    label: `Multiplayer ${playerRange}`,
+    tone: 'border-emerald-300/25 bg-emerald-400/15 text-emerald-100',
+  };
+}
+
 export default function LobbyPage() {
   const { isGuest, exitGuestMode } = useAuth();
   const availableGames = games;
@@ -51,6 +70,7 @@ export default function LobbyPage() {
       <div className="grid w-full max-w-sm gap-4">
         {availableGames.map((game) => {
           const hasSavedGame = game.hasSavedGame?.() ?? false;
+          const modeBadge = gameModeBadge(game);
 
           return (
             <Link
@@ -58,6 +78,11 @@ export default function LobbyPage() {
               to={game.path}
               className="group relative flex flex-col items-center gap-3 rounded-2xl bg-surface-card p-6 shadow-lg ring-1 ring-white/10 transition hover:ring-brand/60 active:scale-[0.98]"
             >
+              <span
+                className={`absolute left-3 top-3 rounded-full border px-2.5 py-1 text-[11px] font-bold uppercase tracking-[0.12em] shadow-lg backdrop-blur ${modeBadge.tone}`}
+              >
+                {modeBadge.label}
+              </span>
               <LobbyGameIcon gameId={game.id} emoji={game.emoji} name={game.name} />
               <span className="text-xl font-semibold">{game.name}</span>
               <span className="text-sm text-text-muted text-center">
