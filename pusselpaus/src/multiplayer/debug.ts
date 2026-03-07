@@ -10,6 +10,7 @@ function isAllowedEvent(event: string): boolean {
     || event.startsWith('status_effect:')
     || event.startsWith('tickMatchStart:')
     || event.startsWith('startMatchIfReady:')
+    || event.startsWith('game_start:')
   );
 }
 

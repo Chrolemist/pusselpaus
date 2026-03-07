@@ -242,6 +242,7 @@ export default function StagingScreen({
   const countdownTimerRef = useRef<number | null>(null);
   const countdownRunningForMatchRef = useRef<string | null>(null);
   const countdownFallbackRefreshAtRef = useRef<number>(0);
+  const countdownFallbackTickAtRef = useRef<number>(0);
   // Reset startSent when match changes (new match or match cleared)
   useEffect(() => {
     startSentRef.current = false;
@@ -258,6 +259,7 @@ export default function StagingScreen({
     }
     countdownRunningForMatchRef.current = null;
     countdownFallbackRefreshAtRef.current = 0;
+    countdownFallbackTickAtRef.current = 0;
   }, [activeMatchId]);
 
   // Derived stable values for the effect
@@ -395,8 +397,17 @@ export default function StagingScreen({
             void mpRef.current.tickMatchStart(activeMatchMatchId);
           } else if (remaining <= 0) {
             // Fallback: if status update is delayed/missed on this client,
-            // keep forcing refresh while we're still in `starting`.
+            // keep retrying the start tick while we're still in `starting`.
             const now = Date.now();
+            if (now - countdownFallbackTickAtRef.current >= 1000) {
+              countdownFallbackTickAtRef.current = now;
+              mpDebug('StagingScreen', 'countdown:retry_tick_match_start', {
+                gameId,
+                matchId: activeMatchMatchId,
+                isHost: isHostForActiveMatch,
+              });
+              void mpRef.current.tickMatchStart(activeMatchMatchId);
+            }
             if (now - countdownFallbackRefreshAtRef.current >= 1000) {
               countdownFallbackRefreshAtRef.current = now;
               mpDebug('StagingScreen', 'countdown:fallback_refresh', {
