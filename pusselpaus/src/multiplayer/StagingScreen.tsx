@@ -373,6 +373,7 @@ export default function StagingScreen({
   const countdownFallbackTickAtRef = useRef<number>(0);
   const declineCleanupTimerRef = useRef<number | null>(null);
   const hostAutoReadySentForMatchRef = useRef<string | null>(null);
+  const unmountCleanupArmedRef = useRef(false);
   // Reset startSent when match changes (new match or match cleared)
   useEffect(() => {
     startSentRef.current = false;
@@ -1307,9 +1308,7 @@ export default function StagingScreen({
   const cleanupMatchmadeExit = useCallback((reason: 'unmount' | 'beforeunload' | 'pagehide') => {
     const p = phaseRef.current;
     const isQueueing = matchmakingStatusRef.current === 'queuing';
-    const isPreGameMatchmade = isMatchmadeRef.current && p !== 'playing';
-
-    if (!isQueueing && !isPreGameMatchmade) return;
+    if (!isQueueing) return;
 
     mpDebug('StagingScreen', 'matchmade_exit:cleanup_requested', {
       gameId,
@@ -1328,9 +1327,20 @@ export default function StagingScreen({
     })();
   }, [gameId]);
 
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      unmountCleanupArmedRef.current = true;
+    }, 1000);
+
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, []);
+
   /* ── Auto-forfeit on component unmount (navigation away) ── */
   useEffect(() => {
     return () => {
+      if (!unmountCleanupArmedRef.current) return;
       cleanupMatchmadeExit('unmount');
       forfeitNow();
     };

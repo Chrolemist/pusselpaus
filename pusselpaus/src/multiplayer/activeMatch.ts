@@ -6,6 +6,7 @@ const KEY_PREFIX = 'pusselpaus:mp:active:';
 const PENDING_MATCHMAKING_CLEANUP_KEY = 'pusselpaus:mp:pending-cleanup';
 export const ACTIVE_MATCH_CHANGED_EVENT = 'pusselpaus:mp:active-changed';
 export const STALE_MATCHMADE_MAX_AGE_MS = 10_000;
+export const PENDING_MATCHMAKING_CLEANUP_MAX_AGE_MS = 5_000;
 
 export interface PendingMatchmakingCleanupPayload {
   setAt: string;
@@ -69,7 +70,14 @@ export function getPendingMatchmakingCleanup(): PendingMatchmakingCleanupPayload
   if (!raw) return null;
   try {
     const parsed = JSON.parse(raw) as PendingMatchmakingCleanupPayload;
-    return parsed?.setAt ? parsed : null;
+    if (!parsed?.setAt) return null;
+    const setAtMs = new Date(parsed.setAt).getTime();
+    if (!Number.isFinite(setAtMs)) return null;
+    if (Date.now() - setAtMs > PENDING_MATCHMAKING_CLEANUP_MAX_AGE_MS) {
+      localStorage.removeItem(PENDING_MATCHMAKING_CLEANUP_KEY);
+      return null;
+    }
+    return parsed;
   } catch {
     return null;
   }

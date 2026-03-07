@@ -11,6 +11,7 @@ import {
   setPendingMatchmakingCleanup,
   clearPendingMatchmakingCleanup,
   getActiveMatchKey,
+  PENDING_MATCHMAKING_CLEANUP_MAX_AGE_MS,
 } from '../multiplayer/activeMatch';
 import type { ActiveMatchPayload } from '../multiplayer/types';
 
@@ -111,6 +112,19 @@ describe('pending matchmaking cleanup', () => {
     setPendingMatchmakingCleanup('unmount');
     clearPendingMatchmakingCleanup();
     expect(getPendingMatchmakingCleanup()).toBeNull();
+  });
+
+  it('expires stale pending cleanup payloads automatically', () => {
+    localStorage.setItem(
+      'pusselpaus:mp:pending-cleanup',
+      JSON.stringify({
+        reason: 'beforeunload',
+        setAt: new Date(Date.now() - PENDING_MATCHMAKING_CLEANUP_MAX_AGE_MS - 1000).toISOString(),
+      }),
+    );
+
+    expect(getPendingMatchmakingCleanup()).toBeNull();
+    expect(localStorage.getItem('pusselpaus:mp:pending-cleanup')).toBeNull();
   });
 });
 
