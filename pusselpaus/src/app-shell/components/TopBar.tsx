@@ -50,6 +50,7 @@ export default function TopBar() {
   const incomingFriendCount = friends.filter((f) => f.status === 'pending' && !f.isSender).length;
   const incomingInviteCount = mp.grouped.incoming.length;
   const totalBadge = incomingFriendCount + incomingInviteCount;
+  const latestIncomingFriend = friends.find((f) => f.status === 'pending' && !f.isSender)?.friend ?? null;
 
   const pushNotice = (kind: NoticeItem['kind'], message: string) => {
     const id = Date.now() + Math.floor(Math.random() * 1000);
@@ -301,6 +302,49 @@ export default function TopBar() {
         )}
       </AnimatePresence>
 
+      {incomingFriendCount > 0 && !showFriends && (
+        <AnimatePresence>
+          <motion.div
+            className="pointer-events-none fixed inset-x-3 top-16 z-50 flex justify-center"
+            initial={{ opacity: 0, y: -18, scale: 0.96 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -10, scale: 0.98 }}
+            transition={{ type: 'spring', stiffness: 320, damping: 24 }}
+          >
+            <motion.div
+              className="pointer-events-auto flex w-full max-w-md items-center gap-3 rounded-2xl border border-brand-light/30 bg-gradient-to-r from-brand/30 via-fuchsia-500/20 to-brand/10 px-4 py-3 shadow-2xl shadow-brand/20 ring-1 ring-white/10 backdrop-blur-lg"
+              animate={{ boxShadow: ['0 0 0 rgba(0,0,0,0)', '0 0 24px rgba(96,165,250,0.28)', '0 0 0 rgba(0,0,0,0)'] }}
+              transition={{ duration: 1.8, repeat: Infinity, ease: 'easeInOut' }}
+            >
+              <div className="flex h-11 w-11 items-center justify-center rounded-full bg-white/10 text-xl shadow-inner shadow-black/30">
+                {latestIncomingFriend ? displaySkin(latestIncomingFriend.skin) : <Users className="h-5 w-5 text-brand-light" />}
+              </div>
+
+              <div className="min-w-0 flex-1">
+                <p className="text-[11px] font-extrabold uppercase tracking-[0.18em] text-brand-light">
+                  Ny vänförfrågan
+                </p>
+                <p className="truncate text-sm font-semibold text-white">
+                  {incomingFriendCount === 1 && latestIncomingFriend
+                    ? `${latestIncomingFriend.username} vill adda dig`
+                    : `${incomingFriendCount} spelare vill adda dig`}
+                </p>
+                <p className="text-xs text-text-muted">
+                  Öppna vänpanelen för att acceptera eller neka direkt.
+                </p>
+              </div>
+
+              <button
+                onClick={() => setShowFriends(true)}
+                className="rounded-xl bg-brand px-3 py-2 text-xs font-bold text-white shadow-lg shadow-brand/25 transition hover:brightness-110"
+              >
+                Visa
+              </button>
+            </motion.div>
+          </motion.div>
+        </AnimatePresence>
+      )}
+
       {showFriends && <FriendsPanel onClose={() => setShowFriends(false)} />}
       {showMatches && <MatchInboxPanel onClose={() => setShowMatches(false)} />}
 
@@ -309,10 +353,14 @@ export default function TopBar() {
           {notices.map((notice) => (
             <div
               key={notice.id}
-              className="pointer-events-auto flex items-center gap-2 rounded-xl border border-white/10 bg-surface-card/95 px-3 py-2 text-sm shadow-lg backdrop-blur"
+              className={`pointer-events-auto flex items-center gap-2 rounded-xl border px-3 py-2 text-sm shadow-lg backdrop-blur ${notice.kind === 'friend'
+                ? 'border-brand-light/25 bg-gradient-to-r from-brand/30 via-fuchsia-500/15 to-surface-card/95 ring-1 ring-brand-light/15'
+                : 'border-white/10 bg-surface-card/95'}`}
             >
-              <span>{notice.kind === 'friend' ? <Users className="h-4 w-4" /> : <Swords className="h-4 w-4" />}</span>
-              <span className="text-text-muted">{notice.message}</span>
+              <span className={notice.kind === 'friend' ? 'text-brand-light' : ''}>
+                {notice.kind === 'friend' ? <Users className="h-4 w-4" /> : <Swords className="h-4 w-4" />}
+              </span>
+              <span className={notice.kind === 'friend' ? 'font-semibold text-white' : 'text-text-muted'}>{notice.message}</span>
               {notice.kind === 'friend' ? (
                 <button
                   onClick={() => setShowFriends(true)}

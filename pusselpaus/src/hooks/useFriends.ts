@@ -67,41 +67,53 @@ export function useFriends() {
     let cancelled = false;
     (async () => {
       if (!user) { if (!cancelled) { setFriends([]); setLoading(false); } return; }
-      const { data } = await supabase
-        .from('friendships')
-        .select('id, requester_id, addressee_id, status')
-        .or(`requester_id.eq.${user.id},addressee_id.eq.${user.id}`)
-        .neq('status', 'rejected');
-      if (cancelled) return;
-      if (!data || data.length === 0) { setFriends([]); setLoading(false); return; }
-      const otherIds = data.map((f) =>
-        f.requester_id === user.id ? f.addressee_id : f.requester_id,
-      );
-      const { data: profiles } = await supabase
-        .from('profiles')
-        .select('*')
-        .in('id', otherIds)
-        .returns<Profile[]>();
-      if (cancelled) return;
-      const profileMap = new Map((profiles ?? []).map((p) => [p.id, p]));
-      const rows: FriendRow[] = data
-        .map((f) => {
-          const otherId = f.requester_id === user.id ? f.addressee_id : f.requester_id;
-          const friend = profileMap.get(otherId);
-          if (!friend) return null;
-          return {
-            friendshipId: f.id,
-            status: f.status as FriendRow['status'],
-            friend,
-            isSender: f.requester_id === user.id,
-          };
-        })
-        .filter((r): r is FriendRow => r !== null);
-      setFriends(rows);
-      setLoading(false);
+      await fetchFriends();
     })();
     return () => { cancelled = true; };
-  }, [user]);
+  }, [user, fetchFriends]);
+
+  useEffect(() => {
+    if (!user) return;
+
+    let reloadTimer: ReturnType<typeof setTimeout> | null = null;
+    const scheduleRefresh = () => {
+      if (reloadTimer) window.clearTimeout(reloadTimer);
+      reloadTimer = window.setTimeout(() => {
+        void fetchFriends();
+      }, 250);
+    };
+
+    const channel = supabase
+      .channel(`friends-live-${user.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'friendships',
+        },
+        (payload) => {
+          const next = payload.new as { requester_id?: string; addressee_id?: string } | null;
+          const prev = payload.old as { requester_id?: string; addressee_id?: string } | null;
+          const isRelevant = [
+            next?.requester_id,
+            next?.addressee_id,
+            prev?.requester_id,
+            prev?.addressee_id,
+          ].includes(user.id);
+
+          if (isRelevant) {
+            scheduleRefresh();
+          }
+        },
+      )
+      .subscribe();
+
+    return () => {
+      if (reloadTimer) window.clearTimeout(reloadTimer);
+      void supabase.removeChannel(channel);
+    };
+  }, [user, fetchFriends]);
 
   /** Send a friend request by username */
   const sendRequest = useCallback(async (usernameOrTag: string): Promise<string | null> => {
