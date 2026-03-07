@@ -30,13 +30,13 @@ import { useMatchmaking } from './useMatchmaking';
 import {
   setActiveMatchPayload,
   clearActiveMatch,
-  getActiveMatchPayload,
   isStaleMatchmadePayload,
   clearAllActiveMatches,
   getPendingMatchmakingCleanup,
   clearPendingMatchmakingCleanup,
   setPendingMatchmakingCleanup,
 } from './activeMatch';
+import { useActiveMatchPayload } from './useActiveMatchPayload';
 import { mpForceCleanupActiveMatches } from './api';
 import MatchFoundOverlay from './MatchFoundOverlay';
 import type { MatchPlayer } from './MatchFoundOverlay';
@@ -90,6 +90,7 @@ export default function StagingScreen({
   const { friends } = useFriends();
   const mp = useMultiplayer();
   const mm = useMatchmaking(gameId);
+  const activePayload = useActiveMatchPayload(gameId);
 
   const gameDef = useMemo(() => games.find((g) => g.id === gameId), [gameId]);
   const label = gameLabel(gameId);
@@ -155,7 +156,7 @@ export default function StagingScreen({
 
   /* ── Check if we already have an active match (e.g. page refresh) ── */
   useEffect(() => {
-    const existing = getActiveMatchPayload(gameId);
+    const existing = activePayload;
     if (existing?.matchId) {
       if (isStaleMatchmadePayload(existing)) {
         mpDebug('StagingScreen', 'restore:cleanup_stale_matchmade_payload', {
@@ -277,7 +278,7 @@ export default function StagingScreen({
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [gameId, mp.matches.length]);
+  }, [gameId, activePayload, mp.matches, user?.id]);
 
   /* ── Watch match status in waiting phase ── */
   const activeEntry = useMemo(
@@ -966,7 +967,7 @@ export default function StagingScreen({
   useEffect(() => {
     if (phase !== 'waiting' || activeMatchId) return;
 
-    const currentPayload = getActiveMatchPayload(gameId);
+    const currentPayload = activePayload;
 
     // Find a match I'm hosting in waiting state for this game
     const myMatch = mp.matches.find(

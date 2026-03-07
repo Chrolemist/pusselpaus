@@ -4,3 +4,4 @@ export * from './core';
 export * from './session';
 export * from './game';
 export * from './realtime';
+export { useActiveMatchPayload } from './useActiveMatchPayload';

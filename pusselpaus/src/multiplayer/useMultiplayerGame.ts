@@ -9,9 +9,9 @@
 
 import { useCallback } from 'react';
 import { useAuth } from '../auth';
-import { getActiveMatchPayload } from './activeMatch';
 import { mpSubmitResult } from './api';
 import type { ActiveMatchPayload } from './types';
+import { useActiveMatchPayload } from './useActiveMatchPayload';
 
 export interface MultiplayerGameState {
   /** Whether a multiplayer match is currently active for this game */
@@ -32,7 +32,7 @@ export interface MultiplayerGameState {
 
 export function useMultiplayerGame(gameId: string): MultiplayerGameState {
   const { user } = useAuth();
-  const payload = getActiveMatchPayload(gameId);
+  const payload = useActiveMatchPayload(gameId);
 
   const submitResult = useCallback(
     async (params: {

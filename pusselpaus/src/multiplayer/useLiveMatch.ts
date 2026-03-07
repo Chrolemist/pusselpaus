@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../auth';
 import { supabase } from '../lib/supabaseClient';
 import type { MultiplayerMatch, MultiplayerMatchPlayer, Profile } from '../lib/database.types';
-import { getActiveMatchPayload } from './activeMatch';
+import { useActiveMatchPayload } from './useActiveMatchPayload';
 
 type LiveOutcome = 'won' | 'lost' | null;
 
@@ -18,10 +18,11 @@ export function useLiveMatch(gameId: string) {
   const [loading, setLoading] = useState(true);
   const [match, setMatch] = useState<MultiplayerMatch | null>(null);
   const [players, setPlayers] = useState<LivePlayer[]>([]);
+  const activePayload = useActiveMatchPayload(gameId);
 
   const getActiveMatchId = useCallback((): string | null => {
-    return getActiveMatchPayload(gameId)?.matchId ?? null;
-  }, [gameId]);
+    return activePayload?.matchId ?? null;
+  }, [activePayload?.matchId]);
 
   const refresh = useCallback(async () => {
     if (!user) {

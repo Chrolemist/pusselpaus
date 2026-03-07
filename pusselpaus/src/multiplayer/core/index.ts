@@ -38,3 +38,4 @@ export type {
 
 export { useMultiplayer, gamePath, gameLabel, multiplayerGames } from '../useMultiplayer';
 export type { MultiplayerMatchView } from '../useMultiplayer';
+export { useActiveMatchPayload } from '../useActiveMatchPayload';

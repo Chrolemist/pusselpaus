@@ -4,11 +4,19 @@ import type { ActiveMatchPayload } from './types';
 
 const KEY_PREFIX = 'pusselpaus:mp:active:';
 const PENDING_MATCHMAKING_CLEANUP_KEY = 'pusselpaus:mp:pending-cleanup';
+export const ACTIVE_MATCH_CHANGED_EVENT = 'pusselpaus:mp:active-changed';
 export const STALE_MATCHMADE_MAX_AGE_MS = 10_000;
 
 export interface PendingMatchmakingCleanupPayload {
   setAt: string;
   reason?: string;
+}
+
+function emitActiveMatchChanged(gameId?: string): void {
+  if (typeof window === 'undefined') return;
+  window.dispatchEvent(new CustomEvent<{ gameId?: string }>(ACTIVE_MATCH_CHANGED_EVENT, {
+    detail: { gameId },
+  }));
 }
 
 export function getActiveMatchKey(gameId: string): string {
@@ -36,10 +44,12 @@ export function isStaleMatchmadePayload(payload: ActiveMatchPayload | null): boo
 
 export function setActiveMatchPayload(gameId: string, payload: ActiveMatchPayload): void {
   localStorage.setItem(getActiveMatchKey(gameId), JSON.stringify(payload));
+  emitActiveMatchChanged(gameId);
 }
 
 export function clearActiveMatch(gameId: string): void {
   localStorage.removeItem(getActiveMatchKey(gameId));
+  emitActiveMatchChanged(gameId);
 }
 
 export function clearAllActiveMatches(): void {
@@ -51,6 +61,7 @@ export function clearAllActiveMatches(): void {
   for (const key of keysToRemove) {
     localStorage.removeItem(key);
   }
+  emitActiveMatchChanged();
 }
 
 export function getPendingMatchmakingCleanup(): PendingMatchmakingCleanupPayload | null {
