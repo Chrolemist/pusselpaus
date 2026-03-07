@@ -28,6 +28,8 @@ interface AuthState {
   signInWithGoogle: () => Promise<void>;
   /** Sign in with Discord OAuth */
   signInWithDiscord: () => Promise<void>;
+  /** Send a magic link to the user's email */
+  signInWithEmail: (email: string) => Promise<string | null>;
   /** Sign out */
   signOut: () => Promise<void>;
   /** Enter guest mode (local only) */
@@ -233,6 +235,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
+  const signInWithEmail = useCallback(async (email: string) => {
+    const { error } = await supabase.auth.signInWithOtp({
+      email,
+      options: {
+        emailRedirectTo: window.location.origin,
+      },
+    });
+
+    return error ? (error.message || 'Kunde inte skicka magic link') : null;
+  }, []);
+
   const signOut = useCallback(async () => {
     const userId = session?.user?.id;
 
@@ -299,6 +312,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     isGuest,
     signInWithGoogle,
     signInWithDiscord,
+    signInWithEmail,
     signOut,
     enterGuestMode,
     exitGuestMode,
