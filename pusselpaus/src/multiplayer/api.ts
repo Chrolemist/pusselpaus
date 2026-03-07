@@ -45,7 +45,16 @@ export async function mpCreateMatch(
       details: error.details ?? null,
       hint: error.hint ?? null,
     });
-    console.error('[mp] create failed:', error);
+    console.error('[mp] create failed:', {
+      code: error.code ?? null,
+      message: error.message ?? null,
+      details: error.details ?? null,
+      hint: error.hint ?? null,
+      gameId,
+      invitedIds,
+      config,
+      configSeed: configSeed ?? null,
+    });
     return error.message || 'Kunde inte skapa match';
   }
   mpDebug('api', 'create:ok', {
