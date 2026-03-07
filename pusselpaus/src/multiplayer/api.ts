@@ -334,6 +334,59 @@ export async function mpCancelMatch(matchId: string): Promise<string | null> {
   return error ? error.message || 'Kunde inte avbryta matchen' : null;
 }
 
+export interface MpRequestRematchResult {
+  ok?: boolean;
+  status?: string;
+  reason?: string;
+  requested_count?: number;
+  requestedCount?: number;
+  total_count?: number;
+  totalCount?: number;
+  rematch_match_id?: string | null;
+  rematchMatchId?: string | null;
+  started_at?: string | null;
+  startedAt?: string | null;
+  config_seed?: number | null;
+  configSeed?: number | null;
+  config?: MatchConfig | null;
+  stake?: number | null;
+}
+
+function normalizeRematchResult(value: unknown): MpRequestRematchResult | null {
+  const row = pickRpcRow(value);
+  if (!row) return null;
+  const startedCandidate = readField(row, ['started_at', 'startedAt']);
+  const rematchIdCandidate = readField(row, ['rematch_match_id', 'rematchMatchId']);
+  const configSeedCandidate = readField(row, ['config_seed', 'configSeed']);
+  const configCandidate = readField(row, ['config']);
+  return {
+    ok: toBoolean(readField(row, ['ok'])),
+    status: typeof readField(row, ['status']) === 'string' ? (readField(row, ['status']) as string) : undefined,
+    reason: typeof readField(row, ['reason']) === 'string' ? (readField(row, ['reason']) as string) : undefined,
+    requested_count: toNumber(readField(row, ['requested_count', 'requestedCount'])),
+    total_count: toNumber(readField(row, ['total_count', 'totalCount'])),
+    rematch_match_id: typeof rematchIdCandidate === 'string' ? rematchIdCandidate : null,
+    started_at: typeof startedCandidate === 'string' ? startedCandidate : null,
+    config_seed: toNumber(configSeedCandidate),
+    config: configCandidate && typeof configCandidate === 'object' ? (configCandidate as MatchConfig) : null,
+    stake: toNumber(readField(row, ['stake'])),
+  };
+}
+
+export async function mpRequestRematch(matchId: string): Promise<{ error: string | null; data: MpRequestRematchResult | null }> {
+  const { data, error } = await supabase.rpc('mp_request_rematch', { p_match_id: matchId });
+  if (error) {
+    return {
+      error: error.message || 'Kunde inte starta rematch',
+      data: null,
+    };
+  }
+  return {
+    error: null,
+    data: normalizeRematchResult(data),
+  };
+}
+
 /* ── submit result ──
  *
  *  Reads matchId from localStorage so callers only need the gameId.

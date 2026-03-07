@@ -271,6 +271,8 @@ export interface Database {
           score: number | null;
           survived_seconds: number | null;
           submitted_at: string | null;
+          rematch_requested: boolean;
+          rematch_match_id: string | null;
           created_at: string;
         };
         Insert: {
@@ -287,6 +289,8 @@ export interface Database {
           score?: number | null;
           survived_seconds?: number | null;
           submitted_at?: string | null;
+          rematch_requested?: boolean;
+          rematch_match_id?: string | null;
           created_at?: string;
         };
         Update: {
@@ -303,6 +307,8 @@ export interface Database {
           score?: number | null;
           survived_seconds?: number | null;
           submitted_at?: string | null;
+          rematch_requested?: boolean;
+          rematch_match_id?: string | null;
           created_at?: string;
         };
         Relationships: [
@@ -413,6 +419,12 @@ export interface Database {
           p_match_id: string;
         };
         Returns: string;
+      };
+      mp_request_rematch: {
+        Args: {
+          p_match_id: string;
+        };
+        Returns: Json;
       };
       mp_forfeit_match: {
         Args: {

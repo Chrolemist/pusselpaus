@@ -15,13 +15,14 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Swords, Trophy, Zap, Clock, Coins, Medal, Crown, X } from 'lucide-react';
 import { useLiveMatch, type LivePlayer } from './useLiveMatch';
-import { mpTickMatchStart, mpForfeitMatch } from './api';
-import { clearActiveMatch } from './activeMatch';
+import { mpTickMatchStart, mpForfeitMatch, mpRequestRematch } from './api';
+import { clearActiveMatch, getActiveMatchPayload, setActiveMatchPayload } from './activeMatch';
 import { gameLabel } from './useMultiplayer';
 import { playCountdownTick, playCountdownVoice } from './matchSounds';
 import { dispatchMultiplayerReplay } from './replay';
 import LevelBadge from '../components/LevelBadge';
 import type { MultiplayerMatch } from '../lib/database.types';
+import { supabase } from '../lib/supabaseClient';
 
 const AFK_TIMEOUT_SECONDS = 180;
 
@@ -278,12 +279,16 @@ interface ResultsOverlayProps {
   match: MultiplayerMatch;
   rows: MatchResultRow[];
   myUserId: string | null;
+  rematchRequested: boolean;
+  rematchReadyCount: number;
+  rematchTotalCount: number;
+  rematchBusy: boolean;
   onClose: () => void;
   onReplay: () => void;
   onGoLobby: () => void;
 }
 
-function ResultsOverlay({ gameId, label, match, rows, myUserId, onClose, onReplay, onGoLobby }: ResultsOverlayProps) {
+function ResultsOverlay({ gameId, label, match, rows, myUserId, rematchRequested, rematchReadyCount, rematchTotalCount, rematchBusy, onClose, onReplay, onGoLobby }: ResultsOverlayProps) {
   const meRow = rows.find((row) => row.player.player.user_id === myUserId) ?? null;
   const winnerName = rows.find((row) => row.player.player.user_id === match.winner_id)?.player.profile?.username ?? null;
   const podiumRows = podiumOrder(rows);
@@ -510,9 +515,14 @@ function ResultsOverlay({ gameId, label, match, rows, myUserId, onClose, onRepla
               <div className="flex gap-2">
                 <button
                   onClick={onReplay}
+                  disabled={rematchBusy}
                   className="rounded-xl bg-success px-4 py-2 text-sm font-bold text-white shadow-lg shadow-success/20 transition hover:brightness-110"
                 >
-                  Spela igen
+                  {rematchBusy
+                    ? 'Startar...'
+                    : rematchRequested
+                      ? `Väntar på spelare (${rematchReadyCount}/${rematchTotalCount})`
+                      : 'Spela igen'}
                 </button>
                 <button
                   onClick={onGoLobby}
@@ -543,8 +553,24 @@ export default function LiveBanner({ gameId }: Props) {
   const live = useLiveMatch(gameId);
   const [nowMs, setNowMs] = useState(() => Date.now());
   const [dismissedMatchId, setDismissedMatchId] = useState<string | null>(null);
+  const [requestingRematch, setRequestingRematch] = useState(false);
   const navigate = useNavigate();
   const lastTimeoutTickRef = useRef<number | null>(null);
+
+  const rematchTotalCount = useMemo(
+    () => live.acceptedPlayers.filter((entry) => !entry.player.forfeited).length,
+    [live.acceptedPlayers],
+  );
+  const rematchReadyCount = useMemo(
+    () => live.acceptedPlayers.filter((entry) => !entry.player.forfeited && entry.player.rematch_requested).length,
+    [live.acceptedPlayers],
+  );
+
+  useEffect(() => {
+    if (live.match?.status !== 'completed') {
+      setRequestingRematch(false);
+    }
+  }, [live.match?.status, live.match?.id]);
 
   useEffect(() => {
     const timer = window.setInterval(() => setNowMs(Date.now()), 1000);
@@ -604,6 +630,36 @@ export default function LiveBanner({ gameId }: Props) {
       }, 120);
     }
   }, [live.match?.status, timeoutRemaining]);
+
+  useEffect(() => {
+    const rematchMatchId = live.me?.rematch_match_id;
+    if (!rematchMatchId) return;
+    if (getActiveMatchPayload(gameId)?.matchId === rematchMatchId) return;
+
+    let cancelled = false;
+    void (async () => {
+      const { data: rematchMatch } = await supabase
+        .from('multiplayer_matches')
+        .select('id, config, config_seed')
+        .eq('id', rematchMatchId)
+        .maybeSingle<{ id: string; config: Record<string, unknown> | null; config_seed: number | null }>();
+
+      if (cancelled || !rematchMatch?.id) return;
+
+      setActiveMatchPayload(gameId, {
+        matchId: rematchMatch.id,
+        setAt: new Date().toISOString(),
+        config: rematchMatch.config ?? undefined,
+        configSeed: rematchMatch.config_seed ?? undefined,
+      });
+      setDismissedMatchId(live.match?.id ?? null);
+      dispatchMultiplayerReplay(gameId);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [gameId, live.match?.id, live.me?.rematch_match_id]);
 
   if (!live.isActive || !live.match) return null;
 
@@ -753,10 +809,24 @@ export default function LiveBanner({ gameId }: Props) {
           match={live.match}
           rows={resultRows}
           myUserId={live.me?.user_id ?? null}
+          rematchRequested={live.me?.rematch_requested === true}
+          rematchReadyCount={rematchReadyCount}
+          rematchTotalCount={rematchTotalCount}
+          rematchBusy={requestingRematch}
           onReplay={() => {
-            clearActiveMatch(gameId);
-            setDismissedMatchId(live.match?.id ?? null);
-            dispatchMultiplayerReplay(gameId);
+            const currentMatchId = live.match?.id;
+            if (!currentMatchId || requestingRematch) return;
+            setRequestingRematch(true);
+            void (async () => {
+              const { error } = await mpRequestRematch(currentMatchId);
+              if (error) {
+                console.error('[mp] rematch failed:', error);
+                setRequestingRematch(false);
+                return;
+              }
+              await live.refresh();
+              setRequestingRematch(false);
+            })();
           }}
           onClose={() => {
             setDismissedMatchId(live.match?.id ?? null);
