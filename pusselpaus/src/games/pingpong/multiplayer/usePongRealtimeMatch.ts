@@ -254,12 +254,6 @@ export function usePongRealtimeMatch({ enabled, config, localInput, matchId, see
         authoritativeUserId: user.id,
         state: pongRealtimeAdapter.serializeState(state),
       };
-      await transport.sendEvent?.({
-        matchId,
-        type: 'tick',
-        sentAt: envelope.sentAt,
-        payload: { tick: envelope.tick },
-      });
       await (transport as typeof transport & { sendSnapshot?: (snapshot: typeof envelope) => Promise<void> }).sendSnapshot?.(envelope);
     };
 
