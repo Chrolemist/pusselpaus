@@ -27,7 +27,7 @@ export interface MultiplayerGameState {
     elapsedSeconds?: number;
     score?: number;
     survivedSeconds?: number;
-  }) => Promise<void>;
+  }) => Promise<boolean>;
 }
 
 export function useMultiplayerGame(gameId: string): MultiplayerGameState {
@@ -40,7 +40,7 @@ export function useMultiplayerGame(gameId: string): MultiplayerGameState {
       score?: number;
       survivedSeconds?: number;
     }) => {
-      await mpSubmitResult(gameId, user?.id, params);
+      return mpSubmitResult(gameId, user?.id, params);
     },
     [gameId, user?.id],
   );

@@ -88,6 +88,8 @@ export default function PingPongPage() {
   const servePulseSecondRef = useRef<number | null>(null);
   const confettiFiredRef = useRef(false);
   const submittedMatchRef = useRef(false);
+  const resultSubmitInFlightRef = useRef(false);
+  const resultSubmitTimerRef = useRef<number | null>(null);
   const trailIdRef = useRef(0);
   const trailSampleAtRef = useRef(0);
   const arenaFocusRef = useRef<HTMLDivElement | null>(null);
@@ -140,6 +142,11 @@ export default function PingPongPage() {
     trailSampleAtRef.current = 0;
     confettiFiredRef.current = false;
     submittedMatchRef.current = false;
+    resultSubmitInFlightRef.current = false;
+    if (resultSubmitTimerRef.current != null) {
+      window.clearInterval(resultSubmitTimerRef.current);
+      resultSubmitTimerRef.current = null;
+    }
   }, []);
 
   const handleStart = useCallback((result: StagingResult) => {
@@ -418,16 +425,6 @@ export default function PingPongPage() {
       confettiFiredRef.current = false;
     }
 
-    if (isRealtimeMatch && gameState.status === 'finished' && !submittedMatchRef.current) {
-      submittedMatchRef.current = true;
-      const localScore = realtimeMatch.localSide ? gameState.score[realtimeMatch.localSide] : undefined;
-      void submitMatchResult({ score: localScore });
-    }
-
-    if (gameState.status !== 'finished') {
-      submittedMatchRef.current = false;
-    }
-
     previousStateRef.current = gameState;
 
     return () => {
@@ -437,6 +434,49 @@ export default function PingPongPage() {
       if (resetScoreFlashTimeout !== undefined) {
         window.clearTimeout(resetScoreFlashTimeout);
       }
+    };
+  }, [gameState, isRealtimeMatch, realtimeMatch.localSide, submitMatchResult]);
+
+  useEffect(() => {
+    if (!isRealtimeMatch || gameState.status !== 'finished' || submittedMatchRef.current) {
+      if (gameState.status !== 'finished' && resultSubmitTimerRef.current != null) {
+        window.clearInterval(resultSubmitTimerRef.current);
+        resultSubmitTimerRef.current = null;
+        resultSubmitInFlightRef.current = false;
+      }
+      return;
+    }
+
+    const submitCurrentResult = async () => {
+      if (resultSubmitInFlightRef.current || submittedMatchRef.current) return;
+      resultSubmitInFlightRef.current = true;
+      const localScore = realtimeMatch.localSide ? gameState.score[realtimeMatch.localSide] : undefined;
+      const submitted = await submitMatchResult({ score: localScore });
+      resultSubmitInFlightRef.current = false;
+
+      if (!submitted) return;
+
+      submittedMatchRef.current = true;
+      if (resultSubmitTimerRef.current != null) {
+        window.clearInterval(resultSubmitTimerRef.current);
+        resultSubmitTimerRef.current = null;
+      }
+    };
+
+    void submitCurrentResult();
+
+    if (resultSubmitTimerRef.current == null) {
+      resultSubmitTimerRef.current = window.setInterval(() => {
+        void submitCurrentResult();
+      }, 1500);
+    }
+
+    return () => {
+      if (resultSubmitTimerRef.current != null) {
+        window.clearInterval(resultSubmitTimerRef.current);
+        resultSubmitTimerRef.current = null;
+      }
+      resultSubmitInFlightRef.current = false;
     };
   }, [gameState, isRealtimeMatch, realtimeMatch.localSide, submitMatchResult]);
 
