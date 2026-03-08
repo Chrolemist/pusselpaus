@@ -28,3 +28,4 @@ dist-ssr
 # Database
 node_modules/
 .supabase
+.pdf
